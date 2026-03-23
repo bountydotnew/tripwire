@@ -12,3 +12,6 @@ count.txt
 .vinxi
 todos.json
 .vercel
+/.agents
+/.claude
+skills-lock.json

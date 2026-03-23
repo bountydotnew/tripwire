@@ -1,0 +1,213 @@
+/**
+ * GitHub API client using GitHub App installation access tokens.
+ *
+ * Auth flow:
+ * 1. Sign a JWT with the App's private key (RS256)
+ * 2. Exchange JWT for an installation access token
+ * 3. Cache until expires_at
+ */
+
+import { SignJWT, importPKCS8 } from "jose";
+import * as crypto from "crypto";
+
+// Cache installation tokens: installationId -> { token, expiresAt }
+const tokenCache = new Map<number, { token: string; expiresAt: number }>();
+
+/**
+ * Create a JWT signed with the GitHub App's private key.
+ */
+async function createAppJwt(): Promise<string> {
+	const appId = process.env.GITHUB_APP_ID;
+	const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
+
+	if (!appId || !privateKey) {
+		throw new Error("GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY must be set");
+	}
+
+	// The private key may have literal \n in env vars — normalize
+	let normalizedKey = privateKey.replace(/\\n/g, "\n");
+
+	// Convert PKCS#1 (RSA PRIVATE KEY) to PKCS#8 (PRIVATE KEY) if needed
+	// GitHub generates keys in PKCS#1 format, but jose expects PKCS#8
+	if (normalizedKey.includes("BEGIN RSA PRIVATE KEY")) {
+		const keyObject = crypto.createPrivateKey(normalizedKey);
+		normalizedKey = keyObject.export({ type: "pkcs8", format: "pem" }) as string;
+	}
+
+	const key = await importPKCS8(normalizedKey, "RS256");
+
+	const now = Math.floor(Date.now() / 1000);
+	return new SignJWT({})
+		.setProtectedHeader({ alg: "RS256" })
+		.setIssuer(appId)
+		.setIssuedAt(now)
+		.setExpirationTime(now + 9 * 60) // 9 min (GitHub max is 10)
+		.sign(key);
+}
+
+/**
+ * Get an installation access token for a GitHub App installation.
+ * Caches tokens until 5 minutes before expiry.
+ */
+export async function getInstallationToken(
+	installationId: number,
+): Promise<string> {
+	// Check cache
+	const cached = tokenCache.get(installationId);
+	if (cached && cached.expiresAt > Date.now() + 5 * 60 * 1000) {
+		return cached.token;
+	}
+
+	const jwt = await createAppJwt();
+
+	const res = await fetch(
+		`https://api.github.com/app/installations/${installationId}/access_tokens`,
+		{
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${jwt}`,
+				Accept: "application/vnd.github+json",
+				"X-GitHub-Api-Version": "2022-11-28",
+			},
+		},
+	);
+
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(
+			`Failed to get installation token (${res.status}): ${text}`,
+		);
+	}
+
+	const data = (await res.json()) as { token: string; expires_at: string };
+
+	tokenCache.set(installationId, {
+		token: data.token,
+		expiresAt: new Date(data.expires_at).getTime(),
+	});
+
+	return data.token;
+}
+
+export async function githubApi(
+	endpoint: string,
+	token: string,
+	options: RequestInit = {},
+) {
+	const res = await fetch(`https://api.github.com${endpoint}`, {
+		...options,
+		headers: {
+			Authorization: `Bearer ${token}`,
+			Accept: "application/vnd.github+json",
+			"X-GitHub-Api-Version": "2022-11-28",
+			...options.headers,
+		},
+	});
+
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(`GitHub API ${res.status}: ${text}`);
+	}
+
+	// Some responses (like DELETE) return empty body
+	const text = await res.text();
+	if (!text) return null;
+	return JSON.parse(text);
+}
+
+/** Close a pull request */
+export async function closePullRequest(
+	token: string,
+	owner: string,
+	repo: string,
+	prNumber: number,
+	comment?: string,
+) {
+	// Post comment first so it appears in the timeline
+	if (comment) {
+		console.log(`[GitHub] Posting comment to PR #${prNumber}...`);
+		try {
+			await githubApi(
+				`/repos/${owner}/${repo}/issues/${prNumber}/comments`,
+				token,
+				{
+					method: "POST",
+					body: JSON.stringify({ body: comment }),
+				},
+			);
+			console.log(`[GitHub] ✓ Comment posted to PR #${prNumber}`);
+		} catch (err) {
+			console.error(`[GitHub] ✗ Failed to post comment:`, err);
+		}
+	}
+
+	console.log(`[GitHub] Closing PR #${prNumber}...`);
+	return githubApi(`/repos/${owner}/${repo}/pulls/${prNumber}`, token, {
+		method: "PATCH",
+		body: JSON.stringify({ state: "closed" }),
+	});
+}
+
+/** Delete a comment */
+export async function deleteComment(
+	token: string,
+	owner: string,
+	repo: string,
+	commentId: number,
+) {
+	return githubApi(
+		`/repos/${owner}/${repo}/issues/comments/${commentId}`,
+		token,
+		{ method: "DELETE" },
+	);
+}
+
+/** Close an issue */
+export async function closeIssue(
+	token: string,
+	owner: string,
+	repo: string,
+	issueNumber: number,
+	comment?: string,
+) {
+	// Post comment first so it appears in the timeline
+	if (comment) {
+		console.log(`[GitHub] Posting comment to issue #${issueNumber}...`);
+		try {
+			await githubApi(
+				`/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
+				token,
+				{
+					method: "POST",
+					body: JSON.stringify({ body: comment }),
+				},
+			);
+			console.log(`[GitHub] ✓ Comment posted to issue #${issueNumber}`);
+		} catch (err) {
+			console.error(`[GitHub] ✗ Failed to post comment:`, err);
+		}
+	}
+
+	console.log(`[GitHub] Closing issue #${issueNumber}...`);
+	return githubApi(`/repos/${owner}/${repo}/issues/${issueNumber}`, token, {
+		method: "PATCH",
+		body: JSON.stringify({ state: "closed", state_reason: "not_planned" }),
+	});
+}
+
+/** Get a user's public profile */
+export async function getUser(token: string, username: string) {
+	return githubApi(`/users/${username}`, token);
+}
+
+/** Search a user's merged PRs count */
+export async function getMergedPrCount(
+	token: string,
+	username: string,
+): Promise<number> {
+	const result = await githubApi(
+		`/search/issues?q=author:${username}+type:pr+is:merged&per_page=1`,
+		token,
+	);
+	return result.total_count;
+}
