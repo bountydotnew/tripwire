@@ -5,12 +5,6 @@ import { StatCard } from "../../components/insights/stat-card";
 import { SpamTrendChart } from "../../components/insights/spam-trend-chart";
 import { BlacklistTrendChart } from "../../components/insights/blacklist-trend-chart";
 import { EmptyState } from "../../components/layout/empty-state";
-import {
-	insightsMetrics as mockMetrics,
-	totalBotsData as mockBotsData,
-	spamTrendData as mockSpamData,
-	blacklistTrendData as mockBlacklistData,
-} from "../../lib/mock-data";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace } from "#/lib/workspace-context";
 import { env } from "#/env";
@@ -20,11 +14,33 @@ import {
 	XAxis,
 	CartesianGrid,
 	ResponsiveContainer,
+	Tooltip,
 } from "recharts";
 
 export const Route = createFileRoute("/_app/insights")({
 	component: InsightsPage,
+	pendingComponent: InsightsPageSkeleton,
 });
+
+function InsightsPageSkeleton() {
+	return (
+		<div className="flex flex-col items-center py-6 md:py-8 px-4 md:px-[120px]">
+			<div className="flex flex-col mb-6 md:mb-11 mt-3 md:mt-5 gap-2 w-full">
+				<div className="h-7 w-24 bg-white/5 rounded" />
+				<div className="h-5 w-64 bg-white/5 rounded" />
+			</div>
+			<div className="flex flex-col gap-3 w-full">
+				<div className="h-32 w-full bg-white/5 rounded-2xl" />
+				<div className="h-20 w-full bg-white/5 rounded-2xl" />
+				<div className="h-64 w-full bg-white/5 rounded-2xl" />
+				<div className="flex flex-col md:flex-row w-full gap-3">
+					<div className="h-64 flex-1 bg-white/5 rounded-2xl" />
+					<div className="h-64 flex-1 bg-white/5 rounded-2xl" />
+				</div>
+			</div>
+		</div>
+	);
+}
 
 function InsightsPage() {
 	const { repo, repos, isLoading } = useWorkspace();
@@ -36,14 +52,14 @@ function InsightsPage() {
 	const statsQuery = useQuery(
 		trpc.events.stats.queryOptions(
 			{ repoId: repoId! },
-			{ enabled: !!repoId },
+			{ enabled: !!repoId, staleTime: 60 * 1000 },
 		),
 	);
 
 	const trendsQuery = useQuery(
 		trpc.events.trends.queryOptions(
 			{ repoId: repoId!, months: 8 },
-			{ enabled: !!repoId },
+			{ enabled: !!repoId, staleTime: 60 * 1000 },
 		),
 	);
 
@@ -57,51 +73,46 @@ function InsightsPage() {
 				{ label: "Bots blacklisted", value: stats.botsBlacklisted, trend: 100 },
 				{ label: "Users banned", value: stats.usersBanned, trend: 0 },
 			]
-		: [...mockMetrics];
+		: [];
 
-	const totalBlocked = stats?.totalBlocked ?? 21;
+	const totalBlocked = stats?.totalBlocked ?? 0;
 
 	// Transform trend data from tRPC into chart format
-	const trendRows = trendsQuery.data;
-	let spamTrendData = mockSpamData;
-	let blacklistTrendData = mockBlacklistData;
-	let totalBotsData = mockBotsData;
+	const trendRows = trendsQuery.data ?? [];
 
-	if (trendRows && trendRows.length > 0) {
-		// Group by month for spam trend (all blocked actions)
-		const monthMap = new Map<string, { spam: number; prCreated: number; prMerged: number }>();
-		for (const row of trendRows) {
-			const existing = monthMap.get(row.month) ?? { spam: 0, prCreated: 0, prMerged: 0 };
-			if (row.action === "pr_closed" || row.action === "issue_deleted" || row.action === "comment_deleted") {
-				existing.spam += row.count;
-			}
-			if (row.action === "pr_closed") {
-				existing.prCreated += row.count;
-			}
-			if (row.action === "bot_blacklisted") {
-				existing.prMerged += row.count;
-			}
-			monthMap.set(row.month, existing);
+	// Group by month for spam trend (all blocked actions)
+	const monthMap = new Map<string, { spam: number; prCreated: number; prMerged: number }>();
+	for (const row of trendRows) {
+		const existing = monthMap.get(row.month) ?? { spam: 0, prCreated: 0, prMerged: 0 };
+		if (row.action === "pr_closed" || row.action === "issue_deleted" || row.action === "comment_deleted") {
+			existing.spam += row.count;
 		}
-
-		spamTrendData = Array.from(monthMap.entries()).map(([month, d]) => ({
-			month,
-			spam: d.spam,
-		}));
-
-		blacklistTrendData = Array.from(monthMap.entries()).map(([month, d]) => ({
-			month,
-			created: d.prCreated,
-			merged: d.prMerged,
-		}));
-
-		// Cumulative bot count
-		let cumBots = 0;
-		totalBotsData = Array.from(monthMap.entries()).map(([month, d]) => {
-			cumBots += d.prMerged;
-			return { month, bots: cumBots };
-		});
+		if (row.action === "pr_closed") {
+			existing.prCreated += row.count;
+		}
+		if (row.action === "bot_blacklisted") {
+			existing.prMerged += row.count;
+		}
+		monthMap.set(row.month, existing);
 	}
+
+	const spamTrendData = Array.from(monthMap.entries()).map(([month, d]) => ({
+		month,
+		spam: d.spam,
+	}));
+
+	const blacklistTrendData = Array.from(monthMap.entries()).map(([month, d]) => ({
+		month,
+		created: d.prCreated,
+		merged: d.prMerged,
+	}));
+
+	// Cumulative bot count
+	let cumBots = 0;
+	const totalBotsData = Array.from(monthMap.entries()).map(([month, d]) => {
+		cumBots += d.prMerged;
+		return { month, bots: cumBots };
+	});
 
 	// Show empty state if no repos are connected
 	if (!isLoading && repos.length === 0) {
@@ -117,11 +128,17 @@ function InsightsPage() {
 		);
 	}
 
+	// Show skeleton while loading
+	const isDataLoading = isLoading || statsQuery.isLoading || trendsQuery.isLoading;
+	if (isDataLoading) {
+		return <InsightsPageSkeleton />;
+	}
+
 	return (
-		<div className="flex flex-col items-center py-8 px-[120px]">
+		<div className="flex flex-col items-center py-6 md:py-8 px-4 md:px-[120px]">
 			{/* Header */}
-			<div className="flex flex-col mb-11 mt-5 gap-2 w-full">
-				<h1 className="text-[#FFFFFFEB] font-semibold text-[28px] leading-7 m-0 font-['Inter',system-ui,sans-serif]">
+			<div className="flex flex-col mb-6 md:mb-11 mt-3 md:mt-5 gap-2 w-full">
+				<h1 className="text-[#FFFFFFEB] font-semibold text-2xl md:text-[28px] leading-7 m-0 font-['Inter',system-ui,sans-serif]">
 					Insights
 				</h1>
 				<p className="text-tw-text-secondary text-sm leading-5 m-0 font-['Inter',system-ui,sans-serif]">
@@ -135,7 +152,7 @@ function InsightsPage() {
 				<HeroStat value={totalBlocked} />
 
 				{/* Key metrics */}
-				<div className="flex flex-wrap rounded-2xl overflow-clip bg-tw-card border border-[#0000000F] shadow-[#0000000A_0px_0px_2px,#0000000A_0px_0px_1px]">
+				<div className="grid grid-cols-2 md:flex md:flex-wrap rounded-2xl overflow-clip bg-tw-card border border-[#0000000F] shadow-[#0000000A_0px_0px_2px,#0000000A_0px_0px_1px]">
 					{metrics.map((metric, i) => (
 						<StatCard
 							key={metric.label}
@@ -174,6 +191,16 @@ function InsightsPage() {
 									axisLine={false}
 									tickLine={false}
 								/>
+								<Tooltip
+									contentStyle={{
+										backgroundColor: "#262525",
+										border: "1px solid #333",
+										borderRadius: "8px",
+										fontSize: "12px",
+									}}
+									labelStyle={{ color: "#fff" }}
+									itemStyle={{ color: "#118AF3" }}
+								/>
 								<Area
 									type="monotone"
 									dataKey="bots"
@@ -187,7 +214,7 @@ function InsightsPage() {
 				</div>
 
 				{/* Trend charts row */}
-				<div className="flex w-full items-start gap-3">
+				<div className="flex flex-col md:flex-row w-full items-start gap-3">
 					<SpamTrendChart data={spamTrendData} />
 					<BlacklistTrendChart data={blacklistTrendData} />
 				</div>

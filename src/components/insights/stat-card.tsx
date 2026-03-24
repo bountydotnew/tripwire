@@ -10,8 +10,8 @@ interface StatCardProps {
 export function StatCard({ label, value, trend, showBorder = true }: StatCardProps) {
 	return (
 		<div
-			className={`flex flex-col grow justify-between min-w-0 pt-2.5 pb-2 px-4 basis-0 ${
-				showBorder ? "border-r border-r-[#0000000F]" : ""
+			className={`flex flex-col grow justify-between min-w-0 pt-2.5 pb-2 px-3 md:px-4 ${
+				showBorder ? "md:border-r md:border-r-[#0000000F]" : ""
 			}`}
 		>
 			<div className="flex items-center pb-1">

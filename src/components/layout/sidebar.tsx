@@ -1,6 +1,7 @@
 import { Link, useMatches } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "../icons/chevron-down";
+import { CloseIcon } from "../icons/close-icon";
 import { HomeIcon } from "../icons/home-icon";
 import { SearchIcon } from "../icons/search-icon";
 import { RulesIcon } from "../icons/rules-icon";
@@ -9,6 +10,7 @@ import { AutomationsIcon } from "../icons/automations-icon";
 import { EventsIcon } from "../icons/events-icon";
 import { IntegrationsIcon } from "../icons/integrations-icon";
 import { useWorkspace } from "#/lib/workspace-context";
+import { useSidebar } from "#/lib/sidebar-context";
 
 const topNav = [
 	{ label: "Home", icon: HomeIcon, to: "/home" },
@@ -27,6 +29,7 @@ export function Sidebar() {
 	const matches = useMatches();
 	const currentPath = matches[matches.length - 1]?.fullPath ?? "";
 	const { org, orgs, setOrg } = useWorkspace();
+	const { isOpen, close } = useSidebar();
 	const [switcherOpen, setSwitcherOpen] = useState(false);
 	const switcherRef = useRef<HTMLDivElement>(null);
 
@@ -50,9 +53,33 @@ export function Sidebar() {
 	const orgInitial = orgName.charAt(0).toUpperCase();
 
 	return (
-		<aside className="flex flex-col h-full w-[233px] pt-4 pb-2 gap-2 bg-tw-sidebar border-r border-tw-border shrink-0 px-2">
-			{/* Workspace switcher */}
-			<div className="relative" ref={switcherRef}>
+		<>
+			{/* Mobile overlay */}
+			{isOpen && (
+				<div
+					className="fixed inset-0 bg-black/50 z-40 md:hidden"
+					onClick={close}
+				/>
+			)}
+			<aside
+				className={`
+					flex flex-col w-[233px] pt-4 pb-2 gap-2 bg-tw-sidebar border-r border-tw-border shrink-0 px-2 overflow-y-auto
+					fixed md:relative top-0 left-0 h-screen md:h-full z-50 md:z-auto
+					transition-transform duration-200 ease-in-out
+					${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+				`}
+			>
+				{/* Mobile close button */}
+				<button
+					type="button"
+					onClick={close}
+					className="absolute top-4 right-2 p-1 rounded-md hover:bg-white/10 md:hidden text-tw-text-secondary"
+				>
+					<CloseIcon />
+				</button>
+
+				{/* Workspace switcher */}
+				<div className="relative" ref={switcherRef}>
 				<button
 					type="button"
 					onClick={() => orgs.length > 1 && setSwitcherOpen(!switcherOpen)}
@@ -102,6 +129,7 @@ export function Sidebar() {
 						<Link
 							key={item.to}
 							to={item.to}
+							onClick={close}
 							className="flex items-center h-[30px] w-full rounded-lg px-2 gap-2 mx-0.5 no-underline"
 						>
 							<Icon />
@@ -128,6 +156,7 @@ export function Sidebar() {
 							<Link
 								key={item.to}
 								to={item.to}
+								onClick={close}
 								className={`flex items-center h-[34px] rounded-lg px-2 gap-2 mx-0.5 no-underline ${
 									isActive ? "bg-tw-card" : ""
 								}`}
@@ -142,5 +171,6 @@ export function Sidebar() {
 				</nav>
 			</div>
 		</aside>
+		</>
 	);
 }

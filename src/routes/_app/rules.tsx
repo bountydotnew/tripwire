@@ -11,41 +11,28 @@ import { env } from "#/env";
 
 export const Route = createFileRoute("/_app/rules")({
 	component: RulesPage,
+	pendingComponent: RulesPageSkeleton,
 });
 
-const MOCK_WHITELIST = [
-	{
-		username: "torvalds",
-		avatarUrl: "https://avatars.githubusercontent.com/u/1024025?v=4",
-	},
-	{
-		username: "gaearon",
-		avatarUrl: "https://avatars.githubusercontent.com/u/810438?v=4",
-	},
-	{
-		username: "sindresorhus",
-		avatarUrl: "https://avatars.githubusercontent.com/u/170270?v=4",
-	},
-];
-
-const MOCK_BLACKLIST = [
-	{
-		username: "ahmetskilinc",
-		avatarUrl: "https://avatars.githubusercontent.com/u/29304043?v=4",
-	},
-	{
-		username: "Scottcjn",
-		avatarUrl: "https://avatars.githubusercontent.com/u/187826874?v=4",
-	},
-	{
-		username: "genesisrevelationinc-debug",
-		avatarUrl: "https://avatars.githubusercontent.com/u/192875981?v=4",
-	},
-	{
-		username: "cody-labs-ai",
-		avatarUrl: "https://avatars.githubusercontent.com/u/209311782?v=4",
-	},
-];
+function RulesPageSkeleton() {
+	return (
+		<div className="flex flex-col items-center py-6 md:py-8 px-4 md:px-[120px] gap-4 md:gap-6">
+			<div className="flex items-start justify-between w-full">
+				<div className="flex flex-col gap-1">
+					<div className="h-7 w-16 bg-white/5 rounded" />
+					<div className="h-4 w-20 bg-white/5 rounded" />
+				</div>
+			</div>
+			<div className="flex flex-col gap-2.5 w-full">
+				{[1, 2, 3, 4, 5].map((i) => (
+					<div key={i} className="h-[72px] w-full bg-white/5 rounded-xl" />
+				))}
+			</div>
+			<div className="h-24 w-full bg-white/5 rounded-xl" />
+			<div className="h-24 w-full bg-white/5 rounded-xl" />
+		</div>
+	);
+}
 
 function RulesPage() {
 	const { repo, repos, isLoading } = useWorkspace();
@@ -58,7 +45,7 @@ function RulesPage() {
 	const configQuery = useQuery(
 		trpc.rules.getConfig.queryOptions(
 			{ repoId: repoId! },
-			{ enabled: !!repoId },
+			{ enabled: !!repoId, staleTime: 30 * 1000 },
 		),
 	);
 
@@ -99,16 +86,14 @@ function RulesPage() {
 	const whitelistQuery = useQuery(
 		trpc.whitelist.list.queryOptions(
 			{ repoId: repoId! },
-			{ enabled: !!repoId },
+			{ enabled: !!repoId, staleTime: 30 * 1000 },
 		),
 	);
 
-	const whitelistUsers = repoId
-		? (whitelistQuery.data ?? []).map((e) => ({
-				username: e.githubUsername,
-				avatarUrl: e.avatarUrl ?? `https://github.com/${e.githubUsername}.png`,
-			}))
-		: MOCK_WHITELIST;
+	const whitelistUsers = (whitelistQuery.data ?? []).map((e) => ({
+		username: e.githubUsername,
+		avatarUrl: e.avatarUrl ?? `https://github.com/${e.githubUsername}.png`,
+	}));
 
 	const addWhitelist = useMutation(
 		trpc.whitelist.add.mutationOptions({
@@ -130,16 +115,14 @@ function RulesPage() {
 	const blacklistQuery = useQuery(
 		trpc.blacklist.list.queryOptions(
 			{ repoId: repoId! },
-			{ enabled: !!repoId },
+			{ enabled: !!repoId, staleTime: 30 * 1000 },
 		),
 	);
 
-	const blacklistUsers = repoId
-		? (blacklistQuery.data ?? []).map((e) => ({
-				username: e.githubUsername,
-				avatarUrl: e.avatarUrl ?? `https://github.com/${e.githubUsername}.png`,
-			}))
-		: MOCK_BLACKLIST;
+	const blacklistUsers = (blacklistQuery.data ?? []).map((e) => ({
+		username: e.githubUsername,
+		avatarUrl: e.avatarUrl ?? `https://github.com/${e.githubUsername}.png`,
+	}));
 
 	const addBlacklist = useMutation(
 		trpc.blacklist.add.mutationOptions({
@@ -196,16 +179,22 @@ function RulesPage() {
 		);
 	}
 
+	// Show skeleton while loading
+	const isDataLoading = isLoading || configQuery.isLoading || whitelistQuery.isLoading || blacklistQuery.isLoading;
+	if (isDataLoading) {
+		return <RulesPageSkeleton />;
+	}
+
 	return (
-		<div className="flex flex-col items-center py-8 px-[120px] gap-6">
+		<div className="flex flex-col items-center py-6 md:py-8 px-4 md:px-[120px] gap-4 md:gap-6">
 			{/* Header */}
 			<div className="flex items-start justify-between w-full">
 				<div className="flex flex-col gap-0.5">
-					<h1 className="tracking-[-0.02em] text-white font-medium text-2xl leading-[30px] m-0">
+					<h1 className="tracking-[-0.02em] text-white font-medium text-xl md:text-2xl leading-[30px] m-0">
 						Rules
 					</h1>
 					<p className="text-tw-text-secondary text-sm leading-[18px] m-0">
-						{activeCount} active{!repoId && " · 247 blocked this week"}
+						{activeCount} active
 					</p>
 				</div>
 			</div>

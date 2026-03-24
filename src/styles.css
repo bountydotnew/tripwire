@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 @font-face {
   font-family: "Geist";
   src: url("/fonts/Geist-Variable.woff2") format("woff2");
@@ -24,6 +26,22 @@
   --color-tw-success: #0F8A1B;
   --color-tw-chart-blue: #118AF3;
   --color-tw-chart-orange: #DF750C;
+
+  /* shadcn/ui variables */
+  --color-background: #1B1B1B;
+  --color-foreground: #FFFFFF;
+  --color-popover: #262525;
+  --color-popover-foreground: #FFFFFF;
+  --color-border: transparent;
+  --color-accent: #333333;
+  --color-accent-foreground: #FFFFFF;
+  --color-muted: #262525;
+  --color-muted-foreground: #FFFFFF73;
+  --color-primary: #34A6FF;
+  --color-primary-foreground: #FFFFFF;
+  --color-input: #333333;
+  --color-ring: #34A6FF;
+  --radius-lg: 0.5rem;
 }
 
 body {
@@ -31,4 +49,26 @@ body {
   font-family: "Geist", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+  --destructive-foreground: var(--color-red-700);
+}
+
+.dark {
+  --destructive-foreground: var(--color-red-400);
+}
+
+@theme inline {
+  --color-destructive-foreground: var(--destructive-foreground);
+  --animate-skeleton: skeleton 2s linear infinite;
+}
+
+@keyframes skeleton {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
