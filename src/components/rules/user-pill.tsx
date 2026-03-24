@@ -1,4 +1,5 @@
 import { CloseIcon } from "../icons/close-icon";
+import { Button } from "#/components/ui/button";
 
 interface UserPillProps {
 	username: string;
@@ -18,13 +19,14 @@ export function UserPill({ username, avatarUrl, onRemove }: UserPillProps) {
 					@{username}
 				</span>
 			</div>
-			<button
-				type="button"
+			<Button
 				onClick={onRemove}
-				className="bg-transparent border-none p-0 cursor-pointer flex items-center"
+				variant="ghost"
+				size="icon-xs"
+				className="size-4 p-0"
 			>
-				<CloseIcon />
-			</button>
+				<CloseIcon className="size-3 text-white/50" />
+			</Button>
 		</div>
 	);
 }

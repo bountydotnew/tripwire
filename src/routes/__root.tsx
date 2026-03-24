@@ -1,5 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import RootProvider from "#/integrations/tanstack-query/root-provider";
+import { ToastProvider, AnchoredToastProvider } from "#/components/ui/toast";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -37,7 +38,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</head>
 			<body>
 				<RootProvider>
-					{children}
+					<ToastProvider>
+						<AnchoredToastProvider>
+							{children}
+						</AnchoredToastProvider>
+					</ToastProvider>
 				</RootProvider>
 				<Scripts />
 			</body>

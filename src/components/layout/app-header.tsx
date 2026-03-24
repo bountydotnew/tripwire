@@ -8,6 +8,7 @@ import {
 	MenuPopup,
 	MenuTrigger,
 } from "@/components/ui/menu";
+import { Button } from "#/components/ui/button";
 import { useSidebar } from "#/lib/sidebar-context";
 
 export function AppHeader() {
@@ -17,13 +18,14 @@ export function AppHeader() {
 		<header className="flex items-center justify-between w-full h-[58px] pl-3 md:pl-5 pr-2 bg-tw-sidebar border-b border-tw-border shrink-0 py-4">
 			<div className="flex items-center gap-2 md:gap-[3px]">
 				{/* Mobile sidebar toggle */}
-				<button
-					type="button"
+				<Button
 					onClick={toggle}
-					className="p-1.5 rounded-md hover:bg-white/10 md:hidden text-tw-text-secondary"
+					variant="ghost"
+					size="icon-sm"
+					className="md:hidden text-tw-text-secondary"
 				>
 					<SidebarToggleIcon className="w-5 h-5" />
-				</button>
+				</Button>
 				<TripwireLogo />
 				<SlashDivider />
 				<Menu>

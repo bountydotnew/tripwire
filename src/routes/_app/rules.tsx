@@ -275,12 +275,11 @@ function RulesPage() {
 				title="Whitelist"
 				description="Allow specific users to interact with your repositories without being affected by the rules"
 				users={whitelistUsers}
-				onAdd={(username) => {
+				onAdd={async (username) => {
 					if (repoId) {
-						addWhitelist.mutate({
+						await addWhitelist.mutateAsync({
 							repoId,
 							githubUsername: username,
-							avatarUrl: `https://github.com/${username}.png`,
 						});
 					}
 				}}
@@ -289,6 +288,7 @@ function RulesPage() {
 						removeWhitelist.mutate({ repoId, githubUsername: username });
 					}
 				}}
+				isAdding={addWhitelist.isPending}
 			/>
 
 			{/* Blacklist */}
@@ -296,12 +296,11 @@ function RulesPage() {
 				title="Blacklist"
 				description="Prevent any user on GitHub from interacting with your repositories"
 				users={blacklistUsers}
-				onAdd={(username) => {
+				onAdd={async (username) => {
 					if (repoId) {
-						addBlacklist.mutate({
+						await addBlacklist.mutateAsync({
 							repoId,
 							githubUsername: username,
-							avatarUrl: `https://github.com/${username}.png`,
 						});
 					}
 				}}
@@ -310,6 +309,7 @@ function RulesPage() {
 						removeBlacklist.mutate({ repoId, githubUsername: username });
 					}
 				}}
+				isAdding={addBlacklist.isPending}
 			/>
 		</div>
 	);

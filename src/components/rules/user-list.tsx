@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { UserPill } from "./user-pill";
+import { Button } from "#/components/ui/button";
+import { toastManager } from "#/components/ui/toast";
 
 interface User {
 	username: string;
@@ -10,18 +12,29 @@ interface UserListProps {
 	title: string;
 	description: string;
 	users: User[];
-	onAdd?: (username: string) => void;
+	onAdd?: (username: string) => Promise<void>;
 	onRemove?: (username: string) => void;
+	isAdding?: boolean;
 }
 
-export function UserList({ title, description, users, onAdd, onRemove }: UserListProps) {
+export function UserList({ title, description, users, onAdd, onRemove, isAdding }: UserListProps) {
 	const [search, setSearch] = useState("");
+	const [hasError, setHasError] = useState(false);
 
-	function handleAdd() {
+	async function handleAdd() {
 		const username = search.trim().replace(/^@/, "");
 		if (username && onAdd) {
-			onAdd(username);
-			setSearch("");
+			setHasError(false);
+			try {
+				await onAdd(username);
+				setSearch("");
+			} catch (err) {
+				setHasError(true);
+				toastManager.add({
+					title: err instanceof Error ? err.message : "User not found",
+					type: "error",
+				});
+			}
 		}
 	}
 
@@ -30,6 +43,11 @@ export function UserList({ title, description, users, onAdd, onRemove }: UserLis
 			e.preventDefault();
 			handleAdd();
 		}
+	}
+
+	function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+		setSearch(e.target.value);
+		if (hasError) setHasError(false);
 	}
 
 	return (
@@ -45,25 +63,27 @@ export function UserList({ title, description, users, onAdd, onRemove }: UserLis
 						</div>
 					</div>
 					<div className="flex items-start gap-2 shrink-0">
-						<div className="inline-flex relative w-64 h-7 rounded-[10px] bg-[oklab(100%_0_0/2.6%)] border border-[oklab(100%_0_0/8%)] shadow-[oklch(0%_0_0/5%)_0px_1px_2px]">
+						<div className={`inline-flex relative w-64 h-7 rounded-[10px] bg-[oklab(100%_0_0/2.6%)] border shadow-[oklch(0%_0_0/5%)_0px_1px_2px] transition-colors ${
+							hasError ? "border-red-500 ring-1 ring-red-500" : "border-[oklab(100%_0_0/8%)]"
+						}`}>
 							<input
 								type="text"
 								value={search}
-								onChange={(e) => setSearch(e.target.value)}
+								onChange={handleChange}
 								onKeyDown={handleKeyDown}
 								placeholder="Search for a user"
 								className="h-7 min-w-0 w-full rounded-[10px] px-[11px] bg-transparent border-none outline-none text-sm text-white placeholder:text-[oklab(60.4%_0_0/72%)]"
 							/>
 						</div>
-						<button
-							type="button"
+						<Button
 							onClick={handleAdd}
-							className="flex items-center h-7 justify-center rounded-[10px] px-[9px] bg-white border border-[#CDCDCD] cursor-pointer"
+							loading={isAdding}
+							variant="outline"
+							size="sm"
+							className="bg-white text-black border-[#CDCDCD] hover:bg-white/90"
 						>
-							<span className="text-sm text-center text-black font-medium">
-								Add
-							</span>
-						</button>
+							Add
+						</Button>
 					</div>
 				</div>
 			</div>

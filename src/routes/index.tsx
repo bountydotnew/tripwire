@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "#/integrations/trpc/react";
 import { authClient } from "#/lib/auth-client";
+import { Button } from "#/components/ui/button";
 
 export const Route = createFileRoute("/")({
 	component: LandingPage,
@@ -77,13 +78,15 @@ function LandingPage() {
 							placeholder="enter email"
 							className="h-7 w-full rounded-[10px] px-2 bg-white/[0.026] border border-white/[0.08] text-white text-sm placeholder:text-[#999999] focus:outline-none focus:border-white/20"
 						/>
-						<button
+						<Button
 							type="submit"
-							disabled={joinWaitlist.isPending}
-							className="h-7 shrink-0 rounded-[10px] px-2.5 bg-white border border-[#CDCDCD] text-black text-sm font-medium cursor-pointer disabled:opacity-50"
+							loading={joinWaitlist.isPending}
+							variant="outline"
+							size="sm"
+							className="bg-white text-black border-[#CDCDCD] hover:bg-white/90 shrink-0"
 						>
-							{joinWaitlist.isPending ? "..." : "join waitlist"}
-						</button>
+							join waitlist
+						</Button>
 					</form>
 				)}
 

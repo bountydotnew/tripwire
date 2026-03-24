@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { authClient } from "#/lib/auth-client";
 import { useEffect } from "react";
+import { Button } from "#/components/ui/button";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
@@ -59,16 +60,14 @@ function LoginPage() {
 					stroke="#FFFFFF26"
 				/>
 			</svg>
-			<button
-				type="button"
+			<Button
 				onClick={handleLogin}
-				className="items-center flex shrink-0 h-7 justify-center rounded-[10px] px-2.5 gap-2 relative bg-white border border-solid border-[#CDCDCD] cursor-pointer"
+				variant="outline"
+				size="sm"
+				className="bg-white text-black border-[#CDCDCD] hover:bg-white/90"
 			>
-				<span className="text-sm text-center leading-[round(up,142.857%,1px)] text-black font-['Geist','system-ui',sans-serif] font-medium shrink-0">
-					Log in
-				</span>
-				<div className="left-0 absolute right-[0.938px] rounded-[9px] [box-shadow:#00000000_0px_0px_0px,#00000000_0px_0px_0px,#00000000_0px_0px_0px,#00000000_0px_0px_0px,oklab(100%_0_0/6%)_0px_-1px_0px] inset-y-0" />
-			</button>
+				Log in
+			</Button>
 		</div>
 	);
 }

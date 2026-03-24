@@ -11,6 +11,7 @@ import { EventsIcon } from "../icons/events-icon";
 import { IntegrationsIcon } from "../icons/integrations-icon";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useSidebar } from "#/lib/sidebar-context";
+import { Button } from "#/components/ui/button";
 
 const topNav = [
 	{ label: "Home", icon: HomeIcon, to: "/home" },
@@ -70,13 +71,14 @@ export function Sidebar() {
 				`}
 			>
 				{/* Mobile close button */}
-				<button
-					type="button"
+				<Button
 					onClick={close}
-					className="absolute top-4 right-2 p-1 rounded-md hover:bg-white/10 md:hidden text-tw-text-secondary"
+					variant="ghost"
+					size="icon-sm"
+					className="absolute top-4 right-2 md:hidden text-tw-text-secondary"
 				>
 					<CloseIcon />
-				</button>
+				</Button>
 
 				{/* Workspace switcher */}
 				<div className="relative" ref={switcherRef}>
