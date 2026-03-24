@@ -8,7 +8,6 @@ import {
 	MenuPopup,
 	MenuTrigger,
 } from "@/components/ui/menu";
-import { Link } from "@tanstack/react-router";
 import { useSidebar } from "#/lib/sidebar-context";
 
 export function AppHeader() {

@@ -11,6 +11,7 @@ export const env = createEnv({
     GITHUB_APP_PRIVATE_KEY: z.string().min(1).optional(),
     GITHUB_WEBHOOK_SECRET: z.string().min(1).optional(),
     DATABASE_URL: z.string().min(1).optional(),
+    UNKEY_ROOT_KEY: z.string().min(1).optional(),
   },
 
   /**
