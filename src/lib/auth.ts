@@ -8,6 +8,11 @@ import * as schema from "#/db/schema";
 export const auth = betterAuth({
 	baseURL: process.env.BETTER_AUTH_URL,
 	secret: process.env.BETTER_AUTH_SECRET,
+	trustedOrigins: [
+		"https://tripwire.sh",
+		"https://www.tripwire.sh",
+		"http://localhost:3000",
+	],
 	database: drizzleAdapter(db, {
 		provider: "pg",
 		schema,
