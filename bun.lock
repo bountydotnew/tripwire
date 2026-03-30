@@ -16,7 +16,7 @@
         "@tanstack/react-router-ssr-query": "latest",
         "@tanstack/react-start": "latest",
         "@tanstack/react-store": "latest",
-        "@tanstack/router-plugin": "^1.132.0",
+        "@tanstack/router-plugin": "latest",
         "@tanstack/store": "latest",
         "@trpc/client": "^11.11.0",
         "@trpc/server": "^11.11.0",
