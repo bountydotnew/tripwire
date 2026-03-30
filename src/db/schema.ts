@@ -154,6 +154,10 @@ export type RuleConfig = {
 	languageRequirement: { enabled: boolean; language: string };
 	minMergedPrs: { enabled: boolean; count: number };
 	accountAge: { enabled: boolean; days: number };
+	maxPrsPerDay: { enabled: boolean; limit: number };
+	maxFilesChanged: { enabled: boolean; limit: number };
+	repoActivityMinimum: { enabled: boolean; minRepos: number };
+	requireProfileReadme: { enabled: boolean };
 };
 
 export const DEFAULT_RULE_CONFIG: RuleConfig = {
@@ -162,6 +166,10 @@ export const DEFAULT_RULE_CONFIG: RuleConfig = {
 	languageRequirement: { enabled: false, language: "English" },
 	minMergedPrs: { enabled: false, count: 15 },
 	accountAge: { enabled: false, days: 30 },
+	maxPrsPerDay: { enabled: false, limit: 5 },
+	maxFilesChanged: { enabled: false, limit: 20 },
+	repoActivityMinimum: { enabled: false, minRepos: 3 },
+	requireProfileReadme: { enabled: false },
 };
 
 export const ruleConfigs = pgTable("rule_configs", {

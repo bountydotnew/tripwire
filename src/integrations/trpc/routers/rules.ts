@@ -20,6 +20,10 @@ const ruleConfigSchema = z.object({
 	}),
 	minMergedPrs: z.object({ enabled: z.boolean(), count: z.number().int().min(0) }),
 	accountAge: z.object({ enabled: z.boolean(), days: z.number().int().min(0) }),
+	maxPrsPerDay: z.object({ enabled: z.boolean(), limit: z.number().int().min(1) }),
+	maxFilesChanged: z.object({ enabled: z.boolean(), limit: z.number().int().min(1) }),
+	repoActivityMinimum: z.object({ enabled: z.boolean(), minRepos: z.number().int().min(1) }),
+	requireProfileReadme: z.object({ enabled: z.boolean() }),
 });
 
 export const rulesRouter = {

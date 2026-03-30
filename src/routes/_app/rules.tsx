@@ -1,9 +1,22 @@
+import { useCallback, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RuleCard } from "../../components/rules/rule-card";
+import {
+	RuleCardGrid,
+	AiSlopViz,
+	ProfilePictureViz,
+	LanguageViz,
+	MergedPrsViz,
+	AccountAgeViz,
+	MaxPrsPerDayViz,
+	MaxFilesChangedViz,
+	RepoActivityViz,
+	ProfileReadmeViz,
+} from "../../components/rules/rule-card-grid";
 import { RuleDropdown } from "../../components/rules/rule-dropdown";
 import { UserList } from "../../components/rules/user-list";
 import { EmptyState } from "../../components/layout/empty-state";
+import { toastManager } from "#/components/ui/toast";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace } from "#/lib/workspace-context";
 import { DEFAULT_RULE_CONFIG, type RuleConfig } from "#/db/schema";
@@ -16,16 +29,16 @@ export const Route = createFileRoute("/_app/rules")({
 
 function RulesPageSkeleton() {
 	return (
-		<div className="flex flex-col items-center py-6 md:py-8 px-4 md:px-[120px] gap-4 md:gap-6">
+		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6">
 			<div className="flex items-start justify-between w-full">
 				<div className="flex flex-col gap-1">
 					<div className="h-7 w-16 bg-white/5 rounded" />
-					<div className="h-4 w-20 bg-white/5 rounded" />
+					<div className="h-4 w-40 bg-white/5 rounded" />
 				</div>
 			</div>
-			<div className="flex flex-col gap-2.5 w-full">
-				{[1, 2, 3, 4, 5].map((i) => (
-					<div key={i} className="h-[72px] w-full bg-white/5 rounded-xl" />
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+				{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+					<div key={i} className="h-[200px] w-full bg-white/5 rounded-xl" />
 				))}
 			</div>
 			<div className="h-24 w-full bg-white/5 rounded-xl" />
@@ -42,6 +55,8 @@ function RulesPage() {
 	const queryClient = useQueryClient();
 
 	// ─── Rule config ──────────────────────────────────────────
+	const configQueryKey = trpc.rules.getConfig.queryKey({ repoId: repoId! });
+
 	const configQuery = useQuery(
 		trpc.rules.getConfig.queryOptions(
 			{ repoId: repoId! },
@@ -49,38 +64,100 @@ function RulesPage() {
 		),
 	);
 
-	const config: RuleConfig = configQuery.data ?? DEFAULT_RULE_CONFIG;
+	// Merge with defaults to handle missing fields from older configs in DB
+	const rawConfig = configQuery.data;
+	const config: RuleConfig = {
+		aiSlopDetection: { ...DEFAULT_RULE_CONFIG.aiSlopDetection, ...rawConfig?.aiSlopDetection },
+		requireProfilePicture: { ...DEFAULT_RULE_CONFIG.requireProfilePicture, ...rawConfig?.requireProfilePicture },
+		languageRequirement: { ...DEFAULT_RULE_CONFIG.languageRequirement, ...rawConfig?.languageRequirement },
+		minMergedPrs: { ...DEFAULT_RULE_CONFIG.minMergedPrs, ...rawConfig?.minMergedPrs },
+		accountAge: { ...DEFAULT_RULE_CONFIG.accountAge, ...rawConfig?.accountAge },
+		maxPrsPerDay: { ...DEFAULT_RULE_CONFIG.maxPrsPerDay, ...rawConfig?.maxPrsPerDay },
+		maxFilesChanged: { ...DEFAULT_RULE_CONFIG.maxFilesChanged, ...rawConfig?.maxFilesChanged },
+		repoActivityMinimum: { ...DEFAULT_RULE_CONFIG.repoActivityMinimum, ...rawConfig?.repoActivityMinimum },
+		requireProfileReadme: { ...DEFAULT_RULE_CONFIG.requireProfileReadme, ...rawConfig?.requireProfileReadme },
+	};
 
 	const updateConfig = useMutation(
 		trpc.rules.updateConfig.mutationOptions({
-			onSuccess: () => {
-				queryClient.invalidateQueries({ queryKey: trpc.rules.getConfig.queryKey({ repoId: repoId! }) });
+			onMutate: async () => {
+				// Cancel any outgoing refetches so they don't overwrite our optimistic update
+				await queryClient.cancelQueries({ queryKey: configQueryKey });
+
+				// Snapshot the previous value for potential rollback
+				const previousConfig = queryClient.getQueryData(configQueryKey);
+				return { previousConfig };
+			},
+			onError: (error, _newData, context) => {
+				// Roll back to the previous value on error
+				if (context?.previousConfig) {
+					queryClient.setQueryData(configQueryKey, context.previousConfig);
+				}
+				toastManager.add({
+					title: "Failed to update rule",
+					description: error.message || "Please try again",
+					type: "error",
+				});
+			},
+			onSettled: () => {
+				// Always refetch after error or success to ensure cache is in sync
+				queryClient.invalidateQueries({ queryKey: configQueryKey });
 			},
 		}),
 	);
 
-	function toggleRule<K extends keyof RuleConfig>(key: K, enabled: boolean) {
+	// Debounce refs to prevent spam clicking
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pendingConfigRef = useRef<RuleConfig | null>(null);
+
+	const flushUpdate = useCallback(() => {
+		if (pendingConfigRef.current && repoId) {
+			updateConfig.mutate({ repoId, config: pendingConfigRef.current });
+			pendingConfigRef.current = null;
+		}
+	}, [repoId, updateConfig]);
+
+	const debouncedUpdate = useCallback((newConfig: RuleConfig) => {
+		// Store the latest config
+		pendingConfigRef.current = newConfig;
+
+		// Optimistically update cache immediately for instant feedback
+		queryClient.setQueryData(configQueryKey, newConfig);
+
+		// Clear existing timer
+		if (debounceRef.current) {
+			clearTimeout(debounceRef.current);
+		}
+
+		// Set new debounced timer (300ms)
+		debounceRef.current = setTimeout(flushUpdate, 300);
+	}, [configQueryKey, queryClient, flushUpdate]);
+
+	const toggleRule = useCallback(<K extends keyof RuleConfig>(key: K, enabled: boolean) => {
+		// Use pending config if exists, otherwise current config
+		const baseConfig = pendingConfigRef.current ?? config;
 		const newConfig = {
-			...config,
-			[key]: { ...config[key], enabled },
+			...baseConfig,
+			[key]: { ...baseConfig[key], enabled },
 		};
 		if (repoId) {
-			updateConfig.mutate({ repoId, config: newConfig });
+			debouncedUpdate(newConfig);
 		}
-	}
+	}, [config, repoId, debouncedUpdate]);
 
-	function updateRuleValue<K extends keyof RuleConfig>(
+	const updateRuleValue = useCallback(<K extends keyof RuleConfig>(
 		key: K,
 		patch: Partial<RuleConfig[K]>,
-	) {
+	) => {
+		const baseConfig = pendingConfigRef.current ?? config;
 		const newConfig = {
-			...config,
-			[key]: { ...config[key], ...patch },
+			...baseConfig,
+			[key]: { ...baseConfig[key], ...patch },
 		};
 		if (repoId) {
-			updateConfig.mutate({ repoId, config: newConfig });
+			debouncedUpdate(newConfig);
 		}
-	}
+	}, [config, repoId, debouncedUpdate]);
 
 	// ─── Whitelist ────────────────────────────────────────────
 	const whitelistQuery = useQuery(
@@ -147,6 +224,10 @@ function RulesPage() {
 		config.languageRequirement.enabled,
 		config.minMergedPrs.enabled,
 		config.accountAge.enabled,
+		config.maxPrsPerDay.enabled,
+		config.maxFilesChanged.enabled,
+		config.repoActivityMinimum.enabled,
+		config.requireProfileReadme.enabled,
 	].filter(Boolean).length;
 
 	const LANGUAGE_OPTIONS = [
@@ -164,6 +245,9 @@ function RulesPage() {
 
 	const PR_COUNT_OPTIONS = ["5", "10", "15", "25", "50", "100"];
 	const ACCOUNT_AGE_OPTIONS = ["7 days", "14 days", "30 days", "60 days", "90 days", "180 days"];
+	const MAX_PRS_PER_DAY_OPTIONS = ["1", "2", "3", "5", "10"];
+	const MAX_FILES_CHANGED_OPTIONS = ["5", "10", "20", "50", "100"];
+	const REPO_ACTIVITY_OPTIONS = ["1", "3", "5", "10"];
 
 	// Show empty state if no repos are connected
 	if (!isLoading && repos.length === 0) {
@@ -186,37 +270,39 @@ function RulesPage() {
 	}
 
 	return (
-		<div className="flex flex-col items-center py-6 md:py-8 px-4 md:px-[120px] gap-4 md:gap-6">
+		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6">
 			{/* Header */}
 			<div className="flex items-start justify-between w-full">
 				<div className="flex flex-col gap-0.5">
 					<h1 className="tracking-[-0.02em] text-white font-medium text-xl md:text-2xl leading-[30px] m-0">
 						Rules
 					</h1>
-					<p className="text-tw-text-secondary text-sm leading-[18px] m-0">
+					<p className="text-[#FFFFFF73] text-sm leading-[18px] m-0">
 						{activeCount} active
 					</p>
 				</div>
 			</div>
 
-			{/* Rule cards */}
-			<div className="flex flex-col items-start gap-2.5 w-full">
-				<RuleCard
+			{/* Rule cards grid */}
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+				<RuleCardGrid
 					title="AI slop detection"
-					description="Use known detection patterns to minimize the amount of automated activity"
+					description="Use known detection patterns to minimize automated activity"
 					enabled={config.aiSlopDetection.enabled}
 					onToggle={(v) => toggleRule("aiSlopDetection", v)}
+					visualization={<AiSlopViz />}
 				/>
-				<RuleCard
+				<RuleCardGrid
 					title="Require profile picture"
-					description="Requires all contributors to have a custom profile picture instead of GitHub's fallback image"
+					description="Require a custom profile picture instead of GitHub's fallback"
 					enabled={config.requireProfilePicture.enabled}
 					onToggle={(v) => toggleRule("requireProfilePicture", v)}
+					visualization={<ProfilePictureViz />}
 				/>
-				<RuleCard
+				<RuleCardGrid
 					title={
-						<span className="flex items-center gap-[5px] flex-wrap">
-							<span>Require all contributions to be in </span>
+						<>
+							Require all contributions in{" "}
 							<RuleDropdown
 								value={config.languageRequirement.language}
 								options={LANGUAGE_OPTIONS}
@@ -224,34 +310,36 @@ function RulesPage() {
 									updateRuleValue("languageRequirement", { language: lang })
 								}
 							/>
-						</span>
+						</>
 					}
-					description="Any contributions made to the repo with a disallowed language will automatically be declined"
+					description="Contributions in a disallowed language will be declined"
 					enabled={config.languageRequirement.enabled}
 					onToggle={(v) => toggleRule("languageRequirement", v)}
+					visualization={<LanguageViz />}
 				/>
-				<RuleCard
+				<RuleCardGrid
 					title={
-						<span className="flex items-center gap-[5px] flex-wrap">
-							<span>Contributors must have at least</span>
+						<>
+							At least{" "}
 							<RuleDropdown
 								value={String(config.minMergedPrs.count)}
 								options={PR_COUNT_OPTIONS}
 								onChange={(val) =>
 									updateRuleValue("minMergedPrs", { count: Number(val) })
 								}
-							/>
-							<span>merged PRs</span>
-						</span>
+							/>{" "}
+							merged PRs
+						</>
 					}
-					description="The minimum number of merged pull requests contributors must have before they're allowed to contribute to your repositories"
+					description="Minimum merged pull requests before they can contribute"
 					enabled={config.minMergedPrs.enabled}
 					onToggle={(v) => toggleRule("minMergedPrs", v)}
+					visualization={<MergedPrsViz />}
 				/>
-				<RuleCard
+				<RuleCardGrid
 					title={
-						<span className="flex items-center gap-[5px] flex-wrap">
-							<span>Block new accounts created under</span>
+						<>
+							Account older than{" "}
 							<RuleDropdown
 								value={`${config.accountAge.days} days`}
 								options={ACCOUNT_AGE_OPTIONS}
@@ -261,12 +349,76 @@ function RulesPage() {
 									})
 								}
 							/>
-							<span>ago</span>
-						</span>
+						</>
 					}
-					description="Block accounts that were created too recently to contribute to your repositories"
+					description="Block accounts created too recently from contributing"
 					enabled={config.accountAge.enabled}
 					onToggle={(v) => toggleRule("accountAge", v)}
+					visualization={<AccountAgeViz />}
+				/>
+				<RuleCardGrid
+					title={
+						<>
+							Max{" "}
+							<RuleDropdown
+								value={String(config.maxPrsPerDay.limit)}
+								options={MAX_PRS_PER_DAY_OPTIONS}
+								onChange={(val) =>
+									updateRuleValue("maxPrsPerDay", { limit: Number(val) })
+								}
+							/>{" "}
+							PRs per day
+						</>
+					}
+					description="Rate limit how many PRs or issues a single user can open per day"
+					enabled={config.maxPrsPerDay.enabled}
+					onToggle={(v) => toggleRule("maxPrsPerDay", v)}
+					visualization={<MaxPrsPerDayViz />}
+				/>
+				<RuleCardGrid
+					title={
+						<>
+							Max{" "}
+							<RuleDropdown
+								value={String(config.maxFilesChanged.limit)}
+								options={MAX_FILES_CHANGED_OPTIONS}
+								onChange={(val) =>
+									updateRuleValue("maxFilesChanged", { limit: Number(val) })
+								}
+							/>{" "}
+							files changed
+						</>
+					}
+					description="Block pull requests that touch too many files in a single submission"
+					enabled={config.maxFilesChanged.enabled}
+					onToggle={(v) => toggleRule("maxFilesChanged", v)}
+					visualization={<MaxFilesChangedViz />}
+				/>
+				<RuleCardGrid
+					title={
+						<>
+							At least{" "}
+							<RuleDropdown
+								value={String(config.repoActivityMinimum.minRepos)}
+								options={REPO_ACTIVITY_OPTIONS}
+								onChange={(val) =>
+									updateRuleValue("repoActivityMinimum", { minRepos: Number(val) })
+								}
+							/>{" "}
+							public repos
+						</>
+					}
+					description="Contributor must have meaningful activity across other public repos"
+					enabled={config.repoActivityMinimum.enabled}
+					onToggle={(v) => toggleRule("repoActivityMinimum", v)}
+					visualization={<RepoActivityViz />}
+				/>
+				<RuleCardGrid
+					title="Require profile README"
+					description="Contributors must have a profile README on their GitHub account"
+					enabled={config.requireProfileReadme.enabled}
+					onToggle={(v) => toggleRule("requireProfileReadme", v)}
+					visualization={<ProfileReadmeViz />}
 				/>
 			</div>
 

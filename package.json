@@ -41,6 +41,7 @@
     "drizzle-orm": "^0.45.1",
     "framer-motion": "^12.38.0",
     "geist": "^1.7.0",
+    "jose": "5.9.6",
     "lucide-react": "^0.577.0",
     "nitro": "^3.0.260311-beta",
     "pg": "^8.16.3",

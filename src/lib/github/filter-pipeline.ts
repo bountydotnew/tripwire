@@ -16,6 +16,10 @@ import {
 	deleteComment,
 	getUser,
 	getMergedPrCount,
+	countUserPrsToday,
+	getPrFilesCount,
+	getUserPublicRepoCount,
+	hasProfileReadme,
 } from "./github-api";
 
 interface WebhookContext {
@@ -24,6 +28,7 @@ interface WebhookContext {
 	githubRepoId: number;
 	senderLogin: string;
 	senderId: number;
+	prNumber?: number; // For PR-specific rules like maxFilesChanged
 }
 
 interface FilterResult {
@@ -133,13 +138,24 @@ export async function runFilterPipeline(
 		};
 	}
 
-	// 4. Load rule config
+	// 4. Load rule config (merge with defaults to handle missing fields)
 	const [configRow] = await db
 		.select()
 		.from(ruleConfigs)
 		.where(eq(ruleConfigs.repoId, repo.id));
 
-	const config: RuleConfig = configRow?.config ?? DEFAULT_RULE_CONFIG;
+	const rawConfig = configRow?.config;
+	const config: RuleConfig = {
+		aiSlopDetection: { ...DEFAULT_RULE_CONFIG.aiSlopDetection, ...rawConfig?.aiSlopDetection },
+		requireProfilePicture: { ...DEFAULT_RULE_CONFIG.requireProfilePicture, ...rawConfig?.requireProfilePicture },
+		languageRequirement: { ...DEFAULT_RULE_CONFIG.languageRequirement, ...rawConfig?.languageRequirement },
+		minMergedPrs: { ...DEFAULT_RULE_CONFIG.minMergedPrs, ...rawConfig?.minMergedPrs },
+		accountAge: { ...DEFAULT_RULE_CONFIG.accountAge, ...rawConfig?.accountAge },
+		maxPrsPerDay: { ...DEFAULT_RULE_CONFIG.maxPrsPerDay, ...rawConfig?.maxPrsPerDay },
+		maxFilesChanged: { ...DEFAULT_RULE_CONFIG.maxFilesChanged, ...rawConfig?.maxFilesChanged },
+		repoActivityMinimum: { ...DEFAULT_RULE_CONFIG.repoActivityMinimum, ...rawConfig?.repoActivityMinimum },
+		requireProfileReadme: { ...DEFAULT_RULE_CONFIG.requireProfileReadme, ...rawConfig?.requireProfileReadme },
+	};
 	const token = await getInstallationToken(ctx.installationId);
 
 	// Fetch user once for rules that need it
@@ -235,6 +251,71 @@ export async function runFilterPipeline(
 		}
 	}
 
+	// --- Max PRs per day ---
+	if (config.maxPrsPerDay.enabled) {
+		try {
+			const count = await countUserPrsToday(token, ctx.senderLogin, ctx.repoFullName);
+			if (count >= config.maxPrsPerDay.limit) {
+				return {
+					blocked: true,
+					rule: "maxPrsPerDay",
+					reason: `@${ctx.senderLogin} has already opened ${count} PRs today (limit: ${config.maxPrsPerDay.limit}).`,
+				};
+			}
+		} catch {
+			// Skip if API fails
+		}
+	}
+
+	// --- Max files changed (PR-only rule) ---
+	if (config.maxFilesChanged.enabled && ctx.prNumber) {
+		try {
+			const [owner, repo] = ctx.repoFullName.split("/");
+			const filesCount = await getPrFilesCount(token, owner, repo, ctx.prNumber);
+			if (filesCount > config.maxFilesChanged.limit) {
+				return {
+					blocked: true,
+					rule: "maxFilesChanged",
+					reason: `This PR changes ${filesCount} files (limit: ${config.maxFilesChanged.limit}).`,
+				};
+			}
+		} catch {
+			// Skip if API fails
+		}
+	}
+
+	// --- Repo activity minimum ---
+	if (config.repoActivityMinimum.enabled) {
+		try {
+			const repoCount = await getUserPublicRepoCount(token, ctx.senderLogin);
+			if (repoCount < config.repoActivityMinimum.minRepos) {
+				return {
+					blocked: true,
+					rule: "repoActivityMinimum",
+					reason: `@${ctx.senderLogin} has ${repoCount} public repos (minimum: ${config.repoActivityMinimum.minRepos}).`,
+				};
+			}
+		} catch {
+			// Skip if API fails
+		}
+	}
+
+	// --- Require profile README ---
+	if (config.requireProfileReadme.enabled) {
+		try {
+			const hasReadme = await hasProfileReadme(token, ctx.senderLogin);
+			if (!hasReadme) {
+				return {
+					blocked: true,
+					rule: "requireProfileReadme",
+					reason: `@${ctx.senderLogin} does not have a profile README.`,
+				};
+			}
+		} catch {
+			// Skip if API fails
+		}
+	}
+
 	return null; // All rules passed
 }
 
@@ -247,7 +328,9 @@ export async function handlePullRequest(
 	prTitle: string,
 	prBody?: string,
 ) {
-	const result = await runFilterPipeline(ctx, prBody ?? prTitle);
+	// Add prNumber to context for PR-specific rules like maxFilesChanged
+	const prCtx = { ...ctx, prNumber };
+	const result = await runFilterPipeline(prCtx, prBody ?? prTitle);
 	if (!result?.blocked) return;
 
 	const [owner, repo] = ctx.repoFullName.split("/");

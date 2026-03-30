@@ -23,10 +23,13 @@ export function RuleDropdown({ value, options, onChange }: RuleDropdownProps) {
 	}, [open]);
 
 	return (
-		<span className="relative inline-flex" ref={ref}>
+		<span className="relative inline-flex" ref={ref} data-dropdown>
 			<button
 				type="button"
-				onClick={() => options && onChange && setOpen(!open)}
+				onClick={(e) => {
+					e.stopPropagation();
+					options && onChange && setOpen(!open);
+				}}
 				className="inline-flex items-center h-[22px] rounded-[10px] px-[5px] gap-2 bg-[oklch(26.4%_0_0)] border border-[#353434] cursor-pointer"
 			>
 				<span className="text-xs text-center text-white font-medium">
@@ -54,7 +57,8 @@ export function RuleDropdown({ value, options, onChange }: RuleDropdownProps) {
 						<button
 							key={opt}
 							type="button"
-							onClick={() => {
+							onClick={(e) => {
+								e.stopPropagation();
 								onChange?.(opt);
 								setOpen(false);
 							}}

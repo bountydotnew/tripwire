@@ -339,6 +339,281 @@ function AccountAge() {
   );
 }
 
+// ─── Max PRs Per Day ────────────────────────────────────────
+function MaxPrsPerDay() {
+  const [limit, setLimit] = useState(3);
+  const prs = [
+    { user: "alice", count: 2, time: "10:32 AM" },
+    { user: "bob", count: 4, time: "11:15 AM" },
+    { user: "charlie", count: 1, time: "2:45 PM" },
+    { user: "diana", count: 3, time: "4:20 PM" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] text-white/[0.18] tracking-wide uppercase">
+          limit
+        </span>
+        <input
+          type="range"
+          min={1}
+          max={5}
+          value={limit}
+          onChange={(e) => setLimit(Number(e.target.value))}
+          className="flex-1 h-px cursor-pointer appearance-none bg-[#262525] rounded-sm outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:bg-white/35 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-[1.5px] [&::-webkit-slider-thumb]:border-[#1b1b1b]"
+        />
+        <span className="font-mono text-[15px] font-medium text-white/70 min-w-4 text-right tabular-nums">
+          {limit}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1">
+        {prs.map((p) => {
+          const ok = p.count <= limit;
+          return (
+            <div key={p.user} className="flex items-center gap-2">
+              <motion.span
+                className="font-mono text-[11px] w-14"
+                animate={{ color: ok ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.13)" }}
+                transition={{ duration: 0.2, ease: easeOut }}
+              >
+                {p.user}
+              </motion.span>
+              <div className="flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1.5 h-3 rounded-sm"
+                    animate={{
+                      backgroundColor:
+                        i < p.count
+                          ? i < limit
+                            ? "rgba(255,255,255,0.22)"
+                            : "rgba(255,255,255,0.08)"
+                          : "rgba(255,255,255,0.04)",
+                    }}
+                    transition={{ duration: 0.2, ease: easeOut }}
+                  />
+                ))}
+              </div>
+              <motion.span
+                className="font-mono text-[9px] text-white/15"
+                animate={{ opacity: ok ? 0.5 : 0.2 }}
+              >
+                {p.time}
+              </motion.span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Max Files Changed ──────────────────────────────────────
+function MaxFilesChanged() {
+  const [limit, setLimit] = useState(20);
+  const prs = [
+    { title: "fix: typo in readme", files: 1 },
+    { title: "feat: add new auth flow", files: 12 },
+    { title: "refactor: entire codebase", files: 47 },
+    { title: "chore: update deps", files: 3 },
+    { title: "feat: new dashboard", files: 28 },
+  ];
+  const maxFiles = 50;
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] text-white/[0.18] tracking-wide uppercase">
+          max
+        </span>
+        <input
+          type="range"
+          min={5}
+          max={50}
+          step={5}
+          value={limit}
+          onChange={(e) => setLimit(Number(e.target.value))}
+          className="flex-1 h-px cursor-pointer appearance-none bg-[#262525] rounded-sm outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:bg-white/35 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-[1.5px] [&::-webkit-slider-thumb]:border-[#1b1b1b]"
+        />
+        <span className="font-mono text-[15px] font-medium text-white/70 min-w-6 text-right tabular-nums">
+          {limit}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1">
+        {prs.map((p) => {
+          const ok = p.files <= limit;
+          return (
+            <div key={p.title} className="flex items-center gap-2">
+              <motion.span
+                className={`font-mono text-[10px] flex-1 truncate ${ok ? "" : "line-through"}`}
+                animate={{ color: ok ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.12)" }}
+                transition={{ duration: 0.2, ease: easeOut }}
+              >
+                {p.title}
+              </motion.span>
+              <div className="w-16 h-0.5 bg-[#262525] rounded-sm relative overflow-visible">
+                <motion.div
+                  className="h-full rounded-sm"
+                  style={{ width: `${(p.files / maxFiles) * 100}%` }}
+                  animate={{
+                    backgroundColor: ok ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.06)",
+                  }}
+                  transition={{ duration: 0.2, ease: easeOut }}
+                />
+                <motion.div
+                  className="absolute -top-1 w-px h-2.5 bg-white/[0.12]"
+                  animate={{ left: `${(limit / maxFiles) * 100}%` }}
+                  transition={{ duration: 0.2, ease: easeOut }}
+                />
+              </div>
+              <motion.span
+                className="font-mono text-[9px] w-5 text-right tabular-nums"
+                animate={{ color: ok ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)" }}
+                transition={{ duration: 0.2, ease: easeOut }}
+              >
+                {p.files}
+              </motion.span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Repo Activity Minimum ──────────────────────────────────
+function RepoActivityMinimum() {
+  const [min, setMin] = useState(3);
+  const users = [
+    { name: "alice", repos: 12, stars: 45 },
+    { name: "newbie", repos: 0, stars: 0 },
+    { name: "charlie", repos: 5, stars: 8 },
+    { name: "bot123", repos: 1, stars: 0 },
+    { name: "diana", repos: 8, stars: 23 },
+  ];
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] text-white/[0.18] tracking-wide uppercase">
+          min repos
+        </span>
+        <input
+          type="range"
+          min={1}
+          max={10}
+          value={min}
+          onChange={(e) => setMin(Number(e.target.value))}
+          className="flex-1 h-px cursor-pointer appearance-none bg-[#262525] rounded-sm outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:bg-white/35 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-[1.5px] [&::-webkit-slider-thumb]:border-[#1b1b1b]"
+        />
+        <span className="font-mono text-[15px] font-medium text-white/70 min-w-4 text-right tabular-nums">
+          {min}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1">
+        {users.map((u) => {
+          const ok = u.repos >= min;
+          return (
+            <div key={u.name} className="flex items-center gap-2">
+              <motion.span
+                className="font-mono text-[11px] w-12"
+                animate={{ color: ok ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.13)" }}
+                transition={{ duration: 0.2, ease: easeOut }}
+              >
+                {u.name}
+              </motion.span>
+              <div className="flex gap-0.5 flex-1">
+                {Array.from({ length: Math.min(u.repos, 10) }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-sm"
+                    animate={{
+                      backgroundColor: ok ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.08)",
+                    }}
+                    transition={{ duration: 0.2, ease: easeOut }}
+                  />
+                ))}
+                {u.repos === 0 && (
+                  <span className="font-mono text-[9px] text-white/10">none</span>
+                )}
+              </div>
+              <motion.span
+                className="font-mono text-[10px] w-4 text-right tabular-nums"
+                animate={{ color: ok ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)" }}
+                transition={{ duration: 0.2, ease: easeOut }}
+              >
+                {u.repos}
+              </motion.span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Require Profile README ─────────────────────────────────
+function RequireProfileReadme() {
+  const users = [
+    { name: "alice", hasReadme: true, bio: "Building cool stuff" },
+    { name: "bob", hasReadme: false, bio: "" },
+    { name: "charlie", hasReadme: true, bio: "Open source maintainer" },
+    { name: "newuser", hasReadme: false, bio: "" },
+  ];
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {users.map((u) => (
+        <motion.div
+          key={u.name}
+          onMouseEnter={() => setHovered(u.name)}
+          onMouseLeave={() => setHovered(null)}
+          className="flex items-center gap-2 py-1.5 px-2 rounded cursor-default"
+          animate={{
+            backgroundColor: hovered === u.name ? "rgba(255,255,255,0.02)" : "transparent",
+          }}
+          transition={{ duration: 0.15 }}
+        >
+          <motion.div
+            className="w-5 h-5 rounded flex items-center justify-center font-mono text-[9px] font-bold"
+            animate={{
+              backgroundColor: u.hasReadme ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
+              color: u.hasReadme ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.15)",
+            }}
+            transition={{ duration: 0.2, ease: easeOut }}
+          >
+            {u.hasReadme ? "MD" : "?"}
+          </motion.div>
+          <div className="flex flex-col flex-1 min-w-0">
+            <motion.span
+              className="font-mono text-[11px]"
+              animate={{ color: u.hasReadme ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.15)" }}
+              transition={{ duration: 0.2, ease: easeOut }}
+            >
+              {u.name}
+            </motion.span>
+            {u.hasReadme && u.bio && (
+              <span className="font-mono text-[9px] text-white/15 truncate">{u.bio}</span>
+            )}
+          </div>
+          <motion.span
+            className="font-mono text-[9px]"
+            animate={{
+              color: u.hasReadme ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)",
+            }}
+            transition={{ duration: 0.2, ease: easeOut }}
+          >
+            {u.hasReadme ? "✓" : "✕"}
+          </motion.span>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Allow & Block ──────────────────────────────────────────
 function AllowBlock() {
   const [users, setUsers] = useState([
@@ -482,6 +757,38 @@ export function TripwireFeatures() {
 
         <Feature
           index={5}
+          title="Max PRs per day"
+          description="Rate limit PRs per user to prevent spam floods"
+        >
+          <MaxPrsPerDay />
+        </Feature>
+
+        <Feature
+          index={6}
+          title="Max files changed"
+          description="Reject PRs that modify too many files at once"
+        >
+          <MaxFilesChanged />
+        </Feature>
+
+        <Feature
+          index={7}
+          title="Repo activity"
+          description="Require contributors to have public repository history"
+        >
+          <RepoActivityMinimum />
+        </Feature>
+
+        <Feature
+          index={8}
+          title="Profile README"
+          description="Contributors must have a GitHub profile README"
+        >
+          <RequireProfileReadme />
+        </Feature>
+
+        <Feature
+          index={9}
           title="Allow & block lists"
           description="Per-user overrides for all your rules"
         >

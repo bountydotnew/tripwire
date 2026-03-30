@@ -211,3 +211,57 @@ export async function getMergedPrCount(
 	);
 	return result.total_count;
 }
+
+/** Count PRs opened by a user today in a specific repo */
+export async function countUserPrsToday(
+	token: string,
+	username: string,
+	repoFullName: string,
+): Promise<number> {
+	const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+	const result = await githubApi(
+		`/search/issues?q=author:${username}+type:pr+repo:${repoFullName}+created:>=${today}&per_page=1`,
+		token,
+	);
+	return result.total_count;
+}
+
+/** Get the number of files changed in a PR */
+export async function getPrFilesCount(
+	token: string,
+	owner: string,
+	repo: string,
+	prNumber: number,
+): Promise<number> {
+	const result = await githubApi(
+		`/repos/${owner}/${repo}/pulls/${prNumber}/files?per_page=1`,
+		token,
+	);
+	// The API returns an array of files, but we need the total count
+	// For efficiency, we can check the response headers, but simplest approach
+	// is to use the PR endpoint which has changed_files count
+	const pr = await githubApi(`/repos/${owner}/${repo}/pulls/${prNumber}`, token);
+	return pr.changed_files;
+}
+
+/** Get a user's public repo count */
+export async function getUserPublicRepoCount(
+	token: string,
+	username: string,
+): Promise<number> {
+	const user = await githubApi(`/users/${username}`, token);
+	return user.public_repos;
+}
+
+/** Check if user has a profile README (username/username repo with README) */
+export async function hasProfileReadme(
+	token: string,
+	username: string,
+): Promise<boolean> {
+	try {
+		await githubApi(`/repos/${username}/${username}/readme`, token);
+		return true;
+	} catch {
+		return false;
+	}
+}
