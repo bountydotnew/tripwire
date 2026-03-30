@@ -5,9 +5,9 @@ import {
 	ruleConfigs,
 	whitelistEntries,
 	blacklistEntries,
-	events,
 	DEFAULT_RULE_CONFIG,
 	type RuleConfig,
+	type EventContentType,
 } from "#/db/schema";
 import {
 	getInstallationToken,
@@ -21,8 +21,11 @@ import {
 	getUserPublicRepoCount,
 	hasProfileReadme,
 } from "./github-api";
+import { logEvent, logEvents } from "#/lib/events";
 
-interface WebhookContext {
+// ─── Types ─────────────────────────────────────────────────────
+
+export interface WebhookContext {
 	installationId: number;
 	repoFullName: string; // "owner/repo"
 	githubRepoId: number;
@@ -31,43 +34,74 @@ interface WebhookContext {
 	prNumber?: number; // For PR-specific rules like maxFilesChanged
 }
 
-interface FilterResult {
-	blocked: boolean;
+export interface RuleEvaluation {
 	rule: string;
-	reason: string;
+	passed: boolean;
+	nearMiss: boolean;
+	reason?: string;
+	/** The actual value measured (for numeric rules) */
+	actual?: number;
+	/** The configured threshold/limit (for numeric rules) */
+	threshold?: number;
 }
 
-// Common English words for language heuristic
+export interface PipelineResult {
+	/** Whether the content was allowed through */
+	allowed: boolean;
+	/** How the pipeline resolved */
+	outcome: "allowed" | "blocked" | "whitelist_bypass" | "blacklist_blocked" | "repo_not_found";
+	/** The rule that blocked (if any) */
+	blockingRule?: string;
+	/** Human-readable reason for the block */
+	blockReason?: string;
+	/** Detailed evaluation of each rule that was checked */
+	evaluations: RuleEvaluation[];
+	/** Number of enabled rules that were checked */
+	rulesChecked: number;
+	/** Internal repo ID (for event logging) */
+	repoId?: string;
+}
+
+// ─── Near-miss threshold ───────────────────────────────────────
+// A user is "near miss" if their value is within 20% of triggering.
+const NEAR_MISS_RATIO = 0.2;
+
+function isNearMissMin(actual: number, threshold: number): boolean {
+	// For "minimum" rules: user passed but is close to failing
+	// e.g., accountAge: required 30 days, account is 35 days → within 20%
+	if (actual < threshold) return false; // already blocked, not a near-miss
+	return actual < threshold * (1 + NEAR_MISS_RATIO);
+}
+
+function isNearMissMax(actual: number, limit: number): boolean {
+	// For "maximum" rules: user passed but is close to hitting the limit
+	// e.g., maxPrsPerDay: limit 5, user has 4 → within 20%
+	if (actual >= limit) return false; // already blocked
+	return actual >= limit * (1 - NEAR_MISS_RATIO);
+}
+
+// ─── Content analysis helpers ──────────────────────────────────
+
 const ENGLISH_MARKERS = [
 	"the", "is", "are", "was", "were", "have", "has", "been",
 	"will", "would", "could", "should", "this", "that", "with",
 	"from", "for", "not", "but", "and", "you", "your",
 ];
 
-/**
- * Simple heuristic language detection. Checks if the text likely matches
- * the expected language by looking for common word patterns.
- * Currently only supports English detection — other languages pass through.
- */
 function isLikelyLanguage(text: string, language: string): boolean {
-	if (language !== "english") {
-		// Only English detection is implemented; allow other languages through
-		return true;
-	}
+	if (language !== "english") return true;
 
 	const words = text.toLowerCase().split(/\s+/);
-	if (words.length < 5) return true; // Too short to judge
+	if (words.length < 5) return true;
 
 	const englishWordCount = words.filter((w) =>
 		ENGLISH_MARKERS.includes(w),
 	).length;
 	const ratio = englishWordCount / words.length;
 
-	// If less than 5% of words are common English words, flag it
 	return ratio >= 0.05;
 }
 
-// Known AI slop patterns
 const AI_SLOP_PATTERNS = [
 	/as an ai language model/i,
 	/as a large language model/i,
@@ -83,10 +117,6 @@ const AI_SLOP_PATTERNS = [
 	/(?:in today's|in the) (?:rapidly )?(?:evolving|changing) (?:landscape|world)/i,
 ];
 
-/**
- * Check text for known AI-generated content patterns.
- * Returns a description of the match, or null if clean.
- */
 function detectAiSlop(text: string): string | null {
 	for (const pattern of AI_SLOP_PATTERNS) {
 		if (pattern.test(text)) {
@@ -96,35 +126,53 @@ function detectAiSlop(text: string): string | null {
 	return null;
 }
 
+// ─── Pipeline ──────────────────────────────────────────────────
+
 /**
- * Run all enabled rules against a GitHub user. Returns the first rule
- * that blocks, or null if the user passes all rules.
+ * Run all enabled rules against a GitHub user, collecting detailed
+ * evaluation results for every rule — including near-miss detection.
  *
- * @param contentText - Optional body text from the PR/issue/comment for content-based rules
+ * Returns a PipelineResult with the outcome and per-rule evaluations.
  */
 export async function runFilterPipeline(
 	ctx: WebhookContext,
 	contentText?: string,
-): Promise<FilterResult | null> {
+): Promise<PipelineResult> {
+	const evaluations: RuleEvaluation[] = [];
+	let rulesChecked = 0;
+
 	// 1. Look up the repo in our DB
 	const [repo] = await db
 		.select()
 		.from(repositories)
 		.where(eq(repositories.githubRepoId, ctx.githubRepoId));
 
-	if (!repo) return null; // Repo not tracked by Tripwire
+	if (!repo) {
+		return {
+			allowed: true,
+			outcome: "repo_not_found",
+			evaluations,
+			rulesChecked,
+		};
+	}
 
-	// 2. Check whitelist — whitelisted users skip all rules
+	// 2. Check whitelist
 	const whitelistAll = await db
 		.select()
 		.from(whitelistEntries)
 		.where(eq(whitelistEntries.repoId, repo.id));
 
 	if (whitelistAll.some((w) => w.githubUsername === ctx.senderLogin)) {
-		return null; // Whitelisted, skip all rules
+		return {
+			allowed: true,
+			outcome: "whitelist_bypass",
+			evaluations,
+			rulesChecked,
+			repoId: repo.id,
+		};
 	}
 
-	// 3. Check blacklist — blacklisted users are always blocked
+	// 3. Check blacklist
 	const blacklistAll = await db
 		.select()
 		.from(blacklistEntries)
@@ -132,13 +180,17 @@ export async function runFilterPipeline(
 
 	if (blacklistAll.some((b) => b.githubUsername === ctx.senderLogin)) {
 		return {
-			blocked: true,
-			rule: "blacklist",
-			reason: `@${ctx.senderLogin} is blacklisted from this repository.`,
+			allowed: false,
+			outcome: "blacklist_blocked",
+			blockingRule: "blacklist",
+			blockReason: `@${ctx.senderLogin} is blacklisted from this repository.`,
+			evaluations,
+			rulesChecked,
+			repoId: repo.id,
 		};
 	}
 
-	// 4. Load rule config (merge with defaults to handle missing fields)
+	// 4. Load rule config
 	const [configRow] = await db
 		.select()
 		.from(ruleConfigs)
@@ -156,6 +208,7 @@ export async function runFilterPipeline(
 		repoActivityMinimum: { ...DEFAULT_RULE_CONFIG.repoActivityMinimum, ...rawConfig?.repoActivityMinimum },
 		requireProfileReadme: { ...DEFAULT_RULE_CONFIG.requireProfileReadme, ...rawConfig?.requireProfileReadme },
 	};
+
 	const token = await getInstallationToken(ctx.installationId);
 
 	// Fetch user once for rules that need it
@@ -171,156 +224,383 @@ export async function runFilterPipeline(
 		}
 	}
 
-	// 5. Run each enabled rule
-	// --- Require profile picture ---
+	// Helper: if a rule blocks, we still continue checking remaining rules
+	// for near-miss detection, but we track the first blocker.
+	let firstBlock: { rule: string; reason: string } | null = null;
+
+	// ─── requireProfilePicture ─────────────────────────────────
 	if (config.requireProfilePicture.enabled && ghUser) {
+		rulesChecked++;
 		const avatarUrl = ghUser.avatar_url as string | undefined;
-		// GitHub default avatars follow the pattern:
-		// https://avatars.githubusercontent.com/u/{id}?v=4
-		// Custom avatars have the same domain but won't match the /u/{id} pattern exactly
-		// when the user has uploaded a profile picture.
-		// The most reliable signal: default avatars have no gravatar_id and the URL
-		// matches /u/{numeric_id} with no additional path segments.
-		const isDefaultAvatar =
-			!avatarUrl ||
-			/\/u\/\d+\?/.test(avatarUrl);
+		const isDefaultAvatar = !avatarUrl || /\/u\/\d+\?/.test(avatarUrl);
 
-		if (isDefaultAvatar) {
-			return {
-				blocked: true,
-				rule: "requireProfilePicture",
-				reason: `@${ctx.senderLogin} does not have a custom profile picture.`,
-			};
+		const eval_: RuleEvaluation = {
+			rule: "requireProfilePicture",
+			passed: !isDefaultAvatar,
+			nearMiss: false,
+			reason: isDefaultAvatar
+				? `@${ctx.senderLogin} does not have a custom profile picture.`
+				: undefined,
+		};
+		evaluations.push(eval_);
+
+		if (isDefaultAvatar && !firstBlock) {
+			firstBlock = { rule: eval_.rule, reason: eval_.reason! };
 		}
 	}
 
-	// --- Account age ---
+	// ─── accountAge ────────────────────────────────────────────
 	if (config.accountAge.enabled && ghUser) {
+		rulesChecked++;
 		const createdAt = new Date(ghUser.created_at as string);
-		const now = new Date();
 		const ageInDays = Math.floor(
-			(now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24),
+			(Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24),
 		);
+		const threshold = config.accountAge.days;
+		const blocked = ageInDays < threshold;
 
-		if (ageInDays < config.accountAge.days) {
-			return {
-				blocked: true,
-				rule: "accountAge",
-				reason: `Account @${ctx.senderLogin} is ${ageInDays} days old (minimum: ${config.accountAge.days} days).`,
-			};
+		const eval_: RuleEvaluation = {
+			rule: "accountAge",
+			passed: !blocked,
+			nearMiss: !blocked && isNearMissMin(ageInDays, threshold),
+			actual: ageInDays,
+			threshold,
+			reason: blocked
+				? `Account @${ctx.senderLogin} is ${ageInDays} days old (minimum: ${threshold} days).`
+				: undefined,
+		};
+		evaluations.push(eval_);
+
+		if (blocked && !firstBlock) {
+			firstBlock = { rule: eval_.rule, reason: eval_.reason! };
 		}
 	}
 
-	// --- Minimum merged PRs ---
+	// ─── minMergedPrs ──────────────────────────────────────────
 	if (config.minMergedPrs.enabled) {
+		rulesChecked++;
 		try {
 			const count = await getMergedPrCount(token, ctx.senderLogin);
-			if (count < config.minMergedPrs.count) {
-				return {
-					blocked: true,
-					rule: "minMergedPrs",
-					reason: `@${ctx.senderLogin} has ${count} merged PRs (minimum: ${config.minMergedPrs.count}).`,
-				};
+			const threshold = config.minMergedPrs.count;
+			const blocked = count < threshold;
+
+			const eval_: RuleEvaluation = {
+				rule: "minMergedPrs",
+				passed: !blocked,
+				nearMiss: !blocked && isNearMissMin(count, threshold),
+				actual: count,
+				threshold,
+				reason: blocked
+					? `@${ctx.senderLogin} has ${count} merged PRs (minimum: ${threshold}).`
+					: undefined,
+			};
+			evaluations.push(eval_);
+
+			if (blocked && !firstBlock) {
+				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
 			}
 		} catch {
 			// Skip if API fails
 		}
 	}
 
-	// --- Language requirement ---
+	// ─── languageRequirement ───────────────────────────────────
 	if (config.languageRequirement.enabled && contentText && contentText.length > 20) {
+		rulesChecked++;
 		const requiredLang = config.languageRequirement.language.toLowerCase();
-		if (!isLikelyLanguage(contentText, requiredLang)) {
-			return {
-				blocked: true,
-				rule: "languageRequirement",
-				reason: `Content from @${ctx.senderLogin} does not appear to be in ${config.languageRequirement.language}.`,
-			};
+		const passed = isLikelyLanguage(contentText, requiredLang);
+
+		const eval_: RuleEvaluation = {
+			rule: "languageRequirement",
+			passed,
+			nearMiss: false, // binary check, no near-miss
+			reason: !passed
+				? `Content from @${ctx.senderLogin} does not appear to be in ${config.languageRequirement.language}.`
+				: undefined,
+		};
+		evaluations.push(eval_);
+
+		if (!passed && !firstBlock) {
+			firstBlock = { rule: eval_.rule, reason: eval_.reason! };
 		}
 	}
 
-	// --- AI slop detection ---
+	// ─── aiSlopDetection ───────────────────────────────────────
 	if (config.aiSlopDetection.enabled && contentText) {
+		rulesChecked++;
 		const slopMatch = detectAiSlop(contentText);
-		if (slopMatch) {
-			return {
-				blocked: true,
-				rule: "aiSlopDetection",
-				reason: `Content from @${ctx.senderLogin} was flagged as AI-generated: ${slopMatch}`,
-			};
+		const blocked = slopMatch !== null;
+
+		const eval_: RuleEvaluation = {
+			rule: "aiSlopDetection",
+			passed: !blocked,
+			nearMiss: false, // binary check
+			reason: blocked
+				? `Content from @${ctx.senderLogin} was flagged as AI-generated: ${slopMatch}`
+				: undefined,
+		};
+		evaluations.push(eval_);
+
+		if (blocked && !firstBlock) {
+			firstBlock = { rule: eval_.rule, reason: eval_.reason! };
 		}
 	}
 
-	// --- Max PRs per day ---
+	// ─── maxPrsPerDay ──────────────────────────────────────────
 	if (config.maxPrsPerDay.enabled) {
+		rulesChecked++;
 		try {
 			const count = await countUserPrsToday(token, ctx.senderLogin, ctx.repoFullName);
-			if (count >= config.maxPrsPerDay.limit) {
-				return {
-					blocked: true,
-					rule: "maxPrsPerDay",
-					reason: `@${ctx.senderLogin} has already opened ${count} PRs today (limit: ${config.maxPrsPerDay.limit}).`,
-				};
+			const limit = config.maxPrsPerDay.limit;
+			const blocked = count >= limit;
+
+			const eval_: RuleEvaluation = {
+				rule: "maxPrsPerDay",
+				passed: !blocked,
+				nearMiss: !blocked && isNearMissMax(count, limit),
+				actual: count,
+				threshold: limit,
+				reason: blocked
+					? `@${ctx.senderLogin} has already opened ${count} PRs today (limit: ${limit}).`
+					: undefined,
+			};
+			evaluations.push(eval_);
+
+			if (blocked && !firstBlock) {
+				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
 			}
 		} catch {
 			// Skip if API fails
 		}
 	}
 
-	// --- Max files changed (PR-only rule) ---
+	// ─── maxFilesChanged ───────────────────────────────────────
 	if (config.maxFilesChanged.enabled && ctx.prNumber) {
+		rulesChecked++;
 		try {
-			const [owner, repo] = ctx.repoFullName.split("/");
-			const filesCount = await getPrFilesCount(token, owner, repo, ctx.prNumber);
-			if (filesCount > config.maxFilesChanged.limit) {
-				return {
-					blocked: true,
-					rule: "maxFilesChanged",
-					reason: `This PR changes ${filesCount} files (limit: ${config.maxFilesChanged.limit}).`,
-				};
+			const [owner, repoName] = ctx.repoFullName.split("/");
+			const filesCount = await getPrFilesCount(token, owner, repoName, ctx.prNumber);
+			const limit = config.maxFilesChanged.limit;
+			const blocked = filesCount > limit;
+
+			const eval_: RuleEvaluation = {
+				rule: "maxFilesChanged",
+				passed: !blocked,
+				nearMiss: !blocked && isNearMissMax(filesCount, limit),
+				actual: filesCount,
+				threshold: limit,
+				reason: blocked
+					? `This PR changes ${filesCount} files (limit: ${limit}).`
+					: undefined,
+			};
+			evaluations.push(eval_);
+
+			if (blocked && !firstBlock) {
+				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
 			}
 		} catch {
 			// Skip if API fails
 		}
 	}
 
-	// --- Repo activity minimum ---
+	// ─── repoActivityMinimum ───────────────────────────────────
 	if (config.repoActivityMinimum.enabled) {
+		rulesChecked++;
 		try {
 			const repoCount = await getUserPublicRepoCount(token, ctx.senderLogin);
-			if (repoCount < config.repoActivityMinimum.minRepos) {
-				return {
-					blocked: true,
-					rule: "repoActivityMinimum",
-					reason: `@${ctx.senderLogin} has ${repoCount} public repos (minimum: ${config.repoActivityMinimum.minRepos}).`,
-				};
+			const threshold = config.repoActivityMinimum.minRepos;
+			const blocked = repoCount < threshold;
+
+			const eval_: RuleEvaluation = {
+				rule: "repoActivityMinimum",
+				passed: !blocked,
+				nearMiss: !blocked && isNearMissMin(repoCount, threshold),
+				actual: repoCount,
+				threshold,
+				reason: blocked
+					? `@${ctx.senderLogin} has ${repoCount} public repos (minimum: ${threshold}).`
+					: undefined,
+			};
+			evaluations.push(eval_);
+
+			if (blocked && !firstBlock) {
+				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
 			}
 		} catch {
 			// Skip if API fails
 		}
 	}
 
-	// --- Require profile README ---
+	// ─── requireProfileReadme ──────────────────────────────────
 	if (config.requireProfileReadme.enabled) {
+		rulesChecked++;
 		try {
 			const hasReadme = await hasProfileReadme(token, ctx.senderLogin);
-			if (!hasReadme) {
-				return {
-					blocked: true,
-					rule: "requireProfileReadme",
-					reason: `@${ctx.senderLogin} does not have a profile README.`,
-				};
+
+			const eval_: RuleEvaluation = {
+				rule: "requireProfileReadme",
+				passed: hasReadme,
+				nearMiss: false, // binary check
+				reason: !hasReadme
+					? `@${ctx.senderLogin} does not have a profile README.`
+					: undefined,
+			};
+			evaluations.push(eval_);
+
+			if (!hasReadme && !firstBlock) {
+				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
 			}
 		} catch {
 			// Skip if API fails
 		}
 	}
 
-	return null; // All rules passed
+	// ─── Result ────────────────────────────────────────────────
+	if (firstBlock) {
+		return {
+			allowed: false,
+			outcome: "blocked",
+			blockingRule: firstBlock.rule,
+			blockReason: firstBlock.reason,
+			evaluations,
+			rulesChecked,
+			repoId: repo.id,
+		};
+	}
+
+	return {
+		allowed: true,
+		outcome: "allowed",
+		evaluations,
+		rulesChecked,
+		repoId: repo.id,
+	};
+}
+
+// ─── Pipeline event logging ────────────────────────────────────
+
+/**
+ * Generate a unique pipeline ID for grouping events from the same evaluation.
+ */
+function generatePipelineId(): string {
+	return crypto.randomUUID();
 }
 
 /**
- * Handle a webhook event — run the pipeline and take action.
+ * Log all events from a pipeline result — the outcome event plus
+ * any near-miss warnings.
+ */
+async function logPipelineEvents(
+	result: PipelineResult,
+	ctx: WebhookContext,
+	contentType: EventContentType,
+	githubRef: string,
+	extraMetadata?: Record<string, unknown>,
+) {
+	if (!result.repoId) return;
+
+	const pipelineId = generatePipelineId();
+	const baseEvent = {
+		repoId: result.repoId,
+		pipelineId,
+		contentType,
+		targetGithubUsername: ctx.senderLogin,
+		targetGithubUserId: ctx.senderId,
+		githubRef,
+	};
+
+	const eventBatch: Parameters<typeof logEvents>[0] = [];
+
+	// 1. Log the pipeline outcome
+	switch (result.outcome) {
+		case "allowed":
+			eventBatch.push({
+				...baseEvent,
+				action: "pipeline_allowed",
+				severity: "success",
+				description: `@${ctx.senderLogin} passed all ${result.rulesChecked} enabled rules`,
+				metadata: {
+					...extraMetadata,
+					rulesChecked: result.rulesChecked,
+					evaluations: result.evaluations.map((e) => ({
+						rule: e.rule,
+						passed: e.passed,
+						actual: e.actual,
+						threshold: e.threshold,
+					})),
+				},
+			});
+			break;
+
+		case "blocked":
+			eventBatch.push({
+				...baseEvent,
+				action: "pipeline_blocked",
+				severity: "error",
+				ruleName: result.blockingRule,
+				description: result.blockReason,
+				metadata: {
+					...extraMetadata,
+					rulesChecked: result.rulesChecked,
+					blockingRule: result.blockingRule,
+					evaluations: result.evaluations.map((e) => ({
+						rule: e.rule,
+						passed: e.passed,
+						actual: e.actual,
+						threshold: e.threshold,
+					})),
+				},
+			});
+			break;
+
+		case "whitelist_bypass":
+			eventBatch.push({
+				...baseEvent,
+				action: "whitelist_bypass",
+				severity: "info",
+				description: `@${ctx.senderLogin} is whitelisted — all rules skipped`,
+				metadata: extraMetadata,
+			});
+			break;
+
+		case "blacklist_blocked":
+			eventBatch.push({
+				...baseEvent,
+				action: "blacklist_blocked",
+				severity: "error",
+				description: `@${ctx.senderLogin} is blacklisted — automatically blocked`,
+				metadata: extraMetadata,
+			});
+			break;
+	}
+
+	// 2. Log near-miss warnings (only for allowed outcomes)
+	if (result.allowed) {
+		for (const eval_ of result.evaluations) {
+			if (eval_.nearMiss) {
+				eventBatch.push({
+					...baseEvent,
+					action: "rule_near_miss",
+					severity: "warning",
+					ruleName: eval_.rule,
+					description: `@${ctx.senderLogin} nearly triggered ${eval_.rule}: ${eval_.actual} (threshold: ${eval_.threshold})`,
+					metadata: {
+						rule: eval_.rule,
+						actual: eval_.actual,
+						threshold: eval_.threshold,
+					},
+				});
+			}
+		}
+	}
+
+	await logEvents(eventBatch);
+}
+
+// ─── Webhook action handlers ───────────────────────────────────
+
+/**
+ * Handle a pull_request webhook — run pipeline, take action, log everything.
  */
 export async function handlePullRequest(
 	ctx: WebhookContext,
@@ -328,37 +608,43 @@ export async function handlePullRequest(
 	prTitle: string,
 	prBody?: string,
 ) {
-	// Add prNumber to context for PR-specific rules like maxFilesChanged
 	const prCtx = { ...ctx, prNumber };
 	const result = await runFilterPipeline(prCtx, prBody ?? prTitle);
-	if (!result?.blocked) return;
 
-	const [owner, repo] = ctx.repoFullName.split("/");
-	const token = await getInstallationToken(ctx.installationId);
+	const githubRef = `#${prNumber}`;
+	const extraMeta = { title: prTitle };
 
-	const comment = `> **Tripwire** — This PR was automatically closed.\n>\n> Reason: ${result.reason}`;
+	// Log all pipeline events (outcome + near-misses)
+	await logPipelineEvents(result, ctx, "pull_request", githubRef, extraMeta);
 
-	await closePullRequest(token, owner, repo, prNumber, comment);
+	if (!result.allowed && result.blockReason) {
+		const [owner, repo] = ctx.repoFullName.split("/");
+		const token = await getInstallationToken(ctx.installationId);
 
-	// Log the event
-	const [repoRow] = await db
-		.select()
-		.from(repositories)
-		.where(eq(repositories.githubRepoId, ctx.githubRepoId));
+		const comment = `> **Tripwire** — This PR was automatically closed.\n>\n> Reason: ${result.blockReason}`;
+		await closePullRequest(token, owner, repo, prNumber, comment);
 
-	if (repoRow) {
-		await db.insert(events).values({
-			repoId: repoRow.id,
-			action: "pr_closed",
-			ruleName: result.rule,
-			targetGithubUsername: ctx.senderLogin,
-			targetGithubUserId: ctx.senderId,
-			githubRef: `#${prNumber}`,
-			metadata: { title: prTitle, reason: result.reason },
-		});
+		// Log the specific action taken
+		if (result.repoId) {
+			await logEvent({
+				repoId: result.repoId,
+				action: "pr_closed",
+				severity: "error",
+				contentType: "pull_request",
+				ruleName: result.blockingRule,
+				description: `Closed PR ${githubRef}: ${result.blockReason}`,
+				targetGithubUsername: ctx.senderLogin,
+				targetGithubUserId: ctx.senderId,
+				githubRef,
+				metadata: { title: prTitle, reason: result.blockReason },
+			});
+		}
 	}
 }
 
+/**
+ * Handle an issues webhook — run pipeline, take action, log everything.
+ */
 export async function handleIssue(
 	ctx: WebhookContext,
 	issueNumber: number,
@@ -366,33 +652,39 @@ export async function handleIssue(
 	issueBody?: string,
 ) {
 	const result = await runFilterPipeline(ctx, issueBody ?? issueTitle);
-	if (!result?.blocked) return;
 
-	const [owner, repo] = ctx.repoFullName.split("/");
-	const token = await getInstallationToken(ctx.installationId);
+	const githubRef = `#${issueNumber}`;
+	const extraMeta = { title: issueTitle };
 
-	const comment = `> **Tripwire** — This issue was automatically closed.\n>\n> Reason: ${result.reason}`;
+	await logPipelineEvents(result, ctx, "issue", githubRef, extraMeta);
 
-	await closeIssue(token, owner, repo, issueNumber, comment);
+	if (!result.allowed && result.blockReason) {
+		const [owner, repo] = ctx.repoFullName.split("/");
+		const token = await getInstallationToken(ctx.installationId);
 
-	const [repoRow] = await db
-		.select()
-		.from(repositories)
-		.where(eq(repositories.githubRepoId, ctx.githubRepoId));
+		const comment = `> **Tripwire** — This issue was automatically closed.\n>\n> Reason: ${result.blockReason}`;
+		await closeIssue(token, owner, repo, issueNumber, comment);
 
-	if (repoRow) {
-		await db.insert(events).values({
-			repoId: repoRow.id,
-			action: "issue_deleted",
-			ruleName: result.rule,
-			targetGithubUsername: ctx.senderLogin,
-			targetGithubUserId: ctx.senderId,
-			githubRef: `#${issueNumber}`,
-			metadata: { title: issueTitle, reason: result.reason },
-		});
+		if (result.repoId) {
+			await logEvent({
+				repoId: result.repoId,
+				action: "issue_closed",
+				severity: "error",
+				contentType: "issue",
+				ruleName: result.blockingRule,
+				description: `Closed issue ${githubRef}: ${result.blockReason}`,
+				targetGithubUsername: ctx.senderLogin,
+				targetGithubUserId: ctx.senderId,
+				githubRef,
+				metadata: { title: issueTitle, reason: result.blockReason },
+			});
+		}
 	}
 }
 
+/**
+ * Handle an issue_comment webhook — run pipeline, take action, log everything.
+ */
 export async function handleComment(
 	ctx: WebhookContext,
 	commentId: number,
@@ -400,27 +692,30 @@ export async function handleComment(
 	commentBody?: string,
 ) {
 	const result = await runFilterPipeline(ctx, commentBody);
-	if (!result?.blocked) return;
 
-	const [owner, repo] = ctx.repoFullName.split("/");
-	const token = await getInstallationToken(ctx.installationId);
+	const githubRef = `#${issueNumber}/comment/${commentId}`;
 
-	await deleteComment(token, owner, repo, commentId);
+	await logPipelineEvents(result, ctx, "comment", githubRef);
 
-	const [repoRow] = await db
-		.select()
-		.from(repositories)
-		.where(eq(repositories.githubRepoId, ctx.githubRepoId));
+	if (!result.allowed && result.blockReason) {
+		const [owner, repo] = ctx.repoFullName.split("/");
+		const token = await getInstallationToken(ctx.installationId);
 
-	if (repoRow) {
-		await db.insert(events).values({
-			repoId: repoRow.id,
-			action: "comment_deleted",
-			ruleName: result.rule,
-			targetGithubUsername: ctx.senderLogin,
-			targetGithubUserId: ctx.senderId,
-			githubRef: `#${issueNumber}/comment/${commentId}`,
-			metadata: { reason: result.reason },
-		});
+		await deleteComment(token, owner, repo, commentId);
+
+		if (result.repoId) {
+			await logEvent({
+				repoId: result.repoId,
+				action: "comment_deleted",
+				severity: "error",
+				contentType: "comment",
+				ruleName: result.blockingRule,
+				description: `Deleted comment on ${githubRef}: ${result.blockReason}`,
+				targetGithubUsername: ctx.senderLogin,
+				targetGithubUserId: ctx.senderId,
+				githubRef,
+				metadata: { reason: result.blockReason },
+			});
+		}
 	}
 }

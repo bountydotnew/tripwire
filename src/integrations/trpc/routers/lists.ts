@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { authedProcedure } from "../init";
 import { db } from "#/db";
 import { whitelistEntries, blacklistEntries } from "#/db/schema";
+import { logEvent } from "#/lib/events";
 
 import type { TRPCRouterRecord } from "@trpc/server";
 
@@ -55,7 +56,6 @@ export const whitelistRouter = {
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			// Validate user exists on GitHub
 			const ghUser = await validateGitHubUser(input.githubUsername);
 
 			const [entry] = await db
@@ -68,6 +68,17 @@ export const whitelistRouter = {
 					addedById: ctx.user?.id,
 				})
 				.returning();
+
+			await logEvent({
+				repoId: input.repoId,
+				action: "whitelist_added",
+				severity: "info",
+				description: `@${ghUser.login} was added to the whitelist`,
+				targetGithubUsername: ghUser.login,
+				targetGithubUserId: ghUser.id,
+				metadata: { addedBy: ctx.user?.name ?? ctx.user?.id },
+			});
+
 			return entry;
 		}),
 
@@ -78,7 +89,7 @@ export const whitelistRouter = {
 				githubUsername: z.string(),
 			}),
 		)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ input, ctx }) => {
 			await db
 				.delete(whitelistEntries)
 				.where(
@@ -87,6 +98,16 @@ export const whitelistRouter = {
 						eq(whitelistEntries.githubUsername, input.githubUsername),
 					),
 				);
+
+			await logEvent({
+				repoId: input.repoId,
+				action: "whitelist_removed",
+				severity: "info",
+				description: `@${input.githubUsername} was removed from the whitelist`,
+				targetGithubUsername: input.githubUsername,
+				metadata: { removedBy: ctx.user?.name ?? ctx.user?.id },
+			});
+
 			return { success: true };
 		}),
 } satisfies TRPCRouterRecord;
@@ -109,7 +130,6 @@ export const blacklistRouter = {
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			// Validate user exists on GitHub
 			const ghUser = await validateGitHubUser(input.githubUsername);
 
 			const [entry] = await db
@@ -122,6 +142,17 @@ export const blacklistRouter = {
 					addedById: ctx.user?.id,
 				})
 				.returning();
+
+			await logEvent({
+				repoId: input.repoId,
+				action: "blacklist_added",
+				severity: "warning",
+				description: `@${ghUser.login} was added to the blacklist`,
+				targetGithubUsername: ghUser.login,
+				targetGithubUserId: ghUser.id,
+				metadata: { addedBy: ctx.user?.name ?? ctx.user?.id },
+			});
+
 			return entry;
 		}),
 
@@ -132,7 +163,7 @@ export const blacklistRouter = {
 				githubUsername: z.string(),
 			}),
 		)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ input, ctx }) => {
 			await db
 				.delete(blacklistEntries)
 				.where(
@@ -141,6 +172,16 @@ export const blacklistRouter = {
 						eq(blacklistEntries.githubUsername, input.githubUsername),
 					),
 				);
+
+			await logEvent({
+				repoId: input.repoId,
+				action: "blacklist_removed",
+				severity: "info",
+				description: `@${input.githubUsername} was removed from the blacklist`,
+				targetGithubUsername: input.githubUsername,
+				metadata: { removedBy: ctx.user?.name ?? ctx.user?.id },
+			});
+
 			return { success: true };
 		}),
 } satisfies TRPCRouterRecord;

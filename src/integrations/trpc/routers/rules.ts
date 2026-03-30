@@ -8,6 +8,7 @@ import {
 	blacklistEntries,
 	DEFAULT_RULE_CONFIG,
 } from "#/db/schema";
+import { logEvent } from "#/lib/events";
 
 import type { TRPCRouterRecord } from "@trpc/server";
 
@@ -46,11 +47,13 @@ export const rulesRouter = {
 				config: ruleConfigSchema,
 			}),
 		)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ input, ctx }) => {
 			const [existing] = await db
 				.select()
 				.from(ruleConfigs)
 				.where(eq(ruleConfigs.repoId, input.repoId));
+
+			const previousConfig = existing?.config ?? DEFAULT_RULE_CONFIG;
 
 			if (existing) {
 				await db
@@ -63,6 +66,33 @@ export const rulesRouter = {
 					config: input.config,
 				});
 			}
+
+			// Build a human-readable summary of what changed
+			const changes: string[] = [];
+			for (const [key, value] of Object.entries(input.config)) {
+				const prev = previousConfig[key as keyof typeof previousConfig];
+				const curr = value as Record<string, unknown>;
+				const prevObj = prev as Record<string, unknown>;
+
+				if (prevObj?.enabled !== curr.enabled) {
+					changes.push(`${key}: ${curr.enabled ? "enabled" : "disabled"}`);
+				}
+			}
+
+			await logEvent({
+				repoId: input.repoId,
+				action: "rule_config_updated",
+				severity: "info",
+				description: changes.length > 0
+					? `Rules updated: ${changes.join(", ")}`
+					: "Rule configuration updated",
+				metadata: {
+					updatedBy: ctx.user?.name ?? ctx.user?.id,
+					changes,
+					newConfig: input.config,
+				},
+			});
+
 			return input.config;
 		}),
 

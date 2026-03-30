@@ -228,15 +228,38 @@ export const blacklistEntries = pgTable(
 );
 
 /**
- * Event log — every action Tripwire takes. Feeds the Insights page.
+ * Event log — comprehensive activity feed for everything that happens
+ * in a Tripwire installation. Every webhook, rule evaluation, near-miss,
+ * config change, and admin action is captured here.
  */
 export type EventAction =
+	// Actions taken on content
 	| "pr_closed"
-	| "issue_deleted"
+	| "issue_closed"
 	| "comment_deleted"
+	// Pipeline lifecycle
+	| "pipeline_allowed"    // all rules passed, content was allowed through
+	| "pipeline_blocked"    // a rule blocked the content
+	// Near-miss warnings
+	| "rule_near_miss"      // user was close to triggering a rule
+	// List-based outcomes
+	| "whitelist_bypass"    // whitelisted user skipped all rules
+	| "blacklist_blocked"   // blacklisted user was auto-blocked
+	// Configuration changes
+	| "rule_config_updated" // rule settings were changed
+	| "whitelist_added"     // user added to whitelist
+	| "whitelist_removed"   // user removed from whitelist
+	| "blacklist_added"     // user added to blacklist
+	| "blacklist_removed"   // user removed from blacklist
+	// Legacy (kept for backward compat with insights)
 	| "user_blocked"
 	| "bot_blacklisted"
-	| "rule_triggered";
+	| "rule_triggered"
+	// Catch-all (renamed from issue_deleted for clarity)
+	| "issue_deleted";
+
+export type EventSeverity = "info" | "warning" | "success" | "error";
+export type EventContentType = "pull_request" | "issue" | "comment";
 
 export const events = pgTable(
 	"events",
@@ -246,6 +269,14 @@ export const events = pgTable(
 			.notNull()
 			.references(() => repositories.id, { onDelete: "cascade" }),
 		action: text("action").$type<EventAction>().notNull(),
+		// Severity level for filtering and display
+		severity: text("severity").$type<EventSeverity>().default("info"),
+		// Human-readable description of what happened
+		description: text("description"),
+		// What type of GitHub content triggered this event
+		contentType: text("content_type").$type<EventContentType>(),
+		// Groups events from the same pipeline evaluation
+		pipelineId: text("pipeline_id"),
 		// Which rule triggered this event
 		ruleName: text("rule_name"),
 		// The GitHub user who triggered the event
@@ -253,7 +284,7 @@ export const events = pgTable(
 		targetGithubUserId: integer("target_github_user_id"),
 		// Reference to the GitHub object (PR number, issue number, comment ID)
 		githubRef: text("github_ref"),
-		// Extra context as JSON (PR title, comment body snippet, etc.)
+		// Extra context as JSON (PR title, comment body snippet, rule values, etc.)
 		metadata: jsonb("metadata").$type<Record<string, unknown>>(),
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
@@ -261,6 +292,8 @@ export const events = pgTable(
 		index("events_repo_idx").on(t.repoId),
 		index("events_created_idx").on(t.createdAt),
 		index("events_action_idx").on(t.action),
+		index("events_severity_idx").on(t.severity),
+		index("events_pipeline_idx").on(t.pipelineId),
 	],
 );
 
