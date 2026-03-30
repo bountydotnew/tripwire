@@ -667,25 +667,31 @@ function AllowBlock() {
   );
 }
 
-// ─── Feature Block ──────────────────────────────────────────
-function Feature({
+// ─── Carousel ──────────────────────────────────────────────
+const FEATURES = [
+  { title: "AI slop detection", description: "Pattern-match automated contributions and flag them before merge", content: <SlopDetection /> },
+  { title: "Require profile picture", description: "Block contributors using GitHub's default silhouette", content: <ProfilePicture /> },
+  { title: "Language gate", description: "Only accept contributions in your chosen language", content: <LanguageGate /> },
+  { title: "PR threshold", description: "Minimum merged PRs before someone can contribute", content: <PRThreshold /> },
+  { title: "Account age", description: "Block accounts created too recently from contributing", content: <AccountAge /> },
+  { title: "Max PRs per day", description: "Rate limit PRs per user to prevent spam floods", content: <MaxPrsPerDay /> },
+  { title: "Max files changed", description: "Reject PRs that modify too many files at once", content: <MaxFilesChanged /> },
+  { title: "Repo activity", description: "Require contributors to have public repository history", content: <RepoActivityMinimum /> },
+  { title: "Profile README", description: "Contributors must have a GitHub profile README", content: <RequireProfileReadme /> },
+  { title: "Allow & block lists", description: "Per-user overrides for all your rules", content: <AllowBlock /> },
+];
+
+function CarouselCard({
   title,
   description,
   children,
-  index,
 }: {
   title: string;
   description: string;
   children: React.ReactNode;
-  index: number;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: easeOut, delay: index * 0.06 }}
-      className="flex flex-col gap-4"
-    >
+    <div className="flex flex-col gap-4 w-[280px] shrink-0 px-5 py-5 rounded-xl bg-[#1f1f1f] border border-white/[0.04]">
       <div>
         <h3 className="m-0 font-sans text-sm font-medium text-white/75 tracking-tight leading-tight">
           {title}
@@ -695,16 +701,21 @@ function Feature({
         </p>
       </div>
       <div>{children}</div>
-    </motion.div>
+    </div>
   );
 }
 
 // ─── Main ───────────────────────────────────────────────────
 export function TripwireFeatures() {
+  const [paused, setPaused] = useState(false);
+
+  // Double the items for seamless loop
+  const track = [...FEATURES, ...FEATURES];
+
   return (
-    <div className="flex flex-col items-center py-18 px-8 font-sans w-full">
+    <div className="flex flex-col items-center py-18 font-sans w-full">
       {/* header */}
-      <div className="text-center mb-16 max-w-md">
+      <div className="text-center mb-16 max-w-md px-8">
         <h2 className="m-0 font-sans text-[22px] font-medium text-white/80 tracking-tight leading-tight">
           rules
         </h2>
@@ -713,88 +724,54 @@ export function TripwireFeatures() {
         </p>
       </div>
 
-      {/* grid — no cards, just content */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-14 gap-y-12 max-w-[640px] w-full">
-        <Feature
-          index={0}
-          title="AI slop detection"
-          description="Pattern-match automated contributions and flag them before merge"
-        >
-          <SlopDetection />
-        </Feature>
+      {/* carousel container */}
+      <div
+        className="relative w-full overflow-hidden"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        {/* Edge blur — left */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-24 md:w-40 z-10 pointer-events-none"
+          style={{
+            background: "linear-gradient(to right, #191919 0%, transparent 100%)",
+          }}
+        />
+        {/* Edge blur — right */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-24 md:w-40 z-10 pointer-events-none"
+          style={{
+            background: "linear-gradient(to left, #191919 0%, transparent 100%)",
+          }}
+        />
 
-        <Feature
-          index={1}
-          title="Require profile picture"
-          description="Block contributors using GitHub's default silhouette"
+        {/* Scrolling track */}
+        <div
+          className="flex gap-4 w-max"
+          style={{
+            animation: `carousel-scroll 60s linear infinite`,
+            animationPlayState: paused ? "paused" : "running",
+          }}
         >
-          <ProfilePicture />
-        </Feature>
-
-        <Feature
-          index={2}
-          title="Language gate"
-          description="Only accept contributions in your chosen language"
-        >
-          <LanguageGate />
-        </Feature>
-
-        <Feature
-          index={3}
-          title="PR threshold"
-          description="Minimum merged PRs before someone can contribute"
-        >
-          <PRThreshold />
-        </Feature>
-
-        <Feature
-          index={4}
-          title="Account age"
-          description="Block accounts created too recently from contributing"
-        >
-          <AccountAge />
-        </Feature>
-
-        <Feature
-          index={5}
-          title="Max PRs per day"
-          description="Rate limit PRs per user to prevent spam floods"
-        >
-          <MaxPrsPerDay />
-        </Feature>
-
-        <Feature
-          index={6}
-          title="Max files changed"
-          description="Reject PRs that modify too many files at once"
-        >
-          <MaxFilesChanged />
-        </Feature>
-
-        <Feature
-          index={7}
-          title="Repo activity"
-          description="Require contributors to have public repository history"
-        >
-          <RepoActivityMinimum />
-        </Feature>
-
-        <Feature
-          index={8}
-          title="Profile README"
-          description="Contributors must have a GitHub profile README"
-        >
-          <RequireProfileReadme />
-        </Feature>
-
-        <Feature
-          index={9}
-          title="Allow & block lists"
-          description="Per-user overrides for all your rules"
-        >
-          <AllowBlock />
-        </Feature>
+          {track.map((f, i) => (
+            <CarouselCard
+              key={`${f.title}-${i}`}
+              title={f.title}
+              description={f.description}
+            >
+              {f.content}
+            </CarouselCard>
+          ))}
+        </div>
       </div>
+
+      {/* Keyframes injected via style tag */}
+      <style>{`
+        @keyframes carousel-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   );
 }

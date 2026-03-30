@@ -40,7 +40,7 @@ function LandingPage() {
 	return (
 		<div className="[font-synthesis:none] flex w-full min-h-screen flex-col bg-[#191919] antialiased">
 			{/* Hero Section */}
-			<div className="flex w-full h-[60vh] justify-center items-center flex-col gap-10 px-4 relative">
+			<div className="flex w-full h-[70vh] justify-center items-center flex-col gap-10 px-4 relative">
 
 				{/* Header */}
 				<h1 className="text-white font-['Instrument_Sans',system-ui,sans-serif] font-semibold text-xl">
