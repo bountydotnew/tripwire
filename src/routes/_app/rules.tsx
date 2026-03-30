@@ -12,6 +12,7 @@ import {
 	MaxFilesChangedViz,
 	RepoActivityViz,
 	ProfileReadmeViz,
+	CryptoViz,
 } from "../../components/rules/rule-card-grid";
 import { RuleDropdown } from "../../components/rules/rule-dropdown";
 import { UserList } from "../../components/rules/user-list";
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/_app/rules")({
 
 function RulesPageSkeleton() {
 	return (
-		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6">
+		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6 max-w-[1000px] mx-auto w-full">
 			<div className="flex items-start justify-between w-full">
 				<div className="flex flex-col gap-1">
 					<div className="h-7 w-16 bg-white/5 rounded" />
@@ -76,6 +77,7 @@ function RulesPage() {
 		maxFilesChanged: { ...DEFAULT_RULE_CONFIG.maxFilesChanged, ...rawConfig?.maxFilesChanged },
 		repoActivityMinimum: { ...DEFAULT_RULE_CONFIG.repoActivityMinimum, ...rawConfig?.repoActivityMinimum },
 		requireProfileReadme: { ...DEFAULT_RULE_CONFIG.requireProfileReadme, ...rawConfig?.requireProfileReadme },
+		cryptoAddressDetection: { ...DEFAULT_RULE_CONFIG.cryptoAddressDetection, ...rawConfig?.cryptoAddressDetection },
 	};
 
 	const updateConfig = useMutation(
@@ -228,6 +230,7 @@ function RulesPage() {
 		config.maxFilesChanged.enabled,
 		config.repoActivityMinimum.enabled,
 		config.requireProfileReadme.enabled,
+		config.cryptoAddressDetection.enabled,
 	].filter(Boolean).length;
 
 	const LANGUAGE_OPTIONS = [
@@ -270,7 +273,7 @@ function RulesPage() {
 	}
 
 	return (
-		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6">
+		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6 max-w-[1000px] mx-auto w-full">
 			{/* Header */}
 			<div className="flex items-start justify-between w-full">
 				<div className="flex flex-col gap-0.5">
@@ -289,14 +292,18 @@ function RulesPage() {
 					title="AI slop detection"
 					description="Use known detection patterns to minimize automated activity"
 					enabled={config.aiSlopDetection.enabled}
+					action={config.aiSlopDetection.action}
 					onToggle={(v) => toggleRule("aiSlopDetection", v)}
+					onActionChange={(a) => updateRuleValue("aiSlopDetection", { action: a })}
 					visualization={<AiSlopViz />}
 				/>
 				<RuleCardGrid
 					title="Require profile picture"
 					description="Require a custom profile picture instead of GitHub's fallback"
 					enabled={config.requireProfilePicture.enabled}
+					action={config.requireProfilePicture.action}
 					onToggle={(v) => toggleRule("requireProfilePicture", v)}
+					onActionChange={(a) => updateRuleValue("requireProfilePicture", { action: a })}
 					visualization={<ProfilePictureViz />}
 				/>
 				<RuleCardGrid
@@ -314,7 +321,9 @@ function RulesPage() {
 					}
 					description="Contributions in a disallowed language will be declined"
 					enabled={config.languageRequirement.enabled}
+					action={config.languageRequirement.action}
 					onToggle={(v) => toggleRule("languageRequirement", v)}
+					onActionChange={(a) => updateRuleValue("languageRequirement", { action: a })}
 					visualization={<LanguageViz />}
 				/>
 				<RuleCardGrid
@@ -333,7 +342,9 @@ function RulesPage() {
 					}
 					description="Minimum merged pull requests before they can contribute"
 					enabled={config.minMergedPrs.enabled}
+					action={config.minMergedPrs.action}
 					onToggle={(v) => toggleRule("minMergedPrs", v)}
+					onActionChange={(a) => updateRuleValue("minMergedPrs", { action: a })}
 					visualization={<MergedPrsViz />}
 				/>
 				<RuleCardGrid
@@ -353,7 +364,9 @@ function RulesPage() {
 					}
 					description="Block accounts created too recently from contributing"
 					enabled={config.accountAge.enabled}
+					action={config.accountAge.action}
 					onToggle={(v) => toggleRule("accountAge", v)}
+					onActionChange={(a) => updateRuleValue("accountAge", { action: a })}
 					visualization={<AccountAgeViz />}
 				/>
 				<RuleCardGrid
@@ -372,7 +385,9 @@ function RulesPage() {
 					}
 					description="Rate limit how many PRs or issues a single user can open per day"
 					enabled={config.maxPrsPerDay.enabled}
+					action={config.maxPrsPerDay.action}
 					onToggle={(v) => toggleRule("maxPrsPerDay", v)}
+					onActionChange={(a) => updateRuleValue("maxPrsPerDay", { action: a })}
 					visualization={<MaxPrsPerDayViz />}
 				/>
 				<RuleCardGrid
@@ -391,7 +406,9 @@ function RulesPage() {
 					}
 					description="Block pull requests that touch too many files in a single submission"
 					enabled={config.maxFilesChanged.enabled}
+					action={config.maxFilesChanged.action}
 					onToggle={(v) => toggleRule("maxFilesChanged", v)}
+					onActionChange={(a) => updateRuleValue("maxFilesChanged", { action: a })}
 					visualization={<MaxFilesChangedViz />}
 				/>
 				<RuleCardGrid
@@ -410,15 +427,28 @@ function RulesPage() {
 					}
 					description="Contributor must have meaningful activity across other public repos"
 					enabled={config.repoActivityMinimum.enabled}
+					action={config.repoActivityMinimum.action}
 					onToggle={(v) => toggleRule("repoActivityMinimum", v)}
+					onActionChange={(a) => updateRuleValue("repoActivityMinimum", { action: a })}
 					visualization={<RepoActivityViz />}
 				/>
 				<RuleCardGrid
 					title="Require profile README"
 					description="Contributors must have a profile README on their GitHub account"
 					enabled={config.requireProfileReadme.enabled}
+					action={config.requireProfileReadme.action}
 					onToggle={(v) => toggleRule("requireProfileReadme", v)}
+					onActionChange={(a) => updateRuleValue("requireProfileReadme", { action: a })}
 					visualization={<ProfileReadmeViz />}
+				/>
+				<RuleCardGrid
+					title="Crypto address detection"
+					description="Block content containing cryptocurrency wallet addresses (BTC, ETH, SOL, XMR, DASH)"
+					enabled={config.cryptoAddressDetection.enabled}
+					action={config.cryptoAddressDetection.action}
+					onToggle={(v) => toggleRule("cryptoAddressDetection", v)}
+					onActionChange={(a) => updateRuleValue("cryptoAddressDetection", { action: a })}
+					visualization={<CryptoViz />}
 				/>
 			</div>
 

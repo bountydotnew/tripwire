@@ -7,6 +7,7 @@ import {
 	blacklistEntries,
 	DEFAULT_RULE_CONFIG,
 	type RuleConfig,
+	type RuleAction,
 	type EventContentType,
 } from "#/db/schema";
 import {
@@ -14,6 +15,7 @@ import {
 	closePullRequest,
 	closeIssue,
 	deleteComment,
+	addComment,
 	getUser,
 	getMergedPrCount,
 	countUserPrsToday,
@@ -39,6 +41,8 @@ export interface RuleEvaluation {
 	passed: boolean;
 	nearMiss: boolean;
 	reason?: string;
+	/** The configured action for this rule */
+	action?: RuleAction;
 	/** The actual value measured (for numeric rules) */
 	actual?: number;
 	/** The configured threshold/limit (for numeric rules) */
@@ -49,11 +53,13 @@ export interface PipelineResult {
 	/** Whether the content was allowed through */
 	allowed: boolean;
 	/** How the pipeline resolved */
-	outcome: "allowed" | "blocked" | "whitelist_bypass" | "blacklist_blocked" | "repo_not_found";
-	/** The rule that blocked (if any) */
+	outcome: "allowed" | "blocked" | "warned" | "logged" | "whitelist_bypass" | "blacklist_blocked" | "repo_not_found";
+	/** The rule that blocked/warned (if any) */
 	blockingRule?: string;
-	/** Human-readable reason for the block */
+	/** Human-readable reason */
 	blockReason?: string;
+	/** The action to take based on the first failing rule */
+	resolvedAction?: RuleAction;
 	/** Detailed evaluation of each rule that was checked */
 	evaluations: RuleEvaluation[];
 	/** Number of enabled rules that were checked */
@@ -121,6 +127,35 @@ function detectAiSlop(text: string): string | null {
 	for (const pattern of AI_SLOP_PATTERNS) {
 		if (pattern.test(text)) {
 			return `matched pattern: ${pattern.source}`;
+		}
+	}
+	return null;
+}
+
+// ─── Crypto address detection ──────────────────────────────────
+
+const CRYPTO_PATTERNS: { name: string; pattern: RegExp }[] = [
+	// Bitcoin (legacy P2PKH/P2SH + SegWit bech32)
+	{ name: "Bitcoin", pattern: /\b(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}\b/ },
+	// Ethereum (0x + 40 hex chars)
+	{ name: "Ethereum", pattern: /\b0x[a-fA-F0-9]{40}\b/ },
+	// Solana (44 base58 chars)
+	{ name: "Solana", pattern: /\b[1-9A-HJ-NP-Za-km-z]{44}\b/ },
+	// Monero (starts with 4, 95 chars total)
+	{ name: "Monero", pattern: /\b4[0-9AB][1-9A-HJ-NP-Za-km-z]{93}\b/ },
+	// Dash (starts with X, 34 chars total)
+	{ name: "Dash", pattern: /\bX[1-9A-HJ-NP-Za-km-z]{33}\b/ },
+];
+
+/**
+ * Scan text for cryptocurrency wallet addresses.
+ * Returns the first match found, or null if clean.
+ */
+function detectCryptoAddress(text: string): { crypto: string; address: string } | null {
+	for (const { name, pattern } of CRYPTO_PATTERNS) {
+		const match = text.match(pattern);
+		if (match) {
+			return { crypto: name, address: match[0] };
 		}
 	}
 	return null;
@@ -207,6 +242,7 @@ export async function runFilterPipeline(
 		maxFilesChanged: { ...DEFAULT_RULE_CONFIG.maxFilesChanged, ...rawConfig?.maxFilesChanged },
 		repoActivityMinimum: { ...DEFAULT_RULE_CONFIG.repoActivityMinimum, ...rawConfig?.repoActivityMinimum },
 		requireProfileReadme: { ...DEFAULT_RULE_CONFIG.requireProfileReadme, ...rawConfig?.requireProfileReadme },
+		cryptoAddressDetection: { ...DEFAULT_RULE_CONFIG.cryptoAddressDetection, ...rawConfig?.cryptoAddressDetection },
 	};
 
 	const token = await getInstallationToken(ctx.installationId);
@@ -224,9 +260,9 @@ export async function runFilterPipeline(
 		}
 	}
 
-	// Helper: if a rule blocks, we still continue checking remaining rules
-	// for near-miss detection, but we track the first blocker.
-	let firstBlock: { rule: string; reason: string } | null = null;
+	// Helper: if a rule fails, we still continue checking remaining rules
+	// for near-miss detection, but we track the first failure.
+	let firstBlock: { rule: string; reason: string; action: RuleAction } | null = null;
 
 	// ─── requireProfilePicture ─────────────────────────────────
 	if (config.requireProfilePicture.enabled && ghUser) {
@@ -245,7 +281,7 @@ export async function runFilterPipeline(
 		evaluations.push(eval_);
 
 		if (isDefaultAvatar && !firstBlock) {
-			firstBlock = { rule: eval_.rule, reason: eval_.reason! };
+			firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.requireProfilePicture.action };
 		}
 	}
 
@@ -272,7 +308,7 @@ export async function runFilterPipeline(
 		evaluations.push(eval_);
 
 		if (blocked && !firstBlock) {
-			firstBlock = { rule: eval_.rule, reason: eval_.reason! };
+			firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.accountAge.action };
 		}
 	}
 
@@ -297,7 +333,7 @@ export async function runFilterPipeline(
 			evaluations.push(eval_);
 
 			if (blocked && !firstBlock) {
-				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
+				firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.minMergedPrs.action };
 			}
 		} catch {
 			// Skip if API fails
@@ -321,7 +357,7 @@ export async function runFilterPipeline(
 		evaluations.push(eval_);
 
 		if (!passed && !firstBlock) {
-			firstBlock = { rule: eval_.rule, reason: eval_.reason! };
+			firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.languageRequirement.action };
 		}
 	}
 
@@ -342,7 +378,7 @@ export async function runFilterPipeline(
 		evaluations.push(eval_);
 
 		if (blocked && !firstBlock) {
-			firstBlock = { rule: eval_.rule, reason: eval_.reason! };
+			firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.aiSlopDetection.action };
 		}
 	}
 
@@ -367,7 +403,7 @@ export async function runFilterPipeline(
 			evaluations.push(eval_);
 
 			if (blocked && !firstBlock) {
-				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
+				firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.maxPrsPerDay.action };
 			}
 		} catch {
 			// Skip if API fails
@@ -396,7 +432,7 @@ export async function runFilterPipeline(
 			evaluations.push(eval_);
 
 			if (blocked && !firstBlock) {
-				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
+				firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.maxFilesChanged.action };
 			}
 		} catch {
 			// Skip if API fails
@@ -424,7 +460,7 @@ export async function runFilterPipeline(
 			evaluations.push(eval_);
 
 			if (blocked && !firstBlock) {
-				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
+				firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.repoActivityMinimum.action };
 			}
 		} catch {
 			// Skip if API fails
@@ -448,20 +484,52 @@ export async function runFilterPipeline(
 			evaluations.push(eval_);
 
 			if (!hasReadme && !firstBlock) {
-				firstBlock = { rule: eval_.rule, reason: eval_.reason! };
+				firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.requireProfileReadme.action };
 			}
 		} catch {
 			// Skip if API fails
 		}
 	}
 
+	// ─── cryptoAddressDetection ────────────────────────────────
+	if (config.cryptoAddressDetection.enabled && contentText) {
+		rulesChecked++;
+		const cryptoMatch = detectCryptoAddress(contentText);
+		const blocked = cryptoMatch !== null;
+
+		const eval_: RuleEvaluation = {
+			rule: "cryptoAddressDetection",
+			passed: !blocked,
+			nearMiss: false, // binary check
+			action: config.cryptoAddressDetection.action,
+			reason: blocked
+				? `Content from @${ctx.senderLogin} contains a ${cryptoMatch!.crypto} address: ${cryptoMatch!.address.substring(0, 12)}...`
+				: undefined,
+		};
+		evaluations.push(eval_);
+
+		if (blocked && !firstBlock) {
+			firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.cryptoAddressDetection.action };
+		}
+	}
+
 	// ─── Result ────────────────────────────────────────────────
 	if (firstBlock) {
+		const action = firstBlock.action;
+		// "log" means we record but don't act — content is effectively allowed
+		const allowed = action === "log";
+		const outcome = action === "block" || action === "threshold"
+			? "blocked"
+			: action === "warn"
+				? "warned"
+				: "logged";
+
 		return {
-			allowed: false,
-			outcome: "blocked",
+			allowed,
+			outcome,
 			blockingRule: firstBlock.rule,
 			blockReason: firstBlock.reason,
+			resolvedAction: action,
 			evaluations,
 			rulesChecked,
 			repoId: repo.id,
@@ -572,6 +640,38 @@ async function logPipelineEvents(
 				metadata: extraMetadata,
 			});
 			break;
+
+		case "warned":
+			eventBatch.push({
+				...baseEvent,
+				action: "pipeline_blocked",
+				severity: "warning",
+				ruleName: result.blockingRule,
+				description: `Warning: ${result.blockReason}`,
+				metadata: {
+					...extraMetadata,
+					rulesChecked: result.rulesChecked,
+					blockingRule: result.blockingRule,
+					ruleAction: "warn",
+				},
+			});
+			break;
+
+		case "logged":
+			eventBatch.push({
+				...baseEvent,
+				action: "pipeline_blocked",
+				severity: "info",
+				ruleName: result.blockingRule,
+				description: `Logged (no action): ${result.blockReason}`,
+				metadata: {
+					...extraMetadata,
+					rulesChecked: result.rulesChecked,
+					blockingRule: result.blockingRule,
+					ruleAction: "log",
+				},
+			});
+			break;
 	}
 
 	// 2. Log near-miss warnings (only for allowed outcomes)
@@ -600,8 +700,15 @@ async function logPipelineEvents(
 // ─── Webhook action handlers ───────────────────────────────────
 
 /**
- * Handle a pull_request webhook — run pipeline, take action, log everything.
+ * Execute the resolved action on a PR/issue/comment based on the pipeline result.
+ *
+ * Actions:
+ * - "block"     → close the PR/issue or delete the comment
+ * - "warn"      → leave a comment but don't close/delete
+ * - "log"       → do nothing (event already logged by logPipelineEvents)
+ * - "threshold" → treated as "block" (threshold counting is TODO)
  */
+
 export async function handlePullRequest(
 	ctx: WebhookContext,
 	prNumber: number,
@@ -614,17 +721,18 @@ export async function handlePullRequest(
 	const githubRef = `#${prNumber}`;
 	const extraMeta = { title: prTitle };
 
-	// Log all pipeline events (outcome + near-misses)
 	await logPipelineEvents(result, ctx, "pull_request", githubRef, extraMeta);
 
-	if (!result.allowed && result.blockReason) {
-		const [owner, repo] = ctx.repoFullName.split("/");
-		const token = await getInstallationToken(ctx.installationId);
+	if (result.outcome === "allowed" || !result.blockReason) return;
 
+	const action = result.resolvedAction ?? "block";
+	const [owner, repo] = ctx.repoFullName.split("/");
+	const token = await getInstallationToken(ctx.installationId);
+
+	if (action === "block" || action === "threshold") {
 		const comment = `> **Tripwire** — This PR was automatically closed.\n>\n> Reason: ${result.blockReason}`;
 		await closePullRequest(token, owner, repo, prNumber, comment);
 
-		// Log the specific action taken
 		if (result.repoId) {
 			await logEvent({
 				repoId: result.repoId,
@@ -636,15 +744,31 @@ export async function handlePullRequest(
 				targetGithubUsername: ctx.senderLogin,
 				targetGithubUserId: ctx.senderId,
 				githubRef,
-				metadata: { title: prTitle, reason: result.blockReason },
+				metadata: { title: prTitle, reason: result.blockReason, ruleAction: action },
+			});
+		}
+	} else if (action === "warn") {
+		const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._`;
+		await addComment(token, owner, repo, prNumber, comment);
+
+		if (result.repoId) {
+			await logEvent({
+				repoId: result.repoId,
+				action: "pipeline_blocked",
+				severity: "warning",
+				contentType: "pull_request",
+				ruleName: result.blockingRule,
+				description: `Warned on PR ${githubRef}: ${result.blockReason}`,
+				targetGithubUsername: ctx.senderLogin,
+				targetGithubUserId: ctx.senderId,
+				githubRef,
+				metadata: { title: prTitle, reason: result.blockReason, ruleAction: "warn" },
 			});
 		}
 	}
+	// "log" → no GitHub action, pipeline events already logged
 }
 
-/**
- * Handle an issues webhook — run pipeline, take action, log everything.
- */
 export async function handleIssue(
 	ctx: WebhookContext,
 	issueNumber: number,
@@ -658,10 +782,13 @@ export async function handleIssue(
 
 	await logPipelineEvents(result, ctx, "issue", githubRef, extraMeta);
 
-	if (!result.allowed && result.blockReason) {
-		const [owner, repo] = ctx.repoFullName.split("/");
-		const token = await getInstallationToken(ctx.installationId);
+	if (result.outcome === "allowed" || !result.blockReason) return;
 
+	const action = result.resolvedAction ?? "block";
+	const [owner, repo] = ctx.repoFullName.split("/");
+	const token = await getInstallationToken(ctx.installationId);
+
+	if (action === "block" || action === "threshold") {
 		const comment = `> **Tripwire** — This issue was automatically closed.\n>\n> Reason: ${result.blockReason}`;
 		await closeIssue(token, owner, repo, issueNumber, comment);
 
@@ -676,15 +803,30 @@ export async function handleIssue(
 				targetGithubUsername: ctx.senderLogin,
 				targetGithubUserId: ctx.senderId,
 				githubRef,
-				metadata: { title: issueTitle, reason: result.blockReason },
+				metadata: { title: issueTitle, reason: result.blockReason, ruleAction: action },
+			});
+		}
+	} else if (action === "warn") {
+		const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._`;
+		await addComment(token, owner, repo, issueNumber, comment);
+
+		if (result.repoId) {
+			await logEvent({
+				repoId: result.repoId,
+				action: "pipeline_blocked",
+				severity: "warning",
+				contentType: "issue",
+				ruleName: result.blockingRule,
+				description: `Warned on issue ${githubRef}: ${result.blockReason}`,
+				targetGithubUsername: ctx.senderLogin,
+				targetGithubUserId: ctx.senderId,
+				githubRef,
+				metadata: { title: issueTitle, reason: result.blockReason, ruleAction: "warn" },
 			});
 		}
 	}
 }
 
-/**
- * Handle an issue_comment webhook — run pipeline, take action, log everything.
- */
 export async function handleComment(
 	ctx: WebhookContext,
 	commentId: number,
@@ -697,10 +839,13 @@ export async function handleComment(
 
 	await logPipelineEvents(result, ctx, "comment", githubRef);
 
-	if (!result.allowed && result.blockReason) {
-		const [owner, repo] = ctx.repoFullName.split("/");
-		const token = await getInstallationToken(ctx.installationId);
+	if (result.outcome === "allowed" || !result.blockReason) return;
 
+	const action = result.resolvedAction ?? "block";
+	const [owner, repo] = ctx.repoFullName.split("/");
+	const token = await getInstallationToken(ctx.installationId);
+
+	if (action === "block" || action === "threshold") {
 		await deleteComment(token, owner, repo, commentId);
 
 		if (result.repoId) {
@@ -714,7 +859,25 @@ export async function handleComment(
 				targetGithubUsername: ctx.senderLogin,
 				targetGithubUserId: ctx.senderId,
 				githubRef,
-				metadata: { reason: result.blockReason },
+				metadata: { reason: result.blockReason, ruleAction: action },
+			});
+		}
+	} else if (action === "warn") {
+		const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._`;
+		await addComment(token, owner, repo, issueNumber, comment);
+
+		if (result.repoId) {
+			await logEvent({
+				repoId: result.repoId,
+				action: "pipeline_blocked",
+				severity: "warning",
+				contentType: "comment",
+				ruleName: result.blockingRule,
+				description: `Warned on comment ${githubRef}: ${result.blockReason}`,
+				targetGithubUsername: ctx.senderLogin,
+				targetGithubUserId: ctx.senderId,
+				githubRef,
+				metadata: { reason: result.blockReason, ruleAction: "warn" },
 			});
 		}
 	}

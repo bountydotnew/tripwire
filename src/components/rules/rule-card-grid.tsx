@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { RuleAction } from "#/db/schema";
 
 export {
 	AiSlopViz,
@@ -10,13 +11,30 @@ export {
 	MaxFilesChangedViz,
 	RepoActivityViz,
 	ProfileReadmeViz,
+	CryptoViz,
 } from "../landing/visuals";
+
+const ACTION_LABELS: Record<RuleAction, string> = {
+	block: "Block",
+	warn: "Warn",
+	log: "Log only",
+	threshold: "Threshold",
+};
+
+const ACTION_COLORS: Record<RuleAction, string> = {
+	block: "text-red-400",
+	warn: "text-amber-400",
+	log: "text-[#FFFFFF59]",
+	threshold: "text-tw-accent",
+};
 
 interface RuleCardGridProps {
 	title: ReactNode;
 	description: string;
 	enabled: boolean;
+	action?: RuleAction;
 	onToggle: (enabled: boolean) => void;
+	onActionChange?: (action: RuleAction) => void;
 	visualization: ReactNode;
 }
 
@@ -24,13 +42,15 @@ export function RuleCardGrid({
 	title,
 	description,
 	enabled,
+	action = "block",
 	onToggle,
+	onActionChange,
 	visualization,
 }: RuleCardGridProps) {
 	const handleCardClick = (e: React.MouseEvent) => {
 		// Don't toggle if clicking on interactive elements (dropdowns, buttons inside title)
 		const target = e.target as HTMLElement;
-		if (target.closest('[data-dropdown]') || target.closest('button:not([data-card-toggle])')) {
+		if (target.closest('[data-dropdown]') || target.closest('[data-action-select]') || target.closest('button:not([data-card-toggle])')) {
 			return;
 		}
 		onToggle(!enabled);
@@ -60,6 +80,34 @@ export function RuleCardGrid({
 				</div>
 			</div>
 
+			{/* Action selector — only visible when enabled */}
+			{enabled && onActionChange && (
+				<div
+					data-action-select
+					className="flex items-center gap-1.5"
+				>
+					{(Object.keys(ACTION_LABELS) as RuleAction[]).map((a) => (
+						<button
+							key={a}
+							type="button"
+							onClick={(e) => {
+								e.stopPropagation();
+								onActionChange(a);
+							}}
+							className={`
+								px-2 py-0.5 rounded-md text-[11px] font-medium border-none cursor-pointer transition-colors
+								${action === a
+									? `bg-white/10 ${ACTION_COLORS[a]}`
+									: "bg-transparent text-[#FFFFFF33] hover:text-[#FFFFFF59]"
+								}
+							`}
+						>
+							{ACTION_LABELS[a]}
+						</button>
+					))}
+				</div>
+			)}
+
 			{/* Toggle */}
 			<div
 				data-card-toggle
@@ -78,4 +126,3 @@ export function RuleCardGrid({
 		</div>
 	);
 }
-

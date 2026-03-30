@@ -148,6 +148,24 @@ export async function closePullRequest(
 	});
 }
 
+/** Add a comment to an issue or PR (without closing) */
+export async function addComment(
+	token: string,
+	owner: string,
+	repo: string,
+	issueNumber: number,
+	body: string,
+) {
+	return githubApi(
+		`/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
+		token,
+		{
+			method: "POST",
+			body: JSON.stringify({ body }),
+		},
+	);
+}
+
 /** Delete a comment */
 export async function deleteComment(
 	token: string,

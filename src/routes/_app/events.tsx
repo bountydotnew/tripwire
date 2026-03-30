@@ -251,7 +251,7 @@ function EventListSkeleton() {
 
 function EventsPageSkeleton() {
 	return (
-		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6">
+		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6 max-w-[1000px] mx-auto w-full">
 			{/* Header */}
 			<div className="flex flex-col gap-0.5">
 				<div className="h-7 w-20 bg-white/5 rounded" />
@@ -358,7 +358,7 @@ function EventsPage() {
 	}
 
 	return (
-		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6">
+		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6 max-w-[1000px] mx-auto w-full">
 			{/* Header */}
 			<div className="flex items-start justify-between w-full">
 				<div className="flex flex-col gap-0.5">

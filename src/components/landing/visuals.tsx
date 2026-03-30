@@ -273,3 +273,35 @@ export function ProfileReadmeViz() {
 		</svg>
 	);
 }
+
+export function CryptoViz() {
+	// Wallet address fragments with a "blocked" indicator
+	const lines = [
+		{ y: 10, text: "0x1a2B...f9E0", flagged: true },
+		{ y: 22, text: "bc1qxy2...m8k", flagged: false },
+		{ y: 34, text: "3J98t1W...vhX", flagged: true },
+		{ y: 46, text: "4Adun...Zx7p", flagged: false },
+	];
+	return (
+		<svg width="110" height="86" viewBox="0 0 72 56" fill="none">
+			{lines.map((l, i) => (
+				<g key={i}>
+					<rect x="8" y={l.y - 3} width="50" height="8" rx="2"
+						fill={l.flagged ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.03)"} />
+					<text x="12" y={l.y + 3} fontSize="5" fontFamily="monospace"
+						fill={l.flagged ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.15)"}>
+						{l.text}
+					</text>
+					{l.flagged && (
+						<>
+							<line x1="56" y1={l.y - 1} x2="62" y2={l.y + 3}
+								stroke="rgba(239,68,68,0.4)" strokeWidth="1" strokeLinecap="round" />
+							<line x1="62" y1={l.y - 1} x2="56" y2={l.y + 3}
+								stroke="rgba(239,68,68,0.4)" strokeWidth="1" strokeLinecap="round" />
+						</>
+					)}
+				</g>
+			))}
+		</svg>
+	);
+}

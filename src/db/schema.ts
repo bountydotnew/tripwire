@@ -148,28 +148,48 @@ export const repositories = pgTable(
  * Rule configuration per repository. Stores all rule settings as JSONB
  * so configs can be exported/imported as JSON trivially.
  */
+/**
+ * What happens when a rule is violated.
+ *
+ * - "block"     — close the PR/issue or delete the comment (default)
+ * - "warn"      — leave a Tripwire comment but don't close
+ * - "log"       — record the event silently, take no GitHub action
+ * - "threshold" — ignore until `thresholdCount` violations, then block
+ */
+export type RuleAction = "block" | "warn" | "log" | "threshold";
+
+/** Base fields every rule shares */
+type RuleBase = {
+	enabled: boolean;
+	action: RuleAction;
+	/** Only used when action === "threshold" */
+	thresholdCount?: number;
+};
+
 export type RuleConfig = {
-	aiSlopDetection: { enabled: boolean };
-	requireProfilePicture: { enabled: boolean };
-	languageRequirement: { enabled: boolean; language: string };
-	minMergedPrs: { enabled: boolean; count: number };
-	accountAge: { enabled: boolean; days: number };
-	maxPrsPerDay: { enabled: boolean; limit: number };
-	maxFilesChanged: { enabled: boolean; limit: number };
-	repoActivityMinimum: { enabled: boolean; minRepos: number };
-	requireProfileReadme: { enabled: boolean };
+	aiSlopDetection: RuleBase;
+	requireProfilePicture: RuleBase;
+	languageRequirement: RuleBase & { language: string };
+	minMergedPrs: RuleBase & { count: number };
+	accountAge: RuleBase & { days: number };
+	maxPrsPerDay: RuleBase & { limit: number };
+	maxFilesChanged: RuleBase & { limit: number };
+	repoActivityMinimum: RuleBase & { minRepos: number };
+	requireProfileReadme: RuleBase;
+	cryptoAddressDetection: RuleBase;
 };
 
 export const DEFAULT_RULE_CONFIG: RuleConfig = {
-	aiSlopDetection: { enabled: false },
-	requireProfilePicture: { enabled: false },
-	languageRequirement: { enabled: false, language: "English" },
-	minMergedPrs: { enabled: false, count: 15 },
-	accountAge: { enabled: false, days: 30 },
-	maxPrsPerDay: { enabled: false, limit: 5 },
-	maxFilesChanged: { enabled: false, limit: 20 },
-	repoActivityMinimum: { enabled: false, minRepos: 3 },
-	requireProfileReadme: { enabled: false },
+	aiSlopDetection: { enabled: false, action: "block" },
+	requireProfilePicture: { enabled: false, action: "block" },
+	languageRequirement: { enabled: false, action: "block", language: "English" },
+	minMergedPrs: { enabled: false, action: "block", count: 15 },
+	accountAge: { enabled: false, action: "block", days: 30 },
+	maxPrsPerDay: { enabled: false, action: "block", limit: 5 },
+	maxFilesChanged: { enabled: false, action: "block", limit: 20 },
+	repoActivityMinimum: { enabled: false, action: "block", minRepos: 3 },
+	requireProfileReadme: { enabled: false, action: "block" },
+	cryptoAddressDetection: { enabled: false, action: "block" },
 };
 
 export const ruleConfigs = pgTable("rule_configs", {

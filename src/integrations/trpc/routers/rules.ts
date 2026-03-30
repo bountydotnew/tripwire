@@ -12,19 +12,27 @@ import { logEvent } from "#/lib/events";
 
 import type { TRPCRouterRecord } from "@trpc/server";
 
+const ruleActionSchema = z.enum(["block", "warn", "log", "threshold"]);
+
+const ruleBaseSchema = z.object({
+	enabled: z.boolean(),
+	action: ruleActionSchema.default("block"),
+	thresholdCount: z.number().int().min(1).optional(),
+});
+
 const ruleConfigSchema = z.object({
-	aiSlopDetection: z.object({ enabled: z.boolean() }),
-	requireProfilePicture: z.object({ enabled: z.boolean() }),
-	languageRequirement: z.object({
-		enabled: z.boolean(),
+	aiSlopDetection: ruleBaseSchema,
+	requireProfilePicture: ruleBaseSchema,
+	languageRequirement: ruleBaseSchema.extend({
 		language: z.string(),
 	}),
-	minMergedPrs: z.object({ enabled: z.boolean(), count: z.number().int().min(0) }),
-	accountAge: z.object({ enabled: z.boolean(), days: z.number().int().min(0) }),
-	maxPrsPerDay: z.object({ enabled: z.boolean(), limit: z.number().int().min(1) }),
-	maxFilesChanged: z.object({ enabled: z.boolean(), limit: z.number().int().min(1) }),
-	repoActivityMinimum: z.object({ enabled: z.boolean(), minRepos: z.number().int().min(1) }),
-	requireProfileReadme: z.object({ enabled: z.boolean() }),
+	minMergedPrs: ruleBaseSchema.extend({ count: z.number().int().min(0) }),
+	accountAge: ruleBaseSchema.extend({ days: z.number().int().min(0) }),
+	maxPrsPerDay: ruleBaseSchema.extend({ limit: z.number().int().min(1) }),
+	maxFilesChanged: ruleBaseSchema.extend({ limit: z.number().int().min(1) }),
+	repoActivityMinimum: ruleBaseSchema.extend({ minRepos: z.number().int().min(1) }),
+	requireProfileReadme: ruleBaseSchema,
+	cryptoAddressDetection: ruleBaseSchema,
 });
 
 export const rulesRouter = {
