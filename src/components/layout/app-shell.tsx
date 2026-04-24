@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef, type KeyboardEvent } from "react";
+import { useState, useRef, type KeyboardEvent } from "react";
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { TopNav } from "./top-nav";
 import { WorkspaceProvider } from "#/lib/workspace-context";
 import { AuthProvider } from "#/lib/auth-context";
 import { ChatProvider, useAIChat } from "#/lib/ai/chat-context";
 import { ChatThread } from "../ask/chat-thread";
-import { ChatDemoThread } from "../ask/chat-demo-thread";
 
 export function AppShell() {
 	return (
@@ -24,28 +23,10 @@ function AppShellInner() {
 	const [inputValue, setInputValue] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	// Demo mode settings - can be toggled via console for demo purposes
-	const [chatDemoMode, setChatDemoMode] = useState(false);
-	const [chatDemoScenario, setChatDemoScenario] = useState<
-		"ban-flow" | "ai-slop"
-	>("ban-flow");
-
-	// Expose demo controls to window for easy toggling during demos
-	useEffect(() => {
-		if (typeof window !== "undefined") {
-			(window as any).__tripwire = {
-				setChatDemoMode,
-				setChatDemoScenario,
-				toggleDemo: () => setChatDemoMode((m) => !m),
-			};
-		}
-	}, []);
-
 	const routerState = useRouterState();
 	const currentPath = routerState.location.pathname;
 	const isHomePage = currentPath === "/home" || currentPath === "/";
 
-	// Show side panel on non-home pages when ask is open
 	const showSidePanel = !isHomePage && isOpen;
 
 	const handleSubmit = () => {
@@ -65,7 +46,6 @@ function AppShellInner() {
 		<div className="h-screen flex flex-col overflow-hidden bg-tw-bg tw-root antialiased">
 			<TopNav askOpen={isOpen} onToggleAsk={toggle} />
 			<div className="flex-1 min-h-0 px-2 pb-2 flex gap-2">
-				{/* Main inset — shrinks smoothly when the side panel opens */}
 				<div
 					className="flex-1 min-w-0 relative tw-inset"
 					style={{ boxShadow: "#00000008 0px 1px 4px" }}
@@ -75,7 +55,6 @@ function AppShellInner() {
 					</div>
 				</div>
 
-				{/* Ask side panel */}
 				<aside
 					className="shrink-0 tw-inset transition-all duration-[360ms]"
 					style={{
@@ -88,7 +67,6 @@ function AppShellInner() {
 				>
 					{showSidePanel && (
 						<div className="h-full w-full flex flex-col">
-							{/* Panel header */}
 							<div className="flex items-center justify-between pl-3 pr-2 pt-3 pb-2 shrink-0">
 								<div className="flex items-center gap-2 min-w-0">
 									<svg
@@ -121,7 +99,6 @@ function AppShellInner() {
 								</button>
 							</div>
 
-							{/* Intro text */}
 							<div className="px-3 pb-3 shrink-0">
 								<p className="text-[13px] leading-[19px] text-tw-text-secondary">
 									Ask about anything in your digest, or get help investigating a
@@ -129,19 +106,10 @@ function AppShellInner() {
 								</p>
 							</div>
 
-							{/* Content area */}
 							<div className="flex-1 min-h-0 overflow-auto px-2 pb-2">
-								{chatDemoMode ? (
-									<ChatDemoThread
-										key={chatDemoScenario}
-										scenario={chatDemoScenario}
-									/>
-								) : (
-									<ChatThread />
-								)}
+								<ChatThread />
 							</div>
 
-							{/* Composer */}
 							<div className="px-2 pb-2 shrink-0">
 								<div className="flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5">
 									<div className="flex items-center w-full gap-1.5">
@@ -159,12 +127,7 @@ function AppShellInner() {
 											type="button"
 											className="flex items-center justify-center size-9 rounded-[10px] text-tw-text-tertiary hover:text-tw-text-secondary transition-colors"
 										>
-											<svg
-												width="16"
-												height="16"
-												viewBox="0 0 16 16"
-												fill="currentColor"
-											>
+											<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
 												<path d="M8 1a2 2 0 0 0-2 2v4a2 2 0 1 0 4 0V3a2 2 0 0 0-2-2Z" />
 												<path d="M4.5 7A.75.75 0 0 0 3 7a5.001 5.001 0 0 0 4.25 4.944V13.5h-1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-1.5v-1.556A5.001 5.001 0 0 0 13 7a.75.75 0 0 0-1.5 0 3.5 3.5 0 1 1-7 0Z" />
 											</svg>
@@ -176,12 +139,7 @@ function AppShellInner() {
 												type="button"
 												className="flex items-center gap-1 h-7 px-2 rounded-lg text-tw-text-tertiary hover:text-tw-text-secondary hover:bg-tw-hover transition-colors"
 											>
-												<svg
-													width="16"
-													height="16"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-												>
+												<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
 													<path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
 												</svg>
 												<span className="text-[12px]">Add files</span>
@@ -190,12 +148,7 @@ function AppShellInner() {
 												type="button"
 												className="flex items-center gap-1 h-7 px-2 rounded-lg text-tw-text-tertiary hover:text-tw-text-secondary hover:bg-tw-hover transition-colors"
 											>
-												<svg
-													width="16"
-													height="16"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-												>
+												<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
 													<path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
 												</svg>
 												<span className="text-[12px]">Add context</span>
@@ -212,13 +165,9 @@ function AppShellInner() {
 											</span>
 											<span
 												className="flex items-center h-4 rounded-sm justify-center pt-[3px] pb-0 bg-[#222222] px-1"
-												style={{
-													boxShadow: "#0000001A 0px 1px 1px",
-												}}
+												style={{ boxShadow: "#0000001A 0px 1px 1px" }}
 											>
-												<span className="text-[11px] text-center text-tw-text-tertiary leading-none">
-													↵
-												</span>
+												<span className="text-[11px] text-center text-tw-text-tertiary leading-none">↵</span>
 											</span>
 										</button>
 									</div>

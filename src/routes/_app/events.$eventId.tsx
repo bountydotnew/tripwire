@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace } from "#/lib/workspace-context";
-import { USERS } from "#/components/home/mock-data";
+import { createUserFromUsername } from "#/utils/home";
 import { toastManager } from "#/components/ui/toast";
 
 export const Route = createFileRoute("/_app/events/$eventId")({
@@ -81,10 +81,6 @@ function EventDetailPage() {
 		},
 	});
 
-	// Mock data for demo when no real event is found
-	const mockEvent = getMockEventDetail(eventId);
-	const displayEvent = event || mockEvent;
-
 	if (isLoading) {
 		return (
 			<div className="min-h-full flex items-center justify-center">
@@ -93,7 +89,7 @@ function EventDetailPage() {
 		);
 	}
 
-	if ((error && !mockEvent) || (!isLoading && !displayEvent)) {
+	if (error || !event) {
 		return (
 			<div className="min-h-full flex flex-col items-center justify-center gap-4">
 				<p className="text-tw-text-secondary">Event not found</p>
@@ -108,10 +104,7 @@ function EventDetailPage() {
 		);
 	}
 
-	// Extra safety check - shouldn't reach here but prevents runtime errors
-	if (!displayEvent) {
-		return null;
-	}
+	const displayEvent = event;
 
 	const sevColor =
 		displayEvent?.severity === "error"
@@ -121,17 +114,7 @@ function EventDetailPage() {
 				: "#D1BC00";
 
 	const username = displayEvent?.targetGithubUsername || "unknown";
-	const user = USERS[username] || {
-		username,
-		name: username,
-		avatar: `https://github.com/${username}.png`,
-		accountAge: "Unknown",
-		publicRepos: 0,
-		followers: 0,
-		mergedPrs: 0,
-		readme: false,
-		tint: "#888",
-	};
+	const user = createUserFromUsername(username);
 
 	return (
 		<div className="relative min-h-full pb-16">
@@ -774,22 +757,3 @@ function formatRelativeTime(date: Date | undefined | null): string {
 	return `${days}d ago`;
 }
 
-function getMockEventDetail(eventId: string) {
-	// Return mock data for demo events
-	if (eventId === "e_quiet_1" || eventId.startsWith("e_")) {
-		return {
-			id: eventId,
-			action: "pipeline_blocked",
-			severity: "warning" as const,
-			description:
-				"Dear bounty creator... I noticed your project. Payout wallets: Solana: 8BsByR6rPqxDPku6dYtdoiSk6...",
-			targetGithubUsername: "Dlove123",
-			githubRef: "#412",
-			contentType: "issue" as const,
-			ruleName: "cryptoAddressDetection",
-			createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-			repo: { fullName: "bounty-new/app", name: "app", id: "demo" },
-		};
-	}
-	return null;
-}

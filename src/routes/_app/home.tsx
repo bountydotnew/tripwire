@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { EventGroupCard } from "#/components/home/event-group-card";
-import { type TripwireEvent, type EventAction, EVENTS_BUSY } from "#/components/home/mock-data";
+import type { TripwireEvent, EventAction } from "#/types/home";
 import { useAuth } from "#/lib/auth-context";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
@@ -49,9 +49,7 @@ function HomePage() {
 			};
 		}) ?? [];
 
-	// Use real events if available, otherwise fall back to mock data
-	const events = apiEvents.length > 0 ? apiEvents : EVENTS_BUSY;
-	const isUsingMockData = apiEvents.length === 0;
+	const events = apiEvents;
 
 	// Group events by groupKey
 	const groups: Array<{ key: string; items: TripwireEvent[] }> = [];
@@ -93,9 +91,7 @@ function HomePage() {
 						Welcome back, {userName}!
 					</h1>
 					<p className="text-[16px] leading-[22px] text-[#EEEEEE80] font-normal m-0 w-full whitespace-nowrap">
-						{isUsingMockData
-							? "Here's what you missed while you were gone"
-							: `${digestQuery.data?.totalEvents ?? 0} events in the last 48 hours`}
+						{digestQuery.data?.totalEvents ?? 0} events in the last 48 hours
 					</p>
 				</div>
 
@@ -129,16 +125,13 @@ function HomePage() {
 					</div>
 				)}
 
-				{/* More events link */}
 				{groups.length > 0 && (
 					<button
 						type="button"
 						onClick={() => navigate({ to: "/events" })}
 						className="mt-3 mx-auto text-center text-[12px] text-tw-text-tertiary hover:text-tw-text-secondary transition-colors self-center"
 					>
-						{isUsingMockData
-							? "+ 18 more events today - see all"
-							: `View all events →`}
+						View all events →
 					</button>
 				)}
 			</div>
