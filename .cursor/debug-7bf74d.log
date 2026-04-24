@@ -1,0 +1,57 @@
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H1","location":"root-provider.tsx:50","message":"module initialized","data":{"reactVersion":"19.2.5","hasWindow":true},"timestamp":1777024624170}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":true},"timestamp":1777024624184}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":true},"timestamp":1777024624185}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024625597}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024625598}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024625619}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":true},"timestamp":1777024625619}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":false,"useMemoType":"function"},"timestamp":1777024625646}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024625647}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024625687}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024625688}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H1","location":"root-provider.tsx:50","message":"module initialized","data":{"reactVersion":"19.2.5","hasWindow":true},"timestamp":1777024625881}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":true},"timestamp":1777024625908}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":true},"timestamp":1777024625908}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024626026}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":true},"timestamp":1777024626026}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":true},"timestamp":1777024626026}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024626026}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024626052}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024626052}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024627839}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024627840}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024631201}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024631201}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024631198}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024631198}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024631223}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024631224}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024631448}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024631448}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024631565}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024631565}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024631743}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024631743}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024635480}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024635480}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024643383}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024643382}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024643426}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024643426}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024644497}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024644497}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":false,"useMemoType":"function"},"timestamp":1777024644505}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024644505}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024657830}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H3","location":"root-provider.tsx:82","message":"TanStackQueryProvider render start","data":{"reactVersion":"19.2.5","hasWindow":true,"useMemoType":"function"},"timestamp":1777024657830}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024661395}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H2","location":"root-provider.tsx:58","message":"createQueryContext entered","data":{"hasWindow":false},"timestamp":1777024661396}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024725156}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024726518}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":true},"timestamp":1777024727348}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024727516}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024727945}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024727951}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024728133}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024728501}
+{"sessionId":"7bf74d","runId":"pre-fix","hypothesisId":"H4","location":"router.tsx:30","message":"getRouter called","data":{"hasWindow":false},"timestamp":1777024728919}

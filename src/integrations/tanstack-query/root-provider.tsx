@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import superjson from 'superjson'
 import { createTRPCClient, httpBatchStreamLink } from '@trpc/client'
@@ -15,6 +15,7 @@ function getUrl() {
   return `${base}/api/trpc`
 }
 
+// tRPC client is safe to create at module level (no React hooks)
 export const trpcClient = createTRPCClient<TRPCRouter>({
   links: [
     httpBatchStreamLink({
@@ -24,18 +25,8 @@ export const trpcClient = createTRPCClient<TRPCRouter>({
   ],
 })
 
-let context:
-  | {
-      queryClient: QueryClient
-      trpc: ReturnType<typeof createTRPCOptionsProxy<TRPCRouter>>
-    }
-  | undefined
-
-export function getContext() {
-  if (context) {
-    return context
-  }
-
+// Factory function to create fresh context - called per request/instance
+export function createQueryContext() {
   const queryClient = new QueryClient({
     defaultOptions: {
       dehydrate: { serializeData: superjson.serialize },
@@ -43,24 +34,24 @@ export function getContext() {
     },
   })
 
-  const serverHelpers = createTRPCOptionsProxy({
+  const trpc = createTRPCOptionsProxy({
     client: trpcClient,
-    queryClient: queryClient,
-  })
-  context = {
     queryClient,
-    trpc: serverHelpers,
-  }
+  })
 
-  return context
+  return { queryClient, trpc }
 }
+
+export type QueryContext = ReturnType<typeof createQueryContext>
 
 export default function TanStackQueryProvider({
   children,
 }: {
   children: ReactNode
 }) {
-  const { queryClient } = getContext()
+  // Create QueryClient once per React tree instance using useState initializer
+  // This ensures fresh context per SSR request while remaining stable on client
+  const [{ queryClient }] = useState(createQueryContext)
 
   return (
     <QueryClientProvider client={queryClient}>

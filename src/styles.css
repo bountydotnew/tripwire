@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -12,43 +13,78 @@
 
 @theme {
   --font-sans: "Geist", system-ui, sans-serif;
-  --font-display: "Inter", system-ui, sans-serif;
+  --font-display: "Playfair Display", Georgia, serif;
 
-  --color-tw-bg: #1B1B1B;
-  --color-tw-sidebar: #191919;
-  --color-tw-card: #262525;
-  --color-tw-border: #232323;
+  /* Tripwire color palette (from prototype) */
+  --color-tw-bg: #0D0D0F;
+  --color-tw-surface: #17171A;
+  --color-tw-card: #202023;
+  --color-tw-inner: #FAFAFA1A;
+  --color-tw-border: #FFFFFF14;
   --color-tw-border-card: #0000004D;
-  --color-tw-text-primary: #FFFFFF;
-  --color-tw-text-secondary: #FFFFFF73;
-  --color-tw-text-muted: #939393;
+  --color-tw-hover: #18181B;
+  --color-tw-hover-light: #25252A;
+
+  /* Text colors */
+  --color-tw-text-primary: #EEEEEE;
+  --color-tw-text-secondary: #B4B4B4;
+  --color-tw-text-muted: #9F9FA9;
+  --color-tw-text-tertiary: #6E6E6E;
+
+  /* Semantic colors */
   --color-tw-accent: #34A6FF;
-  --color-tw-success: #0F8A1B;
+  --color-tw-success: #67E19F;
+  --color-tw-error: #F56D5D;
+  --color-tw-warning: #D1BC00;
+
+  /* Chart colors */
   --color-tw-chart-blue: #118AF3;
   --color-tw-chart-orange: #DF750C;
 
+  /* Integration brand colors */
+  --color-tw-figma: #533AFD;
+  --color-tw-linear: #5E6AD2;
+  --color-tw-github: #000000;
+
   /* shadcn/ui variables */
-  --color-background: #1B1B1B;
-  --color-foreground: #FFFFFF;
-  --color-popover: #262525;
-  --color-popover-foreground: #FFFFFF;
-  --color-border: transparent;
-  --color-accent: #333333;
-  --color-accent-foreground: #FFFFFF;
-  --color-muted: #262525;
-  --color-muted-foreground: #FFFFFF73;
+  --color-background: #0D0D0F;
+  --color-foreground: #EEEEEE;
+  --color-popover: #1F1E1E;
+  --color-popover-foreground: #EEEEEE;
+  --color-border: #FFFFFF14;
+  --color-accent: #202023;
+  --color-accent-foreground: #EEEEEE;
+  --color-muted: #202023;
+  --color-muted-foreground: #B4B4B4;
   --color-primary: #34A6FF;
   --color-primary-foreground: #FFFFFF;
-  --color-input: #333333;
+  --color-input: #202023;
   --color-ring: #34A6FF;
   --radius-lg: 0.5rem;
 }
 
 body {
-  @apply m-0 bg-tw-bg text-white antialiased;
+  @apply m-0 bg-tw-bg text-tw-text-primary antialiased;
   font-family: "Geist", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tripwire utility classes */
+.tw-root {
+  @apply bg-tw-bg text-tw-text-primary;
+}
+
+.tw-card {
+  @apply bg-tw-card rounded-xl p-1;
+}
+
+.tw-card-inner {
+  @apply bg-tw-inner rounded-[10px] p-2;
+}
+
+.tw-inset {
+  @apply bg-tw-surface rounded-[14px] overflow-hidden;
 }
 
 :root {

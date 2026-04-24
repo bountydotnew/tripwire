@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { eq, desc, sql, and, gte, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, gte, inArray, isNotNull } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { authedProcedure } from "../init";
 import { db } from "#/db";
-import { events } from "#/db/schema";
+import { events, repositories } from "#/db/schema";
 
 import type { TRPCRouterRecord } from "@trpc/server";
 
@@ -29,6 +30,107 @@ const eventActionEnum = z.enum([
 const severityEnum = z.enum(["info", "warning", "success", "error"]);
 
 export const eventsRouter = {
+	/** Get a single event by ID */
+	get: authedProcedure
+		.input(z.object({ eventId: z.string().uuid() }))
+		.query(async ({ input }) => {
+			const [event] = await db
+				.select()
+				.from(events)
+				.where(eq(events.id, input.eventId))
+				.limit(1);
+
+			if (!event) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+			}
+
+			// Fetch repo info
+			const [repo] = await db
+				.select({
+					id: repositories.id,
+					name: repositories.name,
+					fullName: repositories.fullName,
+				})
+				.from(repositories)
+				.where(eq(repositories.id, event.repoId))
+				.limit(1);
+
+			return { ...event, repo };
+		}),
+
+	/** Get digest events for the home page - recent flagged/blocked events grouped by user */
+	digest: authedProcedure
+		.input(
+			z.object({
+				repoId: z.string().uuid(),
+				limit: z.number().int().min(1).max(20).default(10),
+				hours: z.number().int().min(1).max(168).default(24), // up to 7 days
+			}),
+		)
+		.query(async ({ input }) => {
+			const since = new Date();
+			since.setHours(since.getHours() - input.hours);
+
+			// Fetch recent events that are flagged/blocked (not success/info)
+			const rows = await db
+				.select()
+				.from(events)
+				.where(
+					and(
+						eq(events.repoId, input.repoId),
+						gte(events.createdAt, since),
+						inArray(events.severity, ["warning", "error"]),
+						isNotNull(events.targetGithubUsername),
+					),
+				)
+				.orderBy(desc(events.createdAt))
+				.limit(50); // Fetch more to group
+
+			// Group events by targetGithubUsername + action type
+			const grouped = new Map<
+				string,
+				{
+					groupKey: string;
+					events: typeof rows;
+					latestAt: Date;
+					severity: string;
+				}
+			>();
+
+			for (const event of rows) {
+				const username = event.targetGithubUsername || "unknown";
+				const key = `${username}-${event.action}`;
+
+				if (!grouped.has(key)) {
+					grouped.set(key, {
+						groupKey: key,
+						events: [],
+						latestAt: event.createdAt,
+						severity: event.severity || "warning",
+					});
+				}
+				grouped.get(key)!.events.push(event);
+			}
+
+			// Convert to array and limit
+			const digestGroups = Array.from(grouped.values())
+				.sort((a, b) => b.latestAt.getTime() - a.latestAt.getTime())
+				.slice(0, input.limit)
+				.map((g) => ({
+					groupKey: g.groupKey,
+					severity: g.severity,
+					eventCount: g.events.length,
+					latestAt: g.latestAt,
+					primaryEvent: g.events[0],
+					users: [...new Set(g.events.map((e) => e.targetGithubUsername))],
+				}));
+
+			return {
+				groups: digestGroups,
+				totalEvents: rows.length,
+			};
+		}),
+
 	/** List events with rich filtering */
 	list: authedProcedure
 		.input(
@@ -241,5 +343,77 @@ export const eventsRouter = {
 				.limit(50);
 
 			return rows.filter((r) => r.username !== null);
+		}),
+
+	/** Get event counts grouped by action type for tab badges */
+	countsByAction: authedProcedure
+		.input(
+			z.object({
+				repoId: z.string().uuid(),
+				days: z.number().int().min(1).max(90).default(30),
+			}),
+		)
+		.query(async ({ input }) => {
+			const since = new Date();
+			since.setDate(since.getDate() - input.days);
+
+			const rows = await db
+				.select({
+					action: events.action,
+					count: sql<number>`count(*)::int`,
+				})
+				.from(events)
+				.where(
+					and(
+						eq(events.repoId, input.repoId),
+						gte(events.createdAt, since),
+					),
+				)
+				.groupBy(events.action);
+
+			const counts: Record<string, number> = {};
+			let total = 0;
+			for (const row of rows) {
+				counts[row.action] = row.count;
+				total += row.count;
+			}
+
+			return {
+				total,
+				pipeline_blocked: counts["pipeline_blocked"] ?? 0,
+				pipeline_allowed: counts["pipeline_allowed"] ?? 0,
+				rule_near_miss: counts["rule_near_miss"] ?? 0,
+				rule_config_updated: counts["rule_config_updated"] ?? 0,
+				blacklist_blocked: counts["blacklist_blocked"] ?? 0,
+				whitelist_bypass: counts["whitelist_bypass"] ?? 0,
+			};
+		}),
+	/** Count events blocked by AI slop detection */
+	slopBlocked: authedProcedure
+		.input(
+			z.object({
+				repoId: z.string().uuid(),
+				days: z.number().int().min(1).max(90).default(30),
+			}),
+		)
+		.query(async ({ input }) => {
+			const since = new Date();
+			since.setDate(since.getDate() - input.days);
+
+			const [result] = await db
+				.select({
+					count: sql<number>`count(*)::int`,
+				})
+				.from(events)
+				.where(
+					and(
+						eq(events.repoId, input.repoId),
+						gte(events.createdAt, since),
+						eq(events.ruleName, "aiSlopDetection"),
+						inArray(events.action, ["pipeline_blocked", "pr_closed", "issue_closed", "comment_deleted"]),
+					),
+				);
+
+			return { count: result?.count ?? 0 };
 		}),
 } satisfies TRPCRouterRecord;

@@ -12,17 +12,19 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiChatRouteImport } from './routes/api.chat'
 import { Route as AppSearchRouteImport } from './routes/_app/search'
 import { Route as AppRulesRouteImport } from './routes/_app/rules'
 import { Route as AppIntegrationsRouteImport } from './routes/_app/integrations'
 import { Route as AppInsightsRouteImport } from './routes/_app/insights'
 import { Route as AppHomeRouteImport } from './routes/_app/home'
-import { Route as AppEventsRouteImport } from './routes/_app/events'
 import { Route as AppAutomationsRouteImport } from './routes/_app/automations'
+import { Route as AppEventsIndexRouteImport } from './routes/_app/events.index'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api.trpc.$'
 import { Route as ApiGithubWebhookRouteImport } from './routes/api.github.webhook'
 import { Route as ApiGithubCallbackRouteImport } from './routes/api.github.callback'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AppEventsEventIdRouteImport } from './routes/_app/events.$eventId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -36,6 +38,11 @@ const AppRoute = AppRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppSearchRoute = AppSearchRouteImport.update({
@@ -63,14 +70,14 @@ const AppHomeRoute = AppHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AppRoute,
 } as any)
-const AppEventsRoute = AppEventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppAutomationsRoute = AppAutomationsRouteImport.update({
   id: '/automations',
   path: '/automations',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEventsIndexRoute = AppEventsIndexRouteImport.update({
+  id: '/events/',
+  path: '/events/',
   getParentRoute: () => AppRoute,
 } as any)
 const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
@@ -93,36 +100,45 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppEventsEventIdRoute = AppEventsEventIdRouteImport.update({
+  id: '/events/$eventId',
+  path: '/events/$eventId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/automations': typeof AppAutomationsRoute
-  '/events': typeof AppEventsRoute
   '/home': typeof AppHomeRoute
   '/insights': typeof AppInsightsRoute
   '/integrations': typeof AppIntegrationsRoute
   '/rules': typeof AppRulesRoute
   '/search': typeof AppSearchRoute
+  '/api/chat': typeof ApiChatRoute
+  '/events/$eventId': typeof AppEventsEventIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/webhook': typeof ApiGithubWebhookRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/events/': typeof AppEventsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/automations': typeof AppAutomationsRoute
-  '/events': typeof AppEventsRoute
   '/home': typeof AppHomeRoute
   '/insights': typeof AppInsightsRoute
   '/integrations': typeof AppIntegrationsRoute
   '/rules': typeof AppRulesRoute
   '/search': typeof AppSearchRoute
+  '/api/chat': typeof ApiChatRoute
+  '/events/$eventId': typeof AppEventsEventIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/webhook': typeof ApiGithubWebhookRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/events': typeof AppEventsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -130,16 +146,18 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/automations': typeof AppAutomationsRoute
-  '/_app/events': typeof AppEventsRoute
   '/_app/home': typeof AppHomeRoute
   '/_app/insights': typeof AppInsightsRoute
   '/_app/integrations': typeof AppIntegrationsRoute
   '/_app/rules': typeof AppRulesRoute
   '/_app/search': typeof AppSearchRoute
+  '/api/chat': typeof ApiChatRoute
+  '/_app/events/$eventId': typeof AppEventsEventIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/webhook': typeof ApiGithubWebhookRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/_app/events/': typeof AppEventsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -147,53 +165,60 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/automations'
-    | '/events'
     | '/home'
     | '/insights'
     | '/integrations'
     | '/rules'
     | '/search'
+    | '/api/chat'
+    | '/events/$eventId'
     | '/api/auth/$'
     | '/api/github/callback'
     | '/api/github/webhook'
     | '/api/trpc/$'
+    | '/events/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/automations'
-    | '/events'
     | '/home'
     | '/insights'
     | '/integrations'
     | '/rules'
     | '/search'
+    | '/api/chat'
+    | '/events/$eventId'
     | '/api/auth/$'
     | '/api/github/callback'
     | '/api/github/webhook'
     | '/api/trpc/$'
+    | '/events'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/login'
     | '/_app/automations'
-    | '/_app/events'
     | '/_app/home'
     | '/_app/insights'
     | '/_app/integrations'
     | '/_app/rules'
     | '/_app/search'
+    | '/api/chat'
+    | '/_app/events/$eventId'
     | '/api/auth/$'
     | '/api/github/callback'
     | '/api/github/webhook'
     | '/api/trpc/$'
+    | '/_app/events/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ApiChatRoute: typeof ApiChatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiGithubCallbackRoute: typeof ApiGithubCallbackRoute
   ApiGithubWebhookRoute: typeof ApiGithubWebhookRoute
@@ -221,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/search': {
@@ -258,18 +290,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHomeRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/events': {
-      id: '/_app/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof AppEventsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/automations': {
       id: '/_app/automations'
       path: '/automations'
       fullPath: '/automations'
       preLoaderRoute: typeof AppAutomationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/events/': {
+      id: '/_app/events/'
+      path: '/events'
+      fullPath: '/events/'
+      preLoaderRoute: typeof AppEventsIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/api/trpc/$': {
@@ -300,27 +332,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/events/$eventId': {
+      id: '/_app/events/$eventId'
+      path: '/events/$eventId'
+      fullPath: '/events/$eventId'
+      preLoaderRoute: typeof AppEventsEventIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppAutomationsRoute: typeof AppAutomationsRoute
-  AppEventsRoute: typeof AppEventsRoute
   AppHomeRoute: typeof AppHomeRoute
   AppInsightsRoute: typeof AppInsightsRoute
   AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppRulesRoute: typeof AppRulesRoute
   AppSearchRoute: typeof AppSearchRoute
+  AppEventsEventIdRoute: typeof AppEventsEventIdRoute
+  AppEventsIndexRoute: typeof AppEventsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAutomationsRoute: AppAutomationsRoute,
-  AppEventsRoute: AppEventsRoute,
   AppHomeRoute: AppHomeRoute,
   AppInsightsRoute: AppInsightsRoute,
   AppIntegrationsRoute: AppIntegrationsRoute,
   AppRulesRoute: AppRulesRoute,
   AppSearchRoute: AppSearchRoute,
+  AppEventsEventIdRoute: AppEventsEventIdRoute,
+  AppEventsIndexRoute: AppEventsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -329,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiChatRoute: ApiChatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiGithubCallbackRoute: ApiGithubCallbackRoute,
   ApiGithubWebhookRoute: ApiGithubWebhookRoute,

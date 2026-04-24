@@ -15,3 +15,4 @@ todos.json
 /.agents
 /.claude
 skills-lock.json
+/.pnpm-store

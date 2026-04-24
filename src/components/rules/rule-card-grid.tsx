@@ -59,8 +59,8 @@ export function RuleCardGrid({
 	return (
 		<div
 			onClick={handleCardClick}
-			className={`flex flex-col relative rounded-xl gap-3 bg-[#262525] border p-3.5 transition-colors cursor-pointer hover:bg-[#2a2a2a] ${
-				enabled ? "border-tw-accent/50" : "border-[#0000004d]"
+			className={`flex flex-col relative rounded-xl gap-3 bg-tw-card border p-3.5 transition-colors cursor-pointer hover:bg-tw-hover-light ${
+				enabled ? "border-tw-accent/40" : "border-tw-border-card"
 			}`}
 		>
 			{/* Visualization */}
@@ -72,10 +72,10 @@ export function RuleCardGrid({
 
 			{/* Content */}
 			<div>
-				<div className="tracking-[-0.3px] text-white font-medium text-[15px] leading-5">
+				<div className="tracking-[-0.3px] text-tw-text-primary font-medium text-[15px] leading-5">
 					{title}
 				</div>
-				<div className="mt-0.5 text-[#FFFFFF73] text-xs leading-4">
+				<div className="mt-0.5 text-tw-text-secondary text-xs leading-4">
 					{description}
 				</div>
 			</div>

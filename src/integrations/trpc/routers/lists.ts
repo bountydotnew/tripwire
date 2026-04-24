@@ -58,6 +58,44 @@ export const whitelistRouter = {
 		.mutation(async ({ input, ctx }) => {
 			const ghUser = await validateGitHubUser(input.githubUsername);
 
+			// Check if user is on the blacklist
+			const [blacklisted] = await db
+				.select()
+				.from(blacklistEntries)
+				.where(
+					and(
+						eq(blacklistEntries.repoId, input.repoId),
+						eq(blacklistEntries.githubUsername, ghUser.login),
+					),
+				)
+				.limit(1);
+
+			if (blacklisted) {
+				throw new TRPCError({
+					code: "CONFLICT",
+					message: `@${ghUser.login} is on the blacklist. Remove them from the blacklist first.`,
+				});
+			}
+
+			// Check if already whitelisted
+			const [existing] = await db
+				.select()
+				.from(whitelistEntries)
+				.where(
+					and(
+						eq(whitelistEntries.repoId, input.repoId),
+						eq(whitelistEntries.githubUsername, ghUser.login),
+					),
+				)
+				.limit(1);
+
+			if (existing) {
+				throw new TRPCError({
+					code: "CONFLICT",
+					message: `@${ghUser.login} is already on the whitelist.`,
+				});
+			}
+
 			const [entry] = await db
 				.insert(whitelistEntries)
 				.values({
@@ -131,6 +169,25 @@ export const blacklistRouter = {
 		)
 		.mutation(async ({ input, ctx }) => {
 			const ghUser = await validateGitHubUser(input.githubUsername);
+
+			// Check if already blacklisted
+			const [existing] = await db
+				.select()
+				.from(blacklistEntries)
+				.where(
+					and(
+						eq(blacklistEntries.repoId, input.repoId),
+						eq(blacklistEntries.githubUsername, ghUser.login),
+					),
+				)
+				.limit(1);
+
+			if (existing) {
+				throw new TRPCError({
+					code: "CONFLICT",
+					message: `@${ghUser.login} is already on the blacklist.`,
+				});
+			}
 
 			const [entry] = await db
 				.insert(blacklistEntries)

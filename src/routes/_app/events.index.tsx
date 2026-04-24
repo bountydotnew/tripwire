@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace } from "#/lib/workspace-context";
@@ -6,7 +6,7 @@ import { EmptyState } from "#/components/layout/empty-state";
 import { env } from "#/env";
 import { useState, useMemo } from "react";
 
-export const Route = createFileRoute("/_app/events")({
+export const Route = createFileRoute("/_app/events/")({
 	component: EventsPage,
 	pendingComponent: EventsPageSkeleton,
 });
@@ -37,9 +37,9 @@ type FilterState = {
 // ─── Config ────────────────────────────────────────────────────
 
 const SEVERITY_DOT: Record<string, string> = {
-	success: "bg-emerald-500",
-	error: "bg-red-500",
-	warning: "bg-amber-500",
+	success: "bg-tw-success",
+	error: "bg-tw-error",
+	warning: "bg-tw-warning",
 	info: "bg-tw-accent",
 };
 
@@ -84,7 +84,7 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
 function timeAgo(dateStr: string | Date): string {
 	const seconds = Math.floor(
 		(Date.now() - new Date(dateStr).getTime()) / 1000,
-	);
+	)
 	if (seconds < 60) return "just now";
 	if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
 	if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -92,108 +92,110 @@ function timeAgo(dateStr: string | Date): string {
 	return new Date(dateStr).toLocaleDateString("en-US", {
 		month: "short",
 		day: "numeric",
-	});
+	})
 }
 
 // ─── Components ────────────────────────────────────────────────
 
+// Events that don't have useful detail pages
+const NON_CLICKABLE_ACTIONS = new Set([
+	"rule_config_updated",
+	"whitelist_added",
+	"whitelist_removed",
+	"blacklist_added",
+	"blacklist_removed",
+]);
+
 function EventRow({ event }: { event: Event }) {
-	const [expanded, setExpanded] = useState(false);
 	const dotColor = SEVERITY_DOT[event.severity ?? "info"] ?? SEVERITY_DOT.info;
 	const actionLabel = ACTION_LABELS[event.action] ?? event.action;
-	const hasMetadata = event.metadata && Object.keys(event.metadata).length > 0;
+	const isClickable = !NON_CLICKABLE_ACTIONS.has(event.action);
 
-	return (
-		<button
-			type="button"
-			onClick={() => hasMetadata && setExpanded(!expanded)}
-			className={`
-				flex flex-col w-full text-left bg-transparent border-none p-0 m-0
-				${hasMetadata ? "cursor-pointer" : "cursor-default"}
-			`}
-		>
-			<div className="flex items-center gap-3 w-full px-4 py-2.5">
-				{/* Severity dot */}
-				<span className={`size-2 rounded-full shrink-0 ${dotColor}`} />
+	const content = (
+		<>
+			{/* Severity dot */}
+			<span className={`size-2 rounded-full shrink-0 ${dotColor}`} />
 
-				{/* Description */}
-				<span className="flex-1 min-w-0 text-[13px] font-medium text-white leading-4 tracking-[-0.2px] truncate">
-					{event.description || actionLabel}
-				</span>
+			{/* Description */}
+			<span className="flex-1 min-w-0 text-[13px] font-medium text-white leading-4 tracking-[-0.2px] truncate">
+				{event.description || actionLabel}
+			</span>
 
-				{/* Tags */}
-				<div className="flex items-center gap-1.5 shrink-0">
-					{event.ruleName && (
-						<span className="rounded bg-white/5 px-1.5 py-0.5 text-[11px] font-medium text-[#FFFFFF73] leading-none">
-							{RULE_NAMES[event.ruleName] ?? event.ruleName}
-						</span>
-					)}
-					{event.contentType && (
-						<span className="rounded bg-white/5 px-1.5 py-0.5 text-[11px] font-medium text-[#FFFFFF73] leading-none">
-							{CONTENT_TYPE_LABELS[event.contentType] ?? event.contentType}
-						</span>
-					)}
-					{event.githubRef && (
-						<span className="text-[11px] font-mono text-[#FFFFFF73] leading-none">
-							{event.githubRef}
-						</span>
-					)}
-				</div>
-
-				{/* Username */}
-				{event.targetGithubUsername && (
-					<a
-						href={`https://github.com/${event.targetGithubUsername}`}
-						target="_blank"
-						rel="noopener noreferrer"
-						onClick={(e) => e.stopPropagation()}
-						className="flex items-center gap-1.5 shrink-0 no-underline"
-					>
-						<img
-							src={`https://github.com/${event.targetGithubUsername}.png?size=32`}
-							alt=""
-							className="size-4 rounded-full"
-						/>
-						<span className="text-[12px] font-medium text-[#FFFFFF73] hover:text-white transition-colors">
-							{event.targetGithubUsername}
-						</span>
-					</a>
+			{/* Tags */}
+			<div className="flex items-center gap-1.5 shrink-0">
+				{event.ruleName && (
+					<span className="rounded bg-white/5 px-1.5 py-0.5 text-[11px] font-medium text-[#FFFFFF73] leading-none">
+						{RULE_NAMES[event.ruleName] ?? event.ruleName}
+					</span>
 				)}
-
-				{/* Timestamp */}
-				<span className="text-[12px] text-[#FFFFFF59] tabular-nums shrink-0 w-14 text-right">
-					{timeAgo(event.createdAt)}
-				</span>
-
-				{/* Expand indicator */}
-				{hasMetadata && (
-					<svg
-						width="12"
-						height="12"
-						viewBox="0 0 12 12"
-						className={`shrink-0 text-[#FFFFFF59] transition-transform ${expanded ? "rotate-180" : ""}`}
-					>
-						<path
-							d="M3 4.5L6 7.5L9 4.5"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="1.5"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-						/>
-					</svg>
+				{event.contentType && (
+					<span className="rounded bg-white/5 px-1.5 py-0.5 text-[11px] font-medium text-[#FFFFFF73] leading-none">
+						{CONTENT_TYPE_LABELS[event.contentType] ?? event.contentType}
+					</span>
+				)}
+				{event.githubRef && (
+					<span className="text-[11px] font-mono text-[#FFFFFF73] leading-none">
+						{event.githubRef}
+					</span>
 				)}
 			</div>
 
-			{/* Expanded metadata */}
-			{expanded && event.metadata && (
-				<div className="mx-4 mb-2.5 ml-[29px] rounded-lg bg-[#1B1B1B] border border-tw-border p-3">
-					<pre className="text-[11px] text-[#FFFFFF59] font-mono leading-relaxed whitespace-pre-wrap break-all m-0">
-						{JSON.stringify(event.metadata, null, 2)}
-					</pre>
+			{/* Username */}
+			{event.targetGithubUsername && (
+				<div className="flex items-center gap-1.5 shrink-0">
+					<img
+						src={`https://github.com/${event.targetGithubUsername}.png?size=32`}
+						alt=""
+						className="size-4 rounded-full"
+					/>
+					<span className="text-[12px] font-medium text-[#FFFFFF73]">
+						{event.targetGithubUsername}
+					</span>
 				</div>
 			)}
-		</button>
+
+			{/* Timestamp */}
+			<span className="text-[12px] text-[#FFFFFF59] tabular-nums shrink-0 w-14 text-right">
+				{timeAgo(event.createdAt)}
+			</span>
+
+			{/* Arrow indicator - only show for clickable rows */}
+			{isClickable && (
+				<svg
+					width="12"
+					height="12"
+					viewBox="0 0 12 12"
+					className="shrink-0 text-[#FFFFFF59]"
+				>
+					<path
+						d="M4.5 3L7.5 6L4.5 9"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="1.5"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					/>
+				</svg>
+			)}
+		</>
+	);
+
+	if (!isClickable) {
+		return (
+			<div className="flex items-center gap-3 w-full px-4 py-2.5">
+				{content}
+			</div>
+		);
+	}
+
+	return (
+		<Link
+			to="/events/$eventId"
+			params={{ eventId: event.id }}
+			className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-white/[0.02] transition-colors no-underline cursor-pointer"
+		>
+			{content}
+		</Link>
 	);
 }
 
@@ -229,7 +231,7 @@ function FilterTab({
 				</span>
 			)}
 		</button>
-	);
+	)
 }
 
 function EventListSkeleton() {
@@ -246,7 +248,7 @@ function EventListSkeleton() {
 				</div>
 			))}
 		</div>
-	);
+	)
 }
 
 function EventsPageSkeleton() {
@@ -283,7 +285,7 @@ function EventsPageSkeleton() {
 				<EventListSkeleton />
 			</div>
 		</div>
-	);
+	)
 }
 
 // ─── Page ──────────────────────────────────────────────────────
@@ -297,7 +299,7 @@ function EventsPage() {
 	const [filters, setFilters] = useState<FilterState>({
 		action: null,
 		username: "",
-	});
+	})
 
 	const [page, setPage] = useState(0);
 	const limit = 50;
@@ -311,7 +313,7 @@ function EventsPage() {
 			targetUsername: filters.username || undefined,
 		}),
 		[repoId, page, filters],
-	);
+	)
 
 	const eventsQuery = useQuery({
 		...trpc.events.list.queryOptions(queryInput),
@@ -319,7 +321,7 @@ function EventsPage() {
 		staleTime: 15_000,
 		refetchInterval: 30_000,
 		placeholderData: keepPreviousData,
-	});
+	})
 
 	// Stats query is independent of tab/filter state — never re-fetches on tab switch
 	const severityQuery = useQuery({
@@ -328,11 +330,21 @@ function EventsPage() {
 		),
 		enabled: !!repoId,
 		staleTime: 60_000,
-	});
+	})
+
+	// Tab counts query
+	const countsQuery = useQuery({
+		...trpc.events.countsByAction.queryOptions(
+			{ repoId: repoId!, days: 30 },
+		),
+		enabled: !!repoId,
+		staleTime: 60_000,
+	})
 
 	const events = (eventsQuery.data?.events ?? []) as unknown as Event[];
 	const total = eventsQuery.data?.total ?? 0;
 	const severityCounts = severityQuery.data ?? {};
+	const actionCounts = countsQuery.data;
 	const isInitialLoad = isLoading || (!eventsQuery.data && eventsQuery.isLoading);
 	const isFilterFetching = eventsQuery.isFetching && !isInitialLoad;
 
@@ -349,7 +361,7 @@ function EventsPage() {
 					href: `https://github.com/apps/${githubAppSlug}/installations/new`,
 				}}
 			/>
-		);
+		)
 	}
 
 	// Full skeleton only on very first load (no data at all yet)
@@ -374,9 +386,9 @@ function EventsPage() {
 			{/* Summary counters */}
 			<div className="flex flex-wrap rounded-xl overflow-clip bg-tw-card border border-[#0000000F] shadow-[#0000000A_0px_0px_2px,#0000000A_0px_0px_1px]">
 				{[
-					{ key: "success", label: "Allowed", dot: "bg-emerald-500" },
-					{ key: "error", label: "Blocked", dot: "bg-red-500" },
-					{ key: "warning", label: "Near Misses", dot: "bg-amber-500" },
+					{ key: "success", label: "Allowed", dot: "bg-tw-success" },
+					{ key: "error", label: "Blocked", dot: "bg-tw-error" },
+					{ key: "warning", label: "Near Misses", dot: "bg-tw-warning" },
 					{ key: "info", label: "Other", dot: "bg-tw-accent" },
 				].map((item, i, arr) => (
 					<div
@@ -401,11 +413,13 @@ function EventsPage() {
 				<FilterTab
 					label="All"
 					active={!filters.action}
+					count={actionCounts?.total}
 					onClick={() => setFilters((f) => ({ ...f, action: null }))}
 				/>
 				<FilterTab
 					label="Blocked"
 					active={filters.action === "pipeline_blocked"}
+					count={actionCounts?.pipeline_blocked}
 					onClick={() =>
 						setFilters((f) => ({
 							...f,
@@ -416,6 +430,7 @@ function EventsPage() {
 				<FilterTab
 					label="Allowed"
 					active={filters.action === "pipeline_allowed"}
+					count={actionCounts?.pipeline_allowed}
 					onClick={() =>
 						setFilters((f) => ({
 							...f,
@@ -426,6 +441,7 @@ function EventsPage() {
 				<FilterTab
 					label="Near Misses"
 					active={filters.action === "rule_near_miss"}
+					count={actionCounts?.rule_near_miss}
 					onClick={() =>
 						setFilters((f) => ({
 							...f,
@@ -436,6 +452,7 @@ function EventsPage() {
 				<FilterTab
 					label="Config"
 					active={filters.action === "rule_config_updated"}
+					count={actionCounts?.rule_config_updated}
 					onClick={() =>
 						setFilters((f) => ({
 							...f,
@@ -454,7 +471,7 @@ function EventsPage() {
 					value={filters.username}
 					onChange={(e) => {
 						setFilters((f) => ({ ...f, username: e.target.value }));
-						setPage(0);
+						setPage(0)
 					}}
 					className="h-7 w-44 rounded-lg border border-tw-border bg-transparent px-2.5 text-[13px] text-white placeholder:text-[#FFFFFF59] outline-none focus:border-tw-accent/50 transition-colors"
 				/>
@@ -464,7 +481,7 @@ function EventsPage() {
 						type="button"
 						onClick={() => {
 							setFilters({ action: null, username: "" });
-							setPage(0);
+							setPage(0)
 						}}
 						className="text-[13px] text-[#FFFFFF59] hover:text-white bg-transparent border-none cursor-pointer transition-colors px-2 py-1"
 					>
@@ -520,5 +537,5 @@ function EventsPage() {
 				</div>
 			)}
 		</div>
-	);
+	)
 }

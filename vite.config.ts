@@ -28,6 +28,7 @@ const config = defineConfig({
       // Aliasing v3 → v4 deduplicates them into one API.
       "zod/v3": "zod",
     },
+    dedupe: ["react", "react-dom"],
   },
 });
 

@@ -104,6 +104,29 @@ export const rulesRouter = {
 			return input.config;
 		}),
 
+	/** Count enabled rules for a repo */
+	countEnabled: authedProcedure
+		.input(z.object({ repoId: z.string().uuid() }))
+		.query(async ({ input }) => {
+			const [configRow] = await db
+				.select()
+				.from(ruleConfigs)
+				.where(eq(ruleConfigs.repoId, input.repoId));
+
+			const config = configRow?.config ?? DEFAULT_RULE_CONFIG;
+			let enabledCount = 0;
+
+			for (const value of Object.values(config)) {
+				if (typeof value === "object" && value !== null && "enabled" in value) {
+					if ((value as { enabled: boolean }).enabled) {
+						enabledCount++;
+					}
+				}
+			}
+
+			return { enabled: enabledCount, total: Object.keys(config).length };
+		}),
+
 	/** Export config as JSON (for copy-to-another-repo) */
 	exportConfig: authedProcedure
 		.input(z.object({ repoId: z.string().uuid() }))
