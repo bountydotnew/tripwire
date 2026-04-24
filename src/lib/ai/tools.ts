@@ -7,19 +7,40 @@ import {
 	blacklistEntries,
 	type EventAction,
 } from "#/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { logEvent } from "#/lib/events";
 
+// ─── Helpers ────────────────────────────────────────────────────
+
+/** Case-insensitive username comparison */
+function usernameEq(column: unknown, username: string) {
+	return sql`lower(${column}) = ${username.toLowerCase()}`;
+}
+
 // ─── JSON Render Spec Schema ─────────────────────────────────────
-// All tools return a json-render spec with a root element
+// All tools return a json-render spec with flat element map
 
 const specSchema = z.object({
-	root: z.object({
-		type: z.string(),
-		props: z.record(z.string(), z.unknown()),
-		children: z.array(z.unknown()).optional(),
-	}),
+	root: z.string(),
+	elements: z.record(
+		z.string(),
+		z.object({
+			type: z.string(),
+			props: z.record(z.string(), z.unknown()),
+			children: z.array(z.string()).optional(),
+		}),
+	),
 });
+
+/** Helper to create a simple single-element spec */
+function makeSpec(type: string, props: Record<string, unknown>) {
+	return {
+		root: "main",
+		elements: {
+			main: { type, props, children: [] },
+		},
+	};
+}
 
 // ─── Tool Definitions ───────────────────────────────────────────
 
@@ -55,10 +76,18 @@ export const listEventsDef = toolDefinition({
 	outputSchema: specSchema,
 });
 
+export const getListsDef = toolDefinition({
+	name: "get_lists",
+	description:
+		"Show all users currently on the blacklist and whitelist for this repository. Use this when the user asks to see the lists, view blocked users, or check who is blacklisted/whitelisted.",
+	inputSchema: z.object({}),
+	outputSchema: specSchema,
+});
+
 export const checkListsDef = toolDefinition({
 	name: "check_lists",
 	description:
-		"Check if a user is on the whitelist or blacklist for this repository.",
+		"Check if a SPECIFIC user is on the whitelist or blacklist. Requires a username. Use get_lists instead if the user wants to see all entries.",
 	inputSchema: z.object({
 		username: z.string(),
 	}),
@@ -109,6 +138,28 @@ export const removeFromWhitelistDef = toolDefinition({
 	needsApproval: true,
 });
 
+export const moveToWhitelistDef = toolDefinition({
+	name: "move_to_whitelist",
+	description:
+		"Move a user from the blacklist to the whitelist in one action. Use this when user asks to unblock someone AND whitelist them, or move them between lists.",
+	inputSchema: z.object({
+		username: z.string(),
+	}),
+	outputSchema: specSchema,
+	needsApproval: true,
+});
+
+export const moveToBlacklistDef = toolDefinition({
+	name: "move_to_blacklist",
+	description:
+		"Move a user from the whitelist to the blacklist in one action. Use this when user asks to remove whitelist AND block someone.",
+	inputSchema: z.object({
+		username: z.string(),
+	}),
+	outputSchema: specSchema,
+	needsApproval: true,
+});
+
 // ─── Tool Factory ───────────────────────────────────────────────
 
 interface ToolContext {
@@ -147,7 +198,7 @@ export function createTripwireTools(ctx: ToolContext) {
 					.where(
 						and(
 							eq(events.repoId, repoId),
-							eq(events.targetGithubUsername, username),
+							usernameEq(events.targetGithubUsername, username),
 						),
 					)
 					.orderBy(desc(events.createdAt))
@@ -158,7 +209,7 @@ export function createTripwireTools(ctx: ToolContext) {
 					.where(
 						and(
 							eq(whitelistEntries.repoId, repoId),
-							eq(whitelistEntries.githubUsername, username),
+							usernameEq(whitelistEntries.githubUsername, username),
 						),
 					)
 					.limit(1),
@@ -168,7 +219,7 @@ export function createTripwireTools(ctx: ToolContext) {
 					.where(
 						and(
 							eq(blacklistEntries.repoId, repoId),
-							eq(blacklistEntries.githubUsername, username),
+							usernameEq(blacklistEntries.githubUsername, username),
 						),
 					)
 					.limit(1),
@@ -180,7 +231,7 @@ export function createTripwireTools(ctx: ToolContext) {
 				.where(
 					and(
 						eq(events.repoId, repoId),
-						eq(events.targetGithubUsername, username),
+						usernameEq(events.targetGithubUsername, username),
 					),
 				);
 
@@ -190,20 +241,15 @@ export function createTripwireTools(ctx: ToolContext) {
 					? "whitelisted"
 					: "normal";
 
-			return {
-				root: {
-					type: "UserCard",
-					props: {
-						username: ghUser.login,
-						name: ghUser.name,
-						avatar: ghUser.avatar_url,
-						publicRepos: ghUser.public_repos,
-						followers: ghUser.followers,
-						tripwireEventCount: allEvents.length,
-						status,
-					},
-				},
-			};
+			return makeSpec("UserCard", {
+				username: ghUser.login,
+				name: ghUser.name,
+				avatar: ghUser.avatar_url,
+				publicRepos: ghUser.public_repos,
+				followers: ghUser.followers,
+				tripwireEventCount: allEvents.length,
+				status,
+			});
 		}),
 
 		// ─── Get Event ──────────────────────────────────────────
@@ -218,23 +264,18 @@ export function createTripwireTools(ctx: ToolContext) {
 				throw new Error("Event not found");
 			}
 
-			return {
-				root: {
-					type: "EventCard",
-					props: {
-						id: event.id,
-						action: event.action,
-						severity: (event.severity ?? "info") as "info" | "warning" | "error",
-						description: event.description ?? "",
-						date: event.createdAt.toLocaleDateString("en-US", {
-							month: "long",
-							day: "numeric",
-							year: "numeric",
-						}),
-						username: event.targetGithubUsername,
-					},
-				},
-			};
+			return makeSpec("EventCard", {
+				id: event.id,
+				action: event.action,
+				severity: (event.severity ?? "info") as "info" | "warning" | "error",
+				description: event.description ?? "",
+				date: event.createdAt.toLocaleDateString("en-US", {
+					month: "long",
+					day: "numeric",
+					year: "numeric",
+				}),
+				username: event.targetGithubUsername,
+			});
 		}),
 
 		// ─── List Events ────────────────────────────────────────
@@ -242,7 +283,7 @@ export function createTripwireTools(ctx: ToolContext) {
 			const conditions = [eq(events.repoId, repoId)];
 
 			if (username) {
-				conditions.push(eq(events.targetGithubUsername, username));
+				conditions.push(usernameEq(events.targetGithubUsername, username));
 			}
 			if (action) {
 				conditions.push(eq(events.action, action as EventAction));
@@ -260,26 +301,58 @@ export function createTripwireTools(ctx: ToolContext) {
 				.orderBy(desc(events.createdAt))
 				.limit(queryLimit);
 
-			return {
-				root: {
-					type: "EventsList",
-					props: {
-						title: "Recent Events",
-						events: rows.map((e) => ({
-							id: e.id,
-							action: e.action,
-							severity: (e.severity ?? "info") as "info" | "warning" | "error",
-							description: e.description ?? "",
-							date: e.createdAt.toLocaleDateString("en-US", {
-								month: "long",
-								day: "numeric",
-								year: "numeric",
-							}),
-							username: e.targetGithubUsername,
-						})),
-					},
-				},
-			};
+			return makeSpec("EventsList", {
+				title: "Recent Events",
+				events: rows.map((e) => ({
+					id: e.id,
+					action: e.action,
+					severity: (e.severity ?? "info") as "info" | "warning" | "error",
+					description: e.description ?? "",
+					date: e.createdAt.toLocaleDateString("en-US", {
+						month: "long",
+						day: "numeric",
+						year: "numeric",
+					}),
+					username: e.targetGithubUsername,
+				})),
+			});
+		}),
+
+		// ─── Get Lists ──────────────────────────────────────────
+		getListsDef.server(async () => {
+			const [blacklist, whitelist] = await Promise.all([
+				db
+					.select()
+					.from(blacklistEntries)
+					.where(eq(blacklistEntries.repoId, repoId))
+					.orderBy(desc(blacklistEntries.createdAt)),
+				db
+					.select()
+					.from(whitelistEntries)
+					.where(eq(whitelistEntries.repoId, repoId))
+					.orderBy(desc(whitelistEntries.createdAt)),
+			]);
+
+			return makeSpec("ListsOverview", {
+				blacklist: blacklist.map((e) => ({
+					username: e.githubUsername,
+					avatar: e.avatarUrl,
+					addedAt: e.createdAt.toLocaleDateString("en-US", {
+						month: "short",
+						day: "numeric",
+						year: "numeric",
+					}),
+				})),
+				whitelist: whitelist.map((e) => ({
+					username: e.githubUsername,
+					avatar: e.avatarUrl,
+					addedAt: e.createdAt.toLocaleDateString("en-US", {
+						month: "short",
+						day: "numeric",
+						year: "numeric",
+					}),
+				})),
+			});
 		}),
 
 		// ─── Check Lists ────────────────────────────────────────
@@ -291,7 +364,7 @@ export function createTripwireTools(ctx: ToolContext) {
 					.where(
 						and(
 							eq(whitelistEntries.repoId, repoId),
-							eq(whitelistEntries.githubUsername, username),
+							usernameEq(whitelistEntries.githubUsername, username),
 						),
 					)
 					.limit(1),
@@ -301,24 +374,19 @@ export function createTripwireTools(ctx: ToolContext) {
 					.where(
 						and(
 							eq(blacklistEntries.repoId, repoId),
-							eq(blacklistEntries.githubUsername, username),
+							usernameEq(blacklistEntries.githubUsername, username),
 						),
 					)
 					.limit(1),
 			]);
 
-			return {
-				root: {
-					type: "ListsStatus",
-					props: {
-						username,
-						isBlacklisted: blacklist.length > 0,
-						isWhitelisted: whitelist.length > 0,
-						blacklistReason: null,
-						whitelistReason: null,
-					},
-				},
-			};
+			return makeSpec("ListsStatus", {
+				username,
+				isBlacklisted: blacklist.length > 0,
+				isWhitelisted: whitelist.length > 0,
+				blacklistReason: null,
+				whitelistReason: null,
+			});
 		}),
 
 		// ─── Add to Blacklist ───────────────────────────────────
@@ -337,16 +405,11 @@ export function createTripwireTools(ctx: ToolContext) {
 				.limit(1);
 
 			if (existing) {
-				return {
-					root: {
-						type: "ActionResult",
-						props: {
-							success: false,
-							message: `@${ghUser.login} is already on the blacklist.`,
-							action: "add_to_blacklist",
-						},
-					},
-				};
+				return makeSpec("ActionResult", {
+					success: false,
+					message: `@${ghUser.login} is already on the blacklist.`,
+					action: "add_to_blacklist",
+				});
 			}
 
 			await db.insert(blacklistEntries).values({
@@ -367,16 +430,11 @@ export function createTripwireTools(ctx: ToolContext) {
 				metadata: { addedBy: userName, viaAI: true },
 			});
 
-			return {
-				root: {
-					type: "ActionResult",
-					props: {
-						success: true,
-						message: `@${ghUser.login} has been added to the blacklist. All their future contributions will be blocked.`,
-						action: "add_to_blacklist",
-					},
-				},
-			};
+			return makeSpec("ActionResult", {
+				success: true,
+				message: `@${ghUser.login} has been added to the blacklist. All their future contributions will be blocked.`,
+				action: "add_to_blacklist",
+			});
 		}),
 
 		// ─── Remove from Blacklist ──────────────────────────────
@@ -386,7 +444,7 @@ export function createTripwireTools(ctx: ToolContext) {
 				.where(
 					and(
 						eq(blacklistEntries.repoId, repoId),
-						eq(blacklistEntries.githubUsername, username),
+						usernameEq(blacklistEntries.githubUsername, username),
 					),
 				);
 
@@ -399,16 +457,11 @@ export function createTripwireTools(ctx: ToolContext) {
 				metadata: { removedBy: userName, viaAI: true },
 			});
 
-			return {
-				root: {
-					type: "ActionResult",
-					props: {
-						success: true,
-						message: `@${username} has been removed from the blacklist.`,
-						action: "remove_from_blacklist",
-					},
-				},
-			};
+			return makeSpec("ActionResult", {
+				success: true,
+				message: `@${username} has been removed from the blacklist.`,
+				action: "remove_from_blacklist",
+			});
 		}),
 
 		// ─── Add to Whitelist ───────────────────────────────────
@@ -427,16 +480,11 @@ export function createTripwireTools(ctx: ToolContext) {
 				.limit(1);
 
 			if (blacklisted) {
-				return {
-					root: {
-						type: "ActionResult",
-						props: {
-							success: false,
-							message: `@${ghUser.login} is on the blacklist. Remove them from the blacklist first.`,
-							action: "add_to_whitelist",
-						},
-					},
-				};
+				return makeSpec("ActionResult", {
+					success: false,
+					message: `@${ghUser.login} is on the blacklist. Remove them from the blacklist first.`,
+					action: "add_to_whitelist",
+				});
 			}
 
 			const [existing] = await db
@@ -451,16 +499,11 @@ export function createTripwireTools(ctx: ToolContext) {
 				.limit(1);
 
 			if (existing) {
-				return {
-					root: {
-						type: "ActionResult",
-						props: {
-							success: false,
-							message: `@${ghUser.login} is already on the whitelist.`,
-							action: "add_to_whitelist",
-						},
-					},
-				};
+				return makeSpec("ActionResult", {
+					success: false,
+					message: `@${ghUser.login} is already on the whitelist.`,
+					action: "add_to_whitelist",
+				});
 			}
 
 			await db.insert(whitelistEntries).values({
@@ -481,16 +524,11 @@ export function createTripwireTools(ctx: ToolContext) {
 				metadata: { addedBy: userName, viaAI: true },
 			});
 
-			return {
-				root: {
-					type: "ActionResult",
-					props: {
-						success: true,
-						message: `@${ghUser.login} has been added to the whitelist. They will bypass all rule checks.`,
-						action: "add_to_whitelist",
-					},
-				},
-			};
+			return makeSpec("ActionResult", {
+				success: true,
+				message: `@${ghUser.login} has been added to the whitelist. They will bypass all rule checks.`,
+				action: "add_to_whitelist",
+			});
 		}),
 
 		// ─── Remove from Whitelist ──────────────────────────────
@@ -500,7 +538,7 @@ export function createTripwireTools(ctx: ToolContext) {
 				.where(
 					and(
 						eq(whitelistEntries.repoId, repoId),
-						eq(whitelistEntries.githubUsername, username),
+						usernameEq(whitelistEntries.githubUsername, username),
 					),
 				);
 
@@ -513,16 +551,117 @@ export function createTripwireTools(ctx: ToolContext) {
 				metadata: { removedBy: userName, viaAI: true },
 			});
 
-			return {
-				root: {
-					type: "ActionResult",
-					props: {
-						success: true,
-						message: `@${username} has been removed from the whitelist.`,
-						action: "remove_from_whitelist",
-					},
-				},
-			};
+			return makeSpec("ActionResult", {
+				success: true,
+				message: `@${username} has been removed from the whitelist.`,
+				action: "remove_from_whitelist",
+			});
+		}),
+
+		// ─── Move to Whitelist ──────────────────────────────────
+		moveToWhitelistDef.server(async ({ username }) => {
+			const ghUser = await fetchGitHubUser(username);
+
+			// Remove from blacklist if present
+			await db
+				.delete(blacklistEntries)
+				.where(
+					and(
+						eq(blacklistEntries.repoId, repoId),
+						usernameEq(blacklistEntries.githubUsername, username),
+					),
+				);
+
+			// Check if already whitelisted
+			const [existing] = await db
+				.select()
+				.from(whitelistEntries)
+				.where(
+					and(
+						eq(whitelistEntries.repoId, repoId),
+						eq(whitelistEntries.githubUsername, ghUser.login),
+					),
+				)
+				.limit(1);
+
+			if (!existing) {
+				await db.insert(whitelistEntries).values({
+					repoId,
+					githubUsername: ghUser.login,
+					githubUserId: ghUser.id,
+					avatarUrl: ghUser.avatar_url,
+					addedById: userId,
+				});
+			}
+
+			await logEvent({
+				repoId,
+				action: "whitelist_added",
+				severity: "info",
+				description: `@${ghUser.login} was moved to the whitelist by AI assistant`,
+				targetGithubUsername: ghUser.login,
+				targetGithubUserId: ghUser.id,
+				metadata: { addedBy: userName, viaAI: true, movedFrom: "blacklist" },
+			});
+
+			return makeSpec("ActionResult", {
+				success: true,
+				message: `@${ghUser.login} has been moved to the whitelist.`,
+				action: "move_to_whitelist",
+			});
+		}),
+
+		// ─── Move to Blacklist ──────────────────────────────────
+		moveToBlacklistDef.server(async ({ username }) => {
+			const ghUser = await fetchGitHubUser(username);
+
+			// Remove from whitelist if present
+			await db
+				.delete(whitelistEntries)
+				.where(
+					and(
+						eq(whitelistEntries.repoId, repoId),
+						usernameEq(whitelistEntries.githubUsername, username),
+					),
+				);
+
+			// Check if already blacklisted
+			const [existing] = await db
+				.select()
+				.from(blacklistEntries)
+				.where(
+					and(
+						eq(blacklistEntries.repoId, repoId),
+						eq(blacklistEntries.githubUsername, ghUser.login),
+					),
+				)
+				.limit(1);
+
+			if (!existing) {
+				await db.insert(blacklistEntries).values({
+					repoId,
+					githubUsername: ghUser.login,
+					githubUserId: ghUser.id,
+					avatarUrl: ghUser.avatar_url,
+					addedById: userId,
+				});
+			}
+
+			await logEvent({
+				repoId,
+				action: "blacklist_added",
+				severity: "warning",
+				description: `@${ghUser.login} was moved to the blacklist by AI assistant`,
+				targetGithubUsername: ghUser.login,
+				targetGithubUserId: ghUser.id,
+				metadata: { addedBy: userName, viaAI: true, movedFrom: "whitelist" },
+			});
+
+			return makeSpec("ActionResult", {
+				success: true,
+				message: `@${ghUser.login} has been moved to the blacklist. All their future contributions will be blocked.`,
+				action: "move_to_blacklist",
+			});
 		}),
 	];
 }

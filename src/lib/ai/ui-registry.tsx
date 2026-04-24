@@ -196,6 +196,80 @@ export const { registry } = defineRegistry(catalog, {
 			);
 		},
 
+		// ─── Lists Overview ───────────────────────────────────────────
+		ListsOverview: ({ props }) => {
+			const hasBlacklist = props.blacklist.length > 0;
+			const hasWhitelist = props.whitelist.length > 0;
+
+			if (!hasBlacklist && !hasWhitelist) {
+				return (
+					<div className="rounded-xl bg-tw-card p-3 text-[13px] text-tw-text-secondary">
+						No users on either list.
+					</div>
+				);
+			}
+
+			return (
+				<div className="flex flex-col gap-3">
+					{/* Blacklist */}
+					<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+						<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted uppercase tracking-wider">
+							<svg width="10" height="10" viewBox="0 0 14 14" fill="none" className="text-tw-error">
+								<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
+								<path d="M4 7h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+							</svg>
+							Blacklist
+						</div>
+						{hasBlacklist ? (
+							<div className="space-y-1.5">
+								{props.blacklist.map((user) => (
+									<div key={user.username} className="flex items-center gap-2 text-[12px]">
+										{user.avatar && (
+											<img src={user.avatar} alt="" className="size-5 rounded-full" />
+										)}
+										<span className="text-tw-text-primary font-medium">@{user.username}</span>
+										<span className="text-tw-text-muted ml-auto">{user.addedAt}</span>
+									</div>
+								))}
+							</div>
+						) : (
+							<div className="text-[12px] text-tw-text-muted">
+								No users blacklisted.
+							</div>
+						)}
+					</div>
+
+					{/* Whitelist */}
+					<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+						<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted uppercase tracking-wider">
+							<svg width="10" height="10" viewBox="0 0 14 14" fill="none" className="text-tw-success">
+								<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
+								<path d="M4 7L6 9L10 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+							</svg>
+							Whitelist
+						</div>
+						{hasWhitelist ? (
+							<div className="space-y-1.5">
+								{props.whitelist.map((user) => (
+									<div key={user.username} className="flex items-center gap-2 text-[12px]">
+										{user.avatar && (
+											<img src={user.avatar} alt="" className="size-5 rounded-full" />
+										)}
+										<span className="text-tw-text-primary font-medium">@{user.username}</span>
+										<span className="text-tw-text-muted ml-auto">{user.addedAt}</span>
+									</div>
+								))}
+							</div>
+						) : (
+							<div className="text-[12px] text-tw-text-muted">
+								No users whitelisted.
+							</div>
+						)}
+					</div>
+				</div>
+			);
+		},
+
 		// ─── Lists Status ─────────────────────────────────────────────
 		ListsStatus: ({ props }) => {
 			const status = props.isBlacklisted

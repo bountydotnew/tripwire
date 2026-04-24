@@ -1,13 +1,15 @@
 import { useRef, useEffect, useMemo } from "react";
 import type { UIMessage, MessagePart } from "@tanstack/ai-client";
-import { Renderer } from "@json-render/react";
+import { JSONUIProvider, Renderer } from "@json-render/react";
+import { Streamdown } from "streamdown";
+import { code } from "@streamdown/code";
 import { useAIChat } from "#/lib/ai/chat-context";
 import { registry } from "#/lib/ai/ui-registry";
 
 // ─── Main Component ──────────────────────────────────────────
 
 export function ChatThread() {
-	const { messages, isLoading, pendingApproval, approveToolCall, error } = useAIChat();
+	const { messages, isLoading, respondToToolApproval, error } = useAIChat();
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	// Auto-scroll to bottom when messages change
@@ -52,9 +54,7 @@ export function ChatThread() {
 					key={msg.id}
 					message={msg}
 					showAvatar={avatarMap[msg.id] !== false}
-					pendingApproval={pendingApproval}
-					onApprove={() => approveToolCall(true)}
-					onDeny={() => approveToolCall(false)}
+					onRespondToApproval={respondToToolApproval}
 				/>
 			))}
 			{isLoading && <LoadingIndicator />}
@@ -140,7 +140,7 @@ function parseErrorMessage(message: string): { title: string; detail: string | n
 	if (lowerMsg.includes("repository") || lowerMsg.includes("repoid")) {
 		return {
 			title: "No repository selected",
-			detail: "Select a repository from the workspace picker to start chatting.",
+			detail: "No active repository was resolved for this chat request. Open Integrations and confirm at least one repository is connected.",
 		};
 	}
 
@@ -204,21 +204,93 @@ function LoadingIndicator() {
 interface ChatMessageProps {
 	message: UIMessage;
 	showAvatar: boolean;
-	pendingApproval: { toolCallId: string; toolName: string; args: Record<string, unknown> } | null;
-	onApprove: () => void;
-	onDeny: () => void;
+	onRespondToApproval: (approvalId: string, approved: boolean) => void;
 }
 
 function ChatMessage({
 	message,
 	showAvatar,
-	pendingApproval,
-	onApprove,
-	onDeny,
+	onRespondToApproval,
 }: ChatMessageProps) {
 	if (message.role === "user") {
 		return <UserMessage content={getTextContent(message)} />;
 	}
+
+	// Collect pending approvals for batch handling
+	const pendingApprovals = (message.parts ?? []).filter(
+		(part): part is MessagePart & { type: "tool-call"; approval: { id: string } } =>
+			part.type === "tool-call" &&
+			part.state === "approval-requested" &&
+			!!part.approval,
+	);
+
+	const handleApproveAll = async () => {
+		// Approve sequentially with delay to avoid race condition in TanStack AI
+		for (let i = 0; i < pendingApprovals.length; i++) {
+			onRespondToApproval(pendingApprovals[i].approval.id, true);
+			// Wait longer between approvals to let stream settle
+			if (i < pendingApprovals.length - 1) {
+				await new Promise((r) => setTimeout(r, 200));
+			}
+		}
+	};
+
+	const handleDenyAll = () => {
+		// Denials don't trigger streams, can do all at once
+		for (const part of pendingApprovals) {
+			onRespondToApproval(part.approval.id, false);
+		}
+	};
+
+	// Group consecutive ActionResult tool-results by action type
+	const groupedParts = useMemo(() => {
+		const parts = message.parts ?? [];
+		const result: Array<MessagePart | { type: "grouped-results"; results: ActionResultData[]; key: string }> = [];
+		let currentGroup: Array<{ part: MessagePart; data: ActionResultData }> = [];
+		let currentAction: string | null = null;
+
+		const flushGroup = () => {
+			if (currentGroup.length > 1) {
+				result.push({
+					type: "grouped-results",
+					results: currentGroup.map((g) => g.data),
+					key: `group-${result.length}`,
+				});
+			} else if (currentGroup.length === 1) {
+				result.push(currentGroup[0].part);
+			}
+			currentGroup = [];
+			currentAction = null;
+		};
+
+		for (const part of parts) {
+			if (part.type === "tool-result") {
+				const actionResult = parseActionResult(part.content);
+				if (actionResult && actionResult.success) {
+					if (currentAction === null || currentAction === actionResult.action) {
+						currentGroup.push({ part, data: actionResult });
+						currentAction = actionResult.action;
+						continue;
+					} else {
+						// Different action, flush current group and start new
+						flushGroup();
+						currentGroup.push({ part, data: actionResult });
+						currentAction = actionResult.action;
+						continue;
+					}
+				}
+			}
+
+			// Non-groupable part, flush pending group
+			flushGroup();
+			result.push(part);
+		}
+
+		// Flush remaining group
+		flushGroup();
+
+		return result;
+	}, [message.parts]);
 
 	// Assistant message
 	return (
@@ -233,15 +305,46 @@ function ChatMessage({
 			</div>
 
 			<div className="flex-1 min-w-0 flex flex-col gap-2">
-				{message.parts?.map((part, i) => (
-					<MessagePartRenderer
-						key={i}
-						part={part}
-						pendingApproval={pendingApproval}
-						onApprove={onApprove}
-						onDeny={onDeny}
-					/>
-				))}
+				{pendingApprovals.length > 1 ? (
+					<>
+						{/* Render non-approval parts (with grouping) */}
+						{groupedParts
+							.filter((p) => p.type !== "tool-call" || (p as MessagePart & { state?: string }).state !== "approval-requested")
+							.map((part) => {
+								if (part.type === "grouped-results") {
+									return <CombinedActionResult key={part.key} results={part.results} />;
+								}
+								const mp = part as MessagePart;
+								return (
+									<MessagePartRenderer
+										key={getPartKey(mp, message.id)}
+										part={mp}
+										onRespondToApproval={onRespondToApproval}
+									/>
+								);
+							})}
+						{/* Batch approval card */}
+						<BatchApprovalCard
+							approvals={pendingApprovals}
+							onApproveAll={handleApproveAll}
+							onDenyAll={handleDenyAll}
+						/>
+					</>
+				) : (
+					groupedParts.map((part) => {
+						if (part.type === "grouped-results") {
+							return <CombinedActionResult key={part.key} results={part.results} />;
+						}
+						const mp = part as MessagePart;
+						return (
+							<MessagePartRenderer
+								key={getPartKey(mp, message.id)}
+								part={mp}
+								onRespondToApproval={onRespondToApproval}
+							/>
+						);
+					})
+				)}
 			</div>
 		</div>
 	);
@@ -263,38 +366,39 @@ function UserMessage({ content }: { content: string }) {
 
 interface MessagePartRendererProps {
 	part: MessagePart;
-	pendingApproval: { toolCallId: string; toolName: string; args: Record<string, unknown> } | null;
-	onApprove: () => void;
-	onDeny: () => void;
+	onRespondToApproval: (approvalId: string, approved: boolean) => void;
 }
 
 function MessagePartRenderer({
 	part,
-	pendingApproval,
-	onApprove,
-	onDeny,
+	onRespondToApproval,
 }: MessagePartRendererProps) {
 	switch (part.type) {
 		case "text":
 			return (
-				<div className="text-[13px] leading-[19px] text-tw-text-primary">
-					{renderInlineText(part.content)}
-				</div>
+				<MarkdownText content={part.content} />
 			);
 
 		case "tool-call": {
-			// Check if this tool call needs approval
-			const needsApproval =
-				pendingApproval?.toolCallId === part.id &&
-				part.approval?.needsApproval;
+			// Use arguments (per TanStack AI docs) - it's a JSON string that streams incrementally
+			let toolArgs: Record<string, unknown> = {};
+			if (part.arguments) {
+				try {
+					toolArgs = JSON.parse(part.arguments);
+				} catch {
+					// Arguments still streaming, use empty object
+				}
+			} else if (part.input) {
+				toolArgs = part.input as Record<string, unknown>;
+			}
 
-			if (needsApproval) {
+			if (part.state === "approval-requested" && part.approval) {
 				return (
 					<ToolApprovalCard
 						toolName={part.name}
-						args={(part.input ?? {}) as Record<string, unknown>}
-						onApprove={onApprove}
-						onDeny={onDeny}
+						args={toolArgs}
+						onApprove={() => onRespondToApproval(part.approval!.id, true)}
+						onDeny={() => onRespondToApproval(part.approval!.id, false)}
 					/>
 				);
 			}
@@ -303,7 +407,7 @@ function MessagePartRenderer({
 			return (
 				<ToolCallChip
 					toolName={part.name}
-					args={(part.input ?? {}) as Record<string, unknown>}
+					args={toolArgs}
 					state={part.state}
 				/>
 			);
@@ -329,6 +433,22 @@ function MessagePartRenderer({
 	}
 }
 
+// ─── Markdown Text ───────────────────────────────────────────
+
+function MarkdownText({ content }: { content: string }) {
+	return (
+		<Streamdown
+			className="tw-chat-markdown"
+			mode="static"
+			plugins={{ code }}
+			controls={false}
+			linkSafety={{ enabled: false }}
+		>
+			{content}
+		</Streamdown>
+	);
+}
+
 // ─── Tool Call Chip ──────────────────────────────────────────
 
 interface ToolCallChipProps {
@@ -338,7 +458,9 @@ interface ToolCallChipProps {
 }
 
 function ToolCallChip({ toolName, args, state }: ToolCallChipProps) {
-	const isComplete = state === "result";
+	// Tool call states: 'awaiting-input' | 'input-streaming' | 'input-complete' | 'approval-requested' | 'approval-responded'
+	// We consider it complete once input is fully received
+	const isComplete = state === "input-complete" || state === "approval-responded";
 	const displayName = formatToolName(toolName);
 	const argsStr = formatToolArgs(toolName, args);
 
@@ -417,7 +539,7 @@ function ToolApprovalCard({
 				<button
 					type="button"
 					onClick={onApprove}
-					className="h-7 px-3 rounded-lg bg-tw-success text-[#0D0D0F] text-[12px] font-medium hover:opacity-90 transition-opacity"
+					className="h-7 px-3 rounded-lg bg-tw-text-primary text-[#0D0D0F] text-[12px] font-medium hover:opacity-90 transition-opacity"
 				>
 					{yesLabel}
 				</button>
@@ -433,6 +555,147 @@ function ToolApprovalCard({
 	);
 }
 
+// ─── Batch Approval Card ─────────────────────────────────────
+
+interface BatchApprovalCardProps {
+	approvals: Array<MessagePart & { type: "tool-call"; approval: { id: string } }>;
+	onApproveAll: () => void;
+	onDenyAll: () => void;
+}
+
+function BatchApprovalCard({
+	approvals,
+	onApproveAll,
+	onDenyAll,
+}: BatchApprovalCardProps) {
+	// Parse all tool arguments
+	const parsed = approvals.map((part) => {
+		let toolArgs: Record<string, unknown> = {};
+		if (part.arguments) {
+			try {
+				toolArgs = JSON.parse(part.arguments);
+			} catch {
+				// Arguments still streaming
+			}
+		}
+		return { name: part.name, username: toolArgs.username as string | undefined };
+	});
+
+	// Check if all actions are the same type
+	const allSameAction = parsed.every((p) => p.name === parsed[0].name);
+	const usernames = parsed.map((p) => p.username).filter(Boolean) as string[];
+
+	if (allSameAction && usernames.length > 1) {
+		// Condensed view for same action type
+		const action = parsed[0].name;
+		const lastUser = usernames[usernames.length - 1];
+		const userList = usernames.slice(0, -1).map((u) => `@${u}`).join(", ") + ` and @${lastUser}`;
+
+		const { prefix, suffix, consequence, buttonLabel } = getBatchApprovalText(action);
+
+		return (
+			<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+				<div className="text-[13px] text-tw-text-primary">
+					{prefix} {renderInlineText(userList)}{suffix ? ` ${suffix}` : ""}?
+				</div>
+				{consequence && (
+					<div className="text-[12px] text-tw-text-muted">
+						{consequence}
+					</div>
+				)}
+				<div className="flex items-center gap-2 mt-1">
+					<button
+						type="button"
+						onClick={onApproveAll}
+						className="h-7 px-3 rounded-lg bg-tw-text-primary text-[#0D0D0F] text-[12px] font-medium hover:opacity-90 transition-opacity"
+					>
+						Yes, {buttonLabel}
+					</button>
+					<button
+						type="button"
+						onClick={onDenyAll}
+						className="h-7 px-3 rounded-lg bg-tw-hover text-tw-text-secondary text-[12px] font-medium hover:text-tw-text-primary transition-colors"
+					>
+						Cancel
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	// Different actions - show brief list
+	return (
+		<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+			<div className="text-[12px] text-tw-text-muted uppercase tracking-wider">
+				{approvals.length} actions
+			</div>
+			<div className="flex flex-col gap-1">
+				{parsed.map((p, i) => (
+					<div key={approvals[i].id} className="flex items-center gap-2 text-[13px] text-tw-text-primary">
+						<span className="size-1.5 rounded-full bg-tw-warning shrink-0" />
+						{getBriefActionText(p.name, p.username)}
+					</div>
+				))}
+			</div>
+			<div className="flex items-center gap-2 mt-1">
+				<button
+					type="button"
+					onClick={onApproveAll}
+					className="h-7 px-3 rounded-lg bg-tw-text-primary text-[#0D0D0F] text-[12px] font-medium hover:opacity-90 transition-opacity"
+				>
+					Approve all
+				</button>
+				<button
+					type="button"
+					onClick={onDenyAll}
+					className="h-7 px-3 rounded-lg bg-tw-hover text-tw-text-secondary text-[12px] font-medium hover:text-tw-text-primary transition-colors"
+				>
+					Cancel
+				</button>
+			</div>
+		</div>
+	);
+}
+
+function getBatchApprovalText(action: string): { prefix: string; suffix: string; consequence: string | null; buttonLabel: string } {
+	switch (action) {
+		case "add_to_blacklist":
+			return { prefix: "Blacklist", suffix: "", consequence: "They will be blocked from all future contributions.", buttonLabel: "blacklist" };
+		case "remove_from_blacklist":
+			return { prefix: "Remove", suffix: "from the blacklist", consequence: null, buttonLabel: "remove" };
+		case "add_to_whitelist":
+			return { prefix: "Whitelist", suffix: "", consequence: "They will bypass all rule checks.", buttonLabel: "whitelist" };
+		case "remove_from_whitelist":
+			return { prefix: "Remove", suffix: "from the whitelist", consequence: null, buttonLabel: "remove" };
+		case "move_to_whitelist":
+			return { prefix: "Move", suffix: "to the whitelist", consequence: "They will be unblocked and bypass all rule checks.", buttonLabel: "move" };
+		case "move_to_blacklist":
+			return { prefix: "Move", suffix: "to the blacklist", consequence: "They will be blocked from all future contributions.", buttonLabel: "move" };
+		default:
+			return { prefix: "Approve", suffix: "", consequence: null, buttonLabel: "approve" };
+	}
+}
+
+function getBriefActionText(action: string, username?: string): React.ReactNode {
+	const user = username ? <>{renderInlineText(`@${username}`)}</> : "user";
+	switch (action) {
+		case "add_to_blacklist":
+			return <>Blacklist {user}</>;
+		case "remove_from_blacklist":
+			return <>Remove {user} from blacklist</>;
+		case "add_to_whitelist":
+			return <>Whitelist {user}</>;
+		case "remove_from_whitelist":
+			return <>Remove {user} from whitelist</>;
+		case "move_to_whitelist":
+			return <>Move {user} to whitelist</>;
+		case "move_to_blacklist":
+			return <>Move {user} to blacklist</>;
+		default:
+			return <>{action.replace(/_/g, " ")} {user}</>;
+	}
+}
+
 // ─── Tool Result Display ─────────────────────────────────────
 
 function ToolResultDisplay({ result }: { result: unknown }) {
@@ -440,101 +703,94 @@ function ToolResultDisplay({ result }: { result: unknown }) {
 
 	const r = result as Record<string, unknown>;
 
-	// Check if this is a json-render spec (has a root element)
-	if ("root" in r && r.root && typeof r.root === "object") {
-		return <Renderer spec={r as any} registry={registry} />;
+	// Check if this is a json-render spec (has root key and elements map)
+	if ("root" in r && "elements" in r && typeof r.root === "string") {
+		return (
+			<JSONUIProvider registry={registry}>
+				<Renderer spec={r as any} registry={registry} />
+			</JSONUIProvider>
+		);
 	}
 
 	// No spec found - let the AI summarize instead
 	return null;
 }
 
-// ─── User Profile Card ───────────────────────────────────────
+// ─── Combined Action Result ──────────────────────────────────
 
-function UserProfileCard({ data }: { data: Record<string, unknown> }) {
-	const avatar = data.avatar as string | undefined;
-	const username = data.username as string;
-	const name = data.name as string | undefined;
-
-	return (
-		<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
-			<div className="flex items-center gap-2.5">
-				{avatar && (
-					<img src={avatar} alt="" className="size-10 rounded-full" />
-				)}
-				<div>
-					<div className="text-[14px] text-tw-text-primary font-medium">
-						@{username}
-					</div>
-					{name && (
-						<div className="text-[12px] text-tw-text-muted">{name}</div>
-					)}
-				</div>
-			</div>
-			<div className="grid grid-cols-2 gap-2 text-[12px]">
-				<div>
-					<span className="text-tw-text-muted">Repos: </span>
-					<span className="text-tw-text-secondary">{data.publicRepos as number}</span>
-				</div>
-				<div>
-					<span className="text-tw-text-muted">Followers: </span>
-					<span className="text-tw-text-secondary">{data.followers as number}</span>
-				</div>
-				<div>
-					<span className="text-tw-text-muted">Tripwire events: </span>
-					<span className="text-tw-text-secondary">
-						{data.tripwireEventCount as number}
-					</span>
-				</div>
-				<div>
-					<span className="text-tw-text-muted">Status: </span>
-					<span className="text-tw-text-secondary">
-						{data.isBlacklisted
-							? "Blacklisted"
-							: data.isWhitelisted
-								? "Whitelisted"
-								: "Normal"}
-					</span>
-				</div>
-			</div>
-		</div>
-	);
+interface ActionResultData {
+	success: boolean;
+	message: string;
+	action: string;
+	username?: string;
 }
 
-// ─── Events List Card ────────────────────────────────────────
+function parseActionResult(content: string): ActionResultData | null {
+	try {
+		const parsed = JSON.parse(content);
+		if (parsed?.root === "main" && parsed?.elements?.main?.type === "ActionResult") {
+			const props = parsed.elements.main.props;
+			// Extract username from message
+			const match = props.message?.match(/@(\w+)/);
+			return {
+				success: props.success,
+				message: props.message,
+				action: props.action,
+				username: match?.[1],
+			};
+		}
+	} catch {
+		// Not valid JSON
+	}
+	return null;
+}
 
-function EventsListCard({ events }: { events: Array<Record<string, unknown>> }) {
-	if (events.length === 0) {
-		return (
-			<div className="rounded-xl bg-tw-card p-3 text-[13px] text-tw-text-secondary">
-				No events found.
-			</div>
-		);
+function CombinedActionResult({ results }: { results: ActionResultData[] }) {
+	if (results.length === 0) return null;
+
+	const allSuccess = results.every((r) => r.success);
+	const usernames = results.map((r) => r.username).filter(Boolean) as string[];
+
+	// Build combined message by parsing the first result's message pattern
+	let message: string;
+	if (usernames.length <= 1) {
+		message = results[0].message;
+	} else {
+		// Parse pattern from first message: "@username has been X" -> "@list have been X"
+		const firstMsg = results[0].message;
+		const match = firstMsg.match(/^@\w+\s+has\s+been\s+(.+)$/);
+
+		if (match) {
+			const lastUser = usernames.pop()!;
+			const userList = "@" + usernames.join(", @") + ` and @${lastUser}`;
+			message = `${userList} have been ${match[1]}`;
+		} else {
+			// Fallback: just list the users
+			const lastUser = usernames.pop()!;
+			const userList = "@" + usernames.join(", @") + ` and @${lastUser}`;
+			message = `${userList}: ${results[0].message.replace(/@\w+\s*/, "")}`;
+		}
 	}
 
+	const bgColor = allSuccess
+		? "bg-[#4ADE801A] border-tw-success/20"
+		: "bg-[#F56D5D1A] border-tw-error/20";
+	const iconColor = allSuccess ? "text-tw-success" : "text-tw-error";
+
 	return (
-		<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
-			<div className="text-[12px] text-tw-text-muted uppercase tracking-wider">
-				Recent Events
-			</div>
-			<div className="space-y-1.5">
-				{events.slice(0, 5).map((event, i) => (
-					<div key={i} className="flex items-center gap-2 text-[12px]">
-						<span
-							className={`size-1.5 rounded-full ${
-								event.severity === "error"
-									? "bg-tw-error"
-									: event.severity === "warning"
-										? "bg-tw-warning"
-										: "bg-tw-text-muted"
-							}`}
-						/>
-						<span className="text-tw-text-secondary truncate">
-							{event.description as string}
-						</span>
-					</div>
-				))}
-			</div>
+		<div className={`rounded-xl border p-3 flex items-center gap-2 ${bgColor}`}>
+			{allSuccess ? (
+				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={iconColor}>
+					<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
+					<path d="M4 7L6 9L10 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+				</svg>
+			) : (
+				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={iconColor}>
+					<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
+					<path d="M5 5L9 9M9 5L5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+				</svg>
+			)}
+			<span className="text-[13px] text-tw-text-primary">{renderInlineText(message)}</span>
 		</div>
 	);
 }
@@ -579,7 +835,11 @@ function UserMentionChip({ username }: { username: string }) {
 			className="inline-flex items-center gap-1 rounded-[5px] px-1 py-[1px] bg-[#2A2A2A]"
 			style={{ verticalAlign: "-0.2em" }}
 		>
-			<span className="w-3.5 h-3.5 rounded-full bg-[#3a3a3e]" />
+			<img
+				src={`https://github.com/${username}.png?size=28`}
+				alt=""
+				className="w-3.5 h-3.5 rounded-full bg-[#3a3a3e]"
+			/>
 			<span className="text-[12px] leading-tight text-[#FAFAFA] font-medium">
 				@{username}
 			</span>
@@ -612,6 +872,13 @@ function IssueChip({ label, number }: { label: string | null; number: string }) 
 
 // ─── Helpers ─────────────────────────────────────────────────
 
+function getPartKey(part: MessagePart, messageId: string): string {
+	if (part.type === "tool-call") return part.id;
+	if (part.type === "tool-result") return `${messageId}-result-${part.toolCallId}`;
+	if (part.type === "text") return `${messageId}-text`;
+	return `${messageId}-${part.type}`;
+}
+
 function getTextContent(message: UIMessage): string {
 	// Extract text from parts
 	const textPart = message.parts?.find((p) => p.type === "text");
@@ -621,7 +888,8 @@ function getTextContent(message: UIMessage): string {
 	return "";
 }
 
-function formatToolName(toolName: string): string {
+function formatToolName(toolName: string | undefined): string {
+	if (!toolName) return "tool";
 	return toolName.replace(/_/g, " ");
 }
 
@@ -660,6 +928,18 @@ function getApprovalText(
 				yesLabel: "Yes, remove",
 				noLabel: "Cancel",
 			};
+		case "move_to_whitelist":
+			return {
+				text: `Move @${username} from the blacklist to the whitelist?`,
+				yesLabel: "Yes, move to whitelist",
+				noLabel: "Cancel",
+			};
+		case "move_to_blacklist":
+			return {
+				text: `Move @${username} from the whitelist to the blacklist?`,
+				yesLabel: "Yes, move to blacklist",
+				noLabel: "Cancel",
+			};
 		default:
 			return {
 				text: `Approve ${toolName}?`,
@@ -686,41 +966,3 @@ function TripwireMiniLogo({ size = 12 }: { size?: number }) {
 	);
 }
 
-function CheckIcon({ className }: { className?: string }) {
-	return (
-		<svg
-			width="12"
-			height="12"
-			viewBox="0 0 12 12"
-			fill="none"
-			className={className}
-		>
-			<path
-				d="M2.5 6L5 8.5L9.5 3.5"
-				stroke="currentColor"
-				strokeWidth="1.5"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-			/>
-		</svg>
-	);
-}
-
-function XIcon({ className }: { className?: string }) {
-	return (
-		<svg
-			width="12"
-			height="12"
-			viewBox="0 0 12 12"
-			fill="none"
-			className={className}
-		>
-			<path
-				d="M3 3L9 9M9 3L3 9"
-				stroke="currentColor"
-				strokeWidth="1.5"
-				strokeLinecap="round"
-			/>
-		</svg>
-	);
-}

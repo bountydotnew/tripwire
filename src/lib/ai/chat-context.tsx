@@ -16,24 +16,16 @@ import { useWorkspace } from "#/lib/workspace-context";
 
 // ─── Types ───────────────────────────────────────────────────
 
-interface PendingApproval {
-	toolCallId: string;
-	toolName: string;
-	args: Record<string, unknown>;
-}
-
 interface ChatContextValue {
 	// State
 	messages: UIMessage[];
 	isLoading: boolean;
-	canSend: boolean;
 	isOpen: boolean;
-	pendingApproval: PendingApproval | null;
 	error: Error | null;
 
 	// Actions
 	sendMessage: (content: string) => void;
-	approveToolCall: (approved: boolean) => void;
+	respondToToolApproval: (approvalId: string, approved: boolean) => void;
 	open: () => void;
 	close: () => void;
 	toggle: () => void;
@@ -44,12 +36,10 @@ interface ChatContextValue {
 const defaultContextValue: ChatContextValue = {
 	messages: [],
 	isLoading: false,
-	canSend: false,
 	isOpen: false,
-	pendingApproval: null,
 	error: null,
 	sendMessage: () => {},
-	approveToolCall: () => {},
+	respondToToolApproval: () => {},
 	open: () => {},
 	close: () => {},
 	toggle: () => {},
@@ -91,9 +81,6 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	const [isOpen, setIsOpen] = useState(() => {
 		return localStorage.getItem("tw.askOpen") === "true";
 	});
-	const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(
-		null,
-	);
 	const [chatError, setChatError] = useState<Error | null>(null);
 
 	// Generate unique conversation ID per session
@@ -104,13 +91,9 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	const connection = useMemo(
 		() =>
 			fetchServerSentEvents("/api/chat", () => {
-				if (!repo?.id) {
-					throw new Error("Please select a repository first");
-				}
-
 				return {
 					body: {
-						repoId: repo.id,
+						repoId: repo?.id,
 						conversationId,
 					},
 				};
@@ -128,6 +111,13 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	} = useChat({
 		connection,
 		onError: (error) => {
+			console.error("[chat] Stream error:", error);
+			console.error("[chat] Error details:", {
+				name: error.name,
+				message: error.message,
+				cause: (error as any).cause,
+				stack: error.stack,
+			});
 			setChatError(error);
 		},
 	});
@@ -151,47 +141,31 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	const sendMessage = useCallback(
 		(content: string) => {
 			if (!content.trim()) return;
-			if (!repo?.id) {
-				setChatError(new Error("Please select a repository first"));
-				return;
-			}
 			setChatError(null);
 			sendChatMessage(content);
 		},
-		[sendChatMessage, repo?.id],
+		[sendChatMessage],
 	);
 
-	const canSend = Boolean(repo?.id);
-
-	const approveToolCall = useCallback(
-		async (approved: boolean) => {
-			if (!pendingApproval) return;
-
-			await addToolApprovalResponse({
-				id: pendingApproval.toolCallId,
-				approved,
-			});
-
-			setPendingApproval(null);
+	const respondToToolApproval = useCallback(
+		(approvalId: string, approved: boolean) => {
+			addToolApprovalResponse({ id: approvalId, approved });
 		},
-		[pendingApproval, addToolApprovalResponse],
+		[addToolApprovalResponse],
 	);
 
 	const clearChat = useCallback(() => {
 		setMessages([]);
-		setPendingApproval(null);
 		setChatError(null);
 	}, [setMessages]);
 
 	const value: ChatContextValue = {
 		messages,
 		isLoading,
-		canSend,
 		isOpen,
-		pendingApproval,
 		error: combinedError,
 		sendMessage,
-		approveToolCall,
+		respondToToolApproval,
 		open,
 		close,
 		toggle,

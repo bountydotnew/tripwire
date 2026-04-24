@@ -78,6 +78,27 @@ export const catalog = defineCatalog(schema, {
 			description: "Shows a user's blacklist/whitelist status",
 		},
 
+		// ─── Lists Overview ───────────────────────────────────────────
+		ListsOverview: {
+			props: z.object({
+				blacklist: z.array(
+					z.object({
+						username: z.string(),
+						avatar: z.string().nullable(),
+						addedAt: z.string(),
+					}),
+				),
+				whitelist: z.array(
+					z.object({
+						username: z.string(),
+						avatar: z.string().nullable(),
+						addedAt: z.string(),
+					}),
+				),
+			}),
+			description: "Shows all users on the blacklist and whitelist",
+		},
+
 		// ─── Text Block ───────────────────────────────────────────────
 		Text: {
 			props: z.object({

@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
 
+/* Streamdown styles */
+@source "../node_modules/streamdown/dist/*.js";
+@source "../node_modules/@streamdown/code/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
 
 @font-face {
@@ -107,4 +111,67 @@ body {
   to {
     background-position: -200% 0;
   }
+}
+
+/* ─── Streamdown Chat Markdown ─────────────────────────────────────── */
+
+.tw-chat-markdown {
+  @apply text-[13px] leading-[19px] text-tw-text-primary;
+}
+
+.tw-chat-markdown p {
+  @apply mb-2;
+}
+
+.tw-chat-markdown p:last-child {
+  @apply mb-0;
+}
+
+.tw-chat-markdown [data-streamdown="heading-1"] {
+  @apply text-[15px] font-semibold mb-2;
+}
+
+.tw-chat-markdown [data-streamdown="heading-2"] {
+  @apply text-[14px] font-semibold mb-2;
+}
+
+.tw-chat-markdown [data-streamdown="heading-3"] {
+  @apply text-[13px] font-semibold mb-1;
+}
+
+.tw-chat-markdown [data-streamdown="strong"] {
+  @apply font-semibold;
+}
+
+.tw-chat-markdown [data-streamdown="link"] {
+  @apply text-tw-accent underline;
+}
+
+.tw-chat-markdown [data-streamdown="inline-code"] {
+  @apply text-[12px] px-1 py-0.5 rounded bg-tw-card;
+}
+
+.tw-chat-markdown [data-streamdown="code-block"] {
+  @apply my-2 rounded-lg bg-tw-card overflow-hidden text-[12px];
+}
+
+.tw-chat-markdown [data-streamdown="ordered-list"],
+.tw-chat-markdown [data-streamdown="unordered-list"] {
+  @apply mb-2 pl-4;
+}
+
+.tw-chat-markdown [data-streamdown="unordered-list"] {
+  @apply list-disc;
+}
+
+.tw-chat-markdown [data-streamdown="ordered-list"] {
+  @apply list-decimal;
+}
+
+.tw-chat-markdown [data-streamdown="blockquote"] {
+  @apply border-l-2 border-tw-text-muted pl-3 text-tw-text-secondary;
+}
+
+.tw-chat-markdown [data-streamdown="horizontal-rule"] {
+  @apply border-tw-border my-3;
 }
