@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace } from "#/lib/workspace-context";
-import { createUserFromUsername } from "#/utils/home";
+import { useGitHubUserFormatted } from "#/hooks/use-github-user";
 import { toastManager } from "#/components/ui/toast";
 
 export const Route = createFileRoute("/_app/events/$eventId")({
@@ -38,6 +38,9 @@ function EventDetailPage() {
 	const isAlreadyBlacklisted = blacklistQuery.data?.some(
 		(entry) => entry.githubUsername === targetUsername
 	) ?? false;
+
+	// Fetch real GitHub user data
+	const githubUser = useGitHubUserFormatted(targetUsername ?? undefined);
 
 	// Blacklist mutation
 	const blacklistMutation = useMutation({
@@ -114,7 +117,7 @@ function EventDetailPage() {
 				: "#D1BC00";
 
 	const username = displayEvent?.targetGithubUsername || "unknown";
-	const user = createUserFromUsername(username);
+	const user = githubUser.data;
 
 	return (
 		<div className="relative min-h-full pb-16">
@@ -254,7 +257,7 @@ function EventDetailPage() {
 							<OutlineCard>
 								<div className="flex items-center gap-2 px-0.5 py-0.5">
 									<img
-										src={user.avatar}
+										src={user?.avatar || `https://github.com/${username}.png`}
 										className="w-[22px] h-[22px] rounded-full shrink-0"
 										alt=""
 									/>
@@ -302,13 +305,13 @@ function EventDetailPage() {
 				</Block>
 
 				{/* Contributor */}
-				<Block label="Contributor" note={`Risk score pending`}>
+				<Block label="Contributor" note={githubUser.isLoading ? "Loading..." : user ? `${user.followersFormatted} followers` : "Error loading"}>
 					<div className="rounded-[10px] bg-tw-inner p-3 flex flex-col gap-4">
 						{/* Identity + actions */}
 						<div className="flex items-center gap-3">
 							<div className="relative shrink-0">
 								<img
-									src={user.avatar}
+									src={user?.avatar || `https://github.com/${username}.png`}
 									className="w-12 h-12 rounded-full"
 									alt=""
 								/>
@@ -324,13 +327,23 @@ function EventDetailPage() {
 									<span className="text-[15px] leading-5 text-tw-text-primary font-medium">
 										@{username}
 									</span>
-									<span className="text-[11px] text-tw-text-tertiary">·</span>
-									<span className="text-[12px] text-tw-text-tertiary">
-										No location
-									</span>
+									{user?.location && (
+										<>
+											<span className="text-[11px] text-tw-text-tertiary">·</span>
+											<span className="text-[12px] text-tw-text-tertiary">
+												{user.location}
+											</span>
+										</>
+									)}
 								</div>
 								<div className="text-[12px] leading-[18px] text-tw-text-tertiary mt-0.5 truncate">
-									Joined {user.accountAge} ago · {user.publicRepos} public repos
+									{githubUser.isLoading ? (
+										"Loading profile..."
+									) : user ? (
+										<>Joined {user.accountAge} ago · {user.publicReposFormatted} public repos</>
+									) : (
+										"Could not load profile"
+									)}
 								</div>
 							</div>
 							<a
@@ -344,50 +357,60 @@ function EventDetailPage() {
 						</div>
 
 						{/* Stat grid */}
-						<div className="grid grid-cols-2 gap-x-6">
-							{[
-								{
-									label: "Account age",
-									value: user.accountAge,
-									bad: user.accountAge.includes("day"),
-								},
-								{
-									label: "Public repos",
-									value: user.publicRepos,
-									bad: user.publicRepos < 3,
-								},
-								{
-									label: "Followers",
-									value: user.followers,
-									bad: user.followers < 5,
-								},
-								{
-									label: "Merged PRs",
-									value: user.mergedPrs,
-									bad: user.mergedPrs < 1,
-								},
-								{
-									label: "Profile README",
-									value: user.readme ? "Yes" : "No",
-									bad: !user.readme,
-								},
-							].map((stat, index, stats) => (
-								<div
-									key={stat.label}
-									className={`flex items-center justify-between py-2 ${index < stats.length - 1 ? "border-b border-tw-border" : ""}`}
-								>
-									<span className="text-[12px] text-tw-text-tertiary">
-										{stat.label}
-									</span>
-									<span className="text-[13px] text-tw-text-primary tabular-nums flex items-center gap-1.5">
-										{stat.value}
-										{stat.bad && (
-											<span className="w-1.5 h-1.5 rounded-full bg-tw-error" />
-										)}
-									</span>
-								</div>
-							))}
-						</div>
+						{githubUser.isLoading ? (
+							<div className="flex items-center justify-center py-4">
+								<div className="w-4 h-4 border-2 border-tw-text-tertiary border-t-tw-accent rounded-full animate-spin" />
+							</div>
+						) : user ? (
+							<div className="grid grid-cols-2 gap-x-6">
+								{[
+									{
+										label: "Account age",
+										value: user.accountAge,
+										bad: user.accountAge.includes("day") || user.accountAge.includes("month"),
+									},
+									{
+										label: "Public repos",
+										value: user.publicReposFormatted,
+										bad: user.publicRepos < 3,
+									},
+									{
+										label: "Followers",
+										value: user.followersFormatted,
+										bad: user.followers < 5,
+									},
+									{
+										label: "Total stars",
+										value: user.totalStarsFormatted,
+										bad: user.totalStars < 10,
+									},
+									{
+										label: "Profile README",
+										value: user.hasReadme ? "Yes" : "No",
+										bad: !user.hasReadme,
+									},
+								].map((stat, index, stats) => (
+									<div
+										key={stat.label}
+										className={`flex items-center justify-between py-2 ${index < stats.length - 1 ? "border-b border-tw-border" : ""}`}
+									>
+										<span className="text-[12px] text-tw-text-tertiary">
+											{stat.label}
+										</span>
+										<span className="text-[13px] text-tw-text-primary tabular-nums flex items-center gap-1.5">
+											{stat.value}
+											{stat.bad && (
+												<span className="w-1.5 h-1.5 rounded-full bg-tw-error" />
+											)}
+										</span>
+									</div>
+								))}
+							</div>
+						) : (
+							<div className="text-[13px] text-tw-text-tertiary text-center py-4">
+								Could not load GitHub profile data
+							</div>
+						)}
 					</div>
 				</Block>
 
