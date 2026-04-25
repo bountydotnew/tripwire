@@ -9,6 +9,7 @@ import {
 	DEFAULT_RULE_CONFIG,
 } from "#/db/schema";
 import { logEvent } from "#/lib/events";
+import { describeRuleConfigChanges, normalizeRuleConfig } from "#/lib/rules/config-draft";
 
 import type { TRPCRouterRecord } from "@trpc/server";
 
@@ -61,31 +62,22 @@ export const rulesRouter = {
 				.from(ruleConfigs)
 				.where(eq(ruleConfigs.repoId, input.repoId));
 
-			const previousConfig = existing?.config ?? DEFAULT_RULE_CONFIG;
+			const previousConfig = normalizeRuleConfig(existing?.config ?? DEFAULT_RULE_CONFIG);
+			const nextConfig = normalizeRuleConfig(input.config);
 
 			if (existing) {
 				await db
 					.update(ruleConfigs)
-					.set({ config: input.config, updatedAt: new Date() })
+					.set({ config: nextConfig, updatedAt: new Date() })
 					.where(eq(ruleConfigs.repoId, input.repoId));
 			} else {
 				await db.insert(ruleConfigs).values({
 					repoId: input.repoId,
-					config: input.config,
+					config: nextConfig,
 				});
 			}
 
-			// Build a human-readable summary of what changed
-			const changes: string[] = [];
-			for (const [key, value] of Object.entries(input.config)) {
-				const prev = previousConfig[key as keyof typeof previousConfig];
-				const curr = value as Record<string, unknown>;
-				const prevObj = prev as Record<string, unknown>;
-
-				if (prevObj?.enabled !== curr.enabled) {
-					changes.push(`${key}: ${curr.enabled ? "enabled" : "disabled"}`);
-				}
-			}
+			const changes = describeRuleConfigChanges(previousConfig, nextConfig);
 
 			await logEvent({
 				repoId: input.repoId,
@@ -97,11 +89,11 @@ export const rulesRouter = {
 				metadata: {
 					updatedBy: ctx.user?.name ?? ctx.user?.id,
 					changes,
-					newConfig: input.config,
+					newConfig: nextConfig,
 				},
 			});
 
-			return input.config;
+			return nextConfig;
 		}),
 
 	/** Count enabled rules for a repo */

@@ -1,27 +1,35 @@
-import { useCallback, useRef } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useState } from "react";
+import { createFileRoute, useBlocker } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-	RuleCardGrid,
-	AiSlopViz,
-	ProfilePictureViz,
-	LanguageViz,
-	MergedPrsViz,
 	AccountAgeViz,
-	MaxPrsPerDayViz,
-	MaxFilesChangedViz,
-	RepoActivityViz,
-	ProfileReadmeViz,
+	AiSlopViz,
 	CryptoViz,
+	LanguageViz,
+	MaxFilesChangedViz,
+	MaxPrsPerDayViz,
+	MergedPrsViz,
+	ProfilePictureViz,
+	ProfileReadmeViz,
+	RepoActivityViz,
+	RuleCardGrid,
 } from "../../components/rules/rule-card-grid";
 import { RuleDropdown } from "../../components/rules/rule-dropdown";
+import { RulesSaveBar } from "../../components/rules/rules-save-bar";
 import { UserList } from "../../components/rules/user-list";
 import { EmptyState } from "../../components/layout/empty-state";
 import { toastManager } from "#/components/ui/toast";
-import { useTRPC } from "#/integrations/trpc/react";
-import { useWorkspace } from "#/lib/workspace-context";
-import { DEFAULT_RULE_CONFIG, type RuleConfig } from "#/db/schema";
+import type { RuleConfig } from "#/db/schema";
 import { env } from "#/env";
+import { useTRPC } from "#/integrations/trpc/react";
+import {
+	areRuleConfigsEqual,
+	getRuleConfigChanges,
+	normalizeRuleConfig,
+	revertRuleConfigChange,
+} from "#/lib/rules/config-draft";
+import { useWorkspace } from "#/lib/workspace-context";
 
 export const Route = createFileRoute("/_app/rules")({
 	component: RulesPage,
@@ -30,20 +38,20 @@ export const Route = createFileRoute("/_app/rules")({
 
 function RulesPageSkeleton() {
 	return (
-		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6 max-w-[1000px] mx-auto w-full">
-			<div className="flex items-start justify-between w-full">
+		<div className="mx-auto flex w-full max-w-[1000px] flex-col gap-6 px-4 py-6 md:px-[50px] md:py-8">
+			<div className="flex w-full items-start justify-between">
 				<div className="flex flex-col gap-1">
-					<div className="h-7 w-16 bg-white/5 rounded" />
-					<div className="h-4 w-40 bg-white/5 rounded" />
+					<div className="h-7 w-16 rounded bg-white/5" />
+					<div className="h-4 w-40 rounded bg-white/5" />
 				</div>
 			</div>
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+			<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 				{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-					<div key={i} className="h-[200px] w-full bg-white/5 rounded-xl" />
+					<div key={i} className="h-[200px] w-full rounded-xl bg-white/5" />
 				))}
 			</div>
-			<div className="h-24 w-full bg-white/5 rounded-xl" />
-			<div className="h-24 w-full bg-white/5 rounded-xl" />
+			<div className="h-24 w-full rounded-xl bg-white/5" />
+			<div className="h-24 w-full rounded-xl bg-white/5" />
 		</div>
 	);
 }
@@ -54,8 +62,9 @@ function RulesPage() {
 	const trpc = useTRPC();
 	const githubAppSlug = env.VITE_GITHUB_APP_SLUG ?? "tripwire-app";
 	const queryClient = useQueryClient();
+	const [draftConfig, setDraftConfig] = useState<RuleConfig | null>(null);
+	const [showSavedState, setShowSavedState] = useState(false);
 
-	// ─── Rule config ──────────────────────────────────────────
 	const configQueryKey = trpc.rules.getConfig.queryKey({ repoId: repoId! });
 
 	const configQuery = useQuery(
@@ -65,103 +74,127 @@ function RulesPage() {
 		),
 	);
 
-	// Merge with defaults to handle missing fields from older configs in DB
-	const rawConfig = configQuery.data;
-	const config: RuleConfig = {
-		aiSlopDetection: { ...DEFAULT_RULE_CONFIG.aiSlopDetection, ...rawConfig?.aiSlopDetection },
-		requireProfilePicture: { ...DEFAULT_RULE_CONFIG.requireProfilePicture, ...rawConfig?.requireProfilePicture },
-		languageRequirement: { ...DEFAULT_RULE_CONFIG.languageRequirement, ...rawConfig?.languageRequirement },
-		minMergedPrs: { ...DEFAULT_RULE_CONFIG.minMergedPrs, ...rawConfig?.minMergedPrs },
-		accountAge: { ...DEFAULT_RULE_CONFIG.accountAge, ...rawConfig?.accountAge },
-		maxPrsPerDay: { ...DEFAULT_RULE_CONFIG.maxPrsPerDay, ...rawConfig?.maxPrsPerDay },
-		maxFilesChanged: { ...DEFAULT_RULE_CONFIG.maxFilesChanged, ...rawConfig?.maxFilesChanged },
-		repoActivityMinimum: { ...DEFAULT_RULE_CONFIG.repoActivityMinimum, ...rawConfig?.repoActivityMinimum },
-		requireProfileReadme: { ...DEFAULT_RULE_CONFIG.requireProfileReadme, ...rawConfig?.requireProfileReadme },
-		cryptoAddressDetection: { ...DEFAULT_RULE_CONFIG.cryptoAddressDetection, ...rawConfig?.cryptoAddressDetection },
-	};
+	const serverConfig = normalizeRuleConfig(configQuery.data);
+	const activeConfig = draftConfig ?? serverConfig;
+	const changes = getRuleConfigChanges(serverConfig, activeConfig);
+	const dirty = changes.length > 0;
 
 	const updateConfig = useMutation(
 		trpc.rules.updateConfig.mutationOptions({
-			onMutate: async () => {
-				// Cancel any outgoing refetches so they don't overwrite our optimistic update
-				await queryClient.cancelQueries({ queryKey: configQueryKey });
-
-				// Snapshot the previous value for potential rollback
-				const previousConfig = queryClient.getQueryData(configQueryKey);
-				return { previousConfig };
-			},
-			onError: (error, _newData, context) => {
-				// Roll back to the previous value on error
-				if (context?.previousConfig) {
-					queryClient.setQueryData(configQueryKey, context.previousConfig);
-				}
+			onError: (error) => {
 				toastManager.add({
 					title: "Failed to update rule",
 					description: error.message || "Please try again",
 					type: "error",
 				});
 			},
-			onSettled: () => {
-				// Always refetch after error or success to ensure cache is in sync
-				queryClient.invalidateQueries({ queryKey: configQueryKey });
-			},
 		}),
 	);
 
-	// Debounce refs to prevent spam clicking
-	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const pendingConfigRef = useRef<RuleConfig | null>(null);
+	useEffect(() => {
+		setDraftConfig(null);
+		setShowSavedState(false);
+	}, [repoId]);
 
-	const flushUpdate = useCallback(() => {
-		if (pendingConfigRef.current && repoId) {
-			updateConfig.mutate({ repoId, config: pendingConfigRef.current });
-			pendingConfigRef.current = null;
+	useEffect(() => {
+		if (dirty) {
+			setShowSavedState(false);
 		}
-	}, [repoId, updateConfig]);
+	}, [dirty]);
 
-	const debouncedUpdate = useCallback((newConfig: RuleConfig) => {
-		// Store the latest config
-		pendingConfigRef.current = newConfig;
-
-		// Optimistically update cache immediately for instant feedback
-		queryClient.setQueryData(configQueryKey, newConfig);
-
-		// Clear existing timer
-		if (debounceRef.current) {
-			clearTimeout(debounceRef.current);
+	useEffect(() => {
+		if (draftConfig && areRuleConfigsEqual(draftConfig, serverConfig)) {
+			setDraftConfig(null);
 		}
+	}, [draftConfig, serverConfig]);
 
-		// Set new debounced timer (300ms)
-		debounceRef.current = setTimeout(flushUpdate, 300);
-	}, [configQueryKey, queryClient, flushUpdate]);
+	useEffect(() => {
+		if (!showSavedState) return;
+
+		const timeout = window.setTimeout(() => {
+			setShowSavedState(false);
+		}, 1800);
+
+		return () => window.clearTimeout(timeout);
+	}, [showSavedState]);
+
+	const leaveBlocker = useBlocker({
+		shouldBlockFn: () => dirty,
+		withResolver: true,
+		disabled: !dirty,
+	});
+
+	useEffect(() => {
+		if (leaveBlocker.status !== "blocked") return;
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				leaveBlocker.reset();
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [leaveBlocker]);
 
 	const toggleRule = useCallback(<K extends keyof RuleConfig>(key: K, enabled: boolean) => {
-		// Use pending config if exists, otherwise current config
-		const baseConfig = pendingConfigRef.current ?? config;
-		const newConfig = {
-			...baseConfig,
-			[key]: { ...baseConfig[key], enabled },
-		};
-		if (repoId) {
-			debouncedUpdate(newConfig);
-		}
-	}, [config, repoId, debouncedUpdate]);
+		if (updateConfig.isPending) return;
+
+		setDraftConfig((currentDraft) => {
+			const baseConfig = currentDraft ?? serverConfig;
+			return normalizeRuleConfig({
+				...baseConfig,
+				[key]: enabled
+					? { ...baseConfig[key], enabled: true }
+					: { ...serverConfig[key], enabled: false },
+			});
+		});
+	}, [serverConfig, updateConfig.isPending]);
 
 	const updateRuleValue = useCallback(<K extends keyof RuleConfig>(
 		key: K,
 		patch: Partial<RuleConfig[K]>,
 	) => {
-		const baseConfig = pendingConfigRef.current ?? config;
-		const newConfig = {
-			...baseConfig,
-			[key]: { ...baseConfig[key], ...patch },
-		};
-		if (repoId) {
-			debouncedUpdate(newConfig);
-		}
-	}, [config, repoId, debouncedUpdate]);
+		if (updateConfig.isPending) return;
 
-	// ─── Whitelist ────────────────────────────────────────────
+		setDraftConfig((currentDraft) => {
+			const baseConfig = currentDraft ?? serverConfig;
+			return normalizeRuleConfig({
+				...baseConfig,
+				[key]: { ...baseConfig[key], ...patch },
+			});
+		});
+	}, [serverConfig, updateConfig.isPending]);
+
+	const handleSave = useCallback(async () => {
+		if (!repoId || !dirty) return;
+
+		try {
+			const savedConfig = await updateConfig.mutateAsync({ repoId, config: activeConfig });
+			queryClient.setQueryData(configQueryKey, savedConfig);
+			setDraftConfig(null);
+			setShowSavedState(true);
+			void queryClient.invalidateQueries({ queryKey: configQueryKey });
+		} catch {
+			// Error state is surfaced via the mutation toast.
+		}
+	}, [activeConfig, configQueryKey, dirty, queryClient, repoId, updateConfig]);
+
+	const handleDiscard = useCallback(() => {
+		if (updateConfig.isPending) return;
+		setDraftConfig(null);
+		setShowSavedState(false);
+	}, [updateConfig.isPending]);
+
+	const handleRevert = useCallback((changeId: string) => {
+		if (updateConfig.isPending) return;
+
+		setDraftConfig((currentDraft) => {
+			const baseConfig = currentDraft ?? serverConfig;
+			return revertRuleConfigChange(serverConfig, baseConfig, changeId);
+		});
+	}, [serverConfig, updateConfig.isPending]);
+
 	const whitelistQuery = useQuery(
 		trpc.whitelist.list.queryOptions(
 			{ repoId: repoId! },
@@ -169,9 +202,9 @@ function RulesPage() {
 		),
 	);
 
-	const whitelistUsers = (whitelistQuery.data ?? []).map((e) => ({
-		username: e.githubUsername,
-		avatarUrl: e.avatarUrl ?? `https://github.com/${e.githubUsername}.png`,
+	const whitelistUsers = (whitelistQuery.data ?? []).map((entry) => ({
+		username: entry.githubUsername,
+		avatarUrl: entry.avatarUrl ?? `https://github.com/${entry.githubUsername}.png`,
 	}));
 
 	const addWhitelist = useMutation(
@@ -190,7 +223,6 @@ function RulesPage() {
 		}),
 	);
 
-	// ─── Blacklist ────────────────────────────────────────────
 	const blacklistQuery = useQuery(
 		trpc.blacklist.list.queryOptions(
 			{ repoId: repoId! },
@@ -198,9 +230,9 @@ function RulesPage() {
 		),
 	);
 
-	const blacklistUsers = (blacklistQuery.data ?? []).map((e) => ({
-		username: e.githubUsername,
-		avatarUrl: e.avatarUrl ?? `https://github.com/${e.githubUsername}.png`,
+	const blacklistUsers = (blacklistQuery.data ?? []).map((entry) => ({
+		username: entry.githubUsername,
+		avatarUrl: entry.avatarUrl ?? `https://github.com/${entry.githubUsername}.png`,
 	}));
 
 	const addBlacklist = useMutation(
@@ -219,18 +251,17 @@ function RulesPage() {
 		}),
 	);
 
-	// ─── Derived stats ────────────────────────────────────────
 	const activeCount = [
-		config.aiSlopDetection.enabled,
-		config.requireProfilePicture.enabled,
-		config.languageRequirement.enabled,
-		config.minMergedPrs.enabled,
-		config.accountAge.enabled,
-		config.maxPrsPerDay.enabled,
-		config.maxFilesChanged.enabled,
-		config.repoActivityMinimum.enabled,
-		config.requireProfileReadme.enabled,
-		config.cryptoAddressDetection.enabled,
+		activeConfig.aiSlopDetection.enabled,
+		activeConfig.requireProfilePicture.enabled,
+		activeConfig.languageRequirement.enabled,
+		activeConfig.minMergedPrs.enabled,
+		activeConfig.accountAge.enabled,
+		activeConfig.maxPrsPerDay.enabled,
+		activeConfig.maxFilesChanged.enabled,
+		activeConfig.repoActivityMinimum.enabled,
+		activeConfig.requireProfileReadme.enabled,
+		activeConfig.cryptoAddressDetection.enabled,
 	].filter(Boolean).length;
 
 	const LANGUAGE_OPTIONS = [
@@ -252,7 +283,6 @@ function RulesPage() {
 	const MAX_FILES_CHANGED_OPTIONS = ["5", "10", "20", "50", "100"];
 	const REPO_ACTIVITY_OPTIONS = ["1", "3", "5", "10"];
 
-	// Show empty state if no repos are connected
 	if (!isLoading && repos.length === 0) {
 		return (
 			<EmptyState
@@ -266,193 +296,178 @@ function RulesPage() {
 		);
 	}
 
-	// Show skeleton while loading
-	const isDataLoading = isLoading || configQuery.isLoading || whitelistQuery.isLoading || blacklistQuery.isLoading;
+	const isDataLoading =
+		isLoading || configQuery.isLoading || whitelistQuery.isLoading || blacklistQuery.isLoading;
 	if (isDataLoading) {
 		return <RulesPageSkeleton />;
 	}
 
 	return (
-		<div className="flex flex-col py-6 md:py-8 px-4 md:px-[50px] gap-6 max-w-[1000px] mx-auto w-full">
-			{/* Header */}
-			<div className="flex items-start justify-between w-full">
+		<div className="mx-auto flex w-full max-w-[1000px] flex-col gap-6 px-4 py-6 md:px-[50px] md:py-8">
+			<div className="flex w-full items-start justify-between">
 				<div className="flex flex-col gap-0.5">
-					<h1 className="tracking-[-0.02em] text-white font-medium text-xl md:text-2xl leading-[30px] m-0">
+					<h1 className="m-0 text-xl leading-[30px] font-medium tracking-[-0.02em] text-white md:text-2xl">
 						Rules
 					</h1>
-					<p className="text-[#FFFFFF73] text-sm leading-[18px] m-0">
+					<p className="m-0 text-sm leading-[18px] text-[#FFFFFF73]">
 						{activeCount} active
 					</p>
 				</div>
 			</div>
 
-			{/* Rule cards grid */}
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+			<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 				<RuleCardGrid
 					title="AI slop detection"
 					description="Use known detection patterns to minimize automated activity"
-					enabled={config.aiSlopDetection.enabled}
-					action={config.aiSlopDetection.action}
-					onToggle={(v) => toggleRule("aiSlopDetection", v)}
-					onActionChange={(a) => updateRuleValue("aiSlopDetection", { action: a })}
+					enabled={activeConfig.aiSlopDetection.enabled}
+					action={activeConfig.aiSlopDetection.action}
+					onToggle={(value) => toggleRule("aiSlopDetection", value)}
+					onActionChange={(action) => updateRuleValue("aiSlopDetection", { action })}
 					visualization={<AiSlopViz />}
 				/>
 				<RuleCardGrid
 					title="Require profile picture"
 					description="Require a custom profile picture instead of GitHub's fallback"
-					enabled={config.requireProfilePicture.enabled}
-					action={config.requireProfilePicture.action}
-					onToggle={(v) => toggleRule("requireProfilePicture", v)}
-					onActionChange={(a) => updateRuleValue("requireProfilePicture", { action: a })}
+					enabled={activeConfig.requireProfilePicture.enabled}
+					action={activeConfig.requireProfilePicture.action}
+					onToggle={(value) => toggleRule("requireProfilePicture", value)}
+					onActionChange={(action) => updateRuleValue("requireProfilePicture", { action })}
 					visualization={<ProfilePictureViz />}
 				/>
 				<RuleCardGrid
-					title={
+					title={(
 						<>
 							Require all contributions in{" "}
 							<RuleDropdown
-								value={config.languageRequirement.language}
+								value={activeConfig.languageRequirement.language}
 								options={LANGUAGE_OPTIONS}
-								onChange={(lang) =>
-									updateRuleValue("languageRequirement", { language: lang })
-								}
+								onChange={(language) => updateRuleValue("languageRequirement", { language })}
 							/>
 						</>
-					}
+					)}
 					description="Contributions in a disallowed language will be declined"
-					enabled={config.languageRequirement.enabled}
-					action={config.languageRequirement.action}
-					onToggle={(v) => toggleRule("languageRequirement", v)}
-					onActionChange={(a) => updateRuleValue("languageRequirement", { action: a })}
+					enabled={activeConfig.languageRequirement.enabled}
+					action={activeConfig.languageRequirement.action}
+					onToggle={(value) => toggleRule("languageRequirement", value)}
+					onActionChange={(action) => updateRuleValue("languageRequirement", { action })}
 					visualization={<LanguageViz />}
 				/>
 				<RuleCardGrid
-					title={
+					title={(
 						<>
 							At least{" "}
 							<RuleDropdown
-								value={String(config.minMergedPrs.count)}
+								value={String(activeConfig.minMergedPrs.count)}
 								options={PR_COUNT_OPTIONS}
-								onChange={(val) =>
-									updateRuleValue("minMergedPrs", { count: Number(val) })
-								}
+								onChange={(value) => updateRuleValue("minMergedPrs", { count: Number(value) })}
 							/>{" "}
 							merged PRs
 						</>
-					}
+					)}
 					description="Minimum merged pull requests before they can contribute"
-					enabled={config.minMergedPrs.enabled}
-					action={config.minMergedPrs.action}
-					onToggle={(v) => toggleRule("minMergedPrs", v)}
-					onActionChange={(a) => updateRuleValue("minMergedPrs", { action: a })}
+					enabled={activeConfig.minMergedPrs.enabled}
+					action={activeConfig.minMergedPrs.action}
+					onToggle={(value) => toggleRule("minMergedPrs", value)}
+					onActionChange={(action) => updateRuleValue("minMergedPrs", { action })}
 					visualization={<MergedPrsViz />}
 				/>
 				<RuleCardGrid
-					title={
+					title={(
 						<>
 							Account older than{" "}
 							<RuleDropdown
-								value={`${config.accountAge.days} days`}
+								value={`${activeConfig.accountAge.days} days`}
 								options={ACCOUNT_AGE_OPTIONS}
-								onChange={(val) =>
-									updateRuleValue("accountAge", {
-										days: Number.parseInt(val),
-									})
-								}
+								onChange={(value) =>
+									updateRuleValue("accountAge", { days: Number.parseInt(value, 10) })}
 							/>
 						</>
-					}
+					)}
 					description="Block accounts created too recently from contributing"
-					enabled={config.accountAge.enabled}
-					action={config.accountAge.action}
-					onToggle={(v) => toggleRule("accountAge", v)}
-					onActionChange={(a) => updateRuleValue("accountAge", { action: a })}
+					enabled={activeConfig.accountAge.enabled}
+					action={activeConfig.accountAge.action}
+					onToggle={(value) => toggleRule("accountAge", value)}
+					onActionChange={(action) => updateRuleValue("accountAge", { action })}
 					visualization={<AccountAgeViz />}
 				/>
 				<RuleCardGrid
-					title={
+					title={(
 						<>
 							Max{" "}
 							<RuleDropdown
-								value={String(config.maxPrsPerDay.limit)}
+								value={String(activeConfig.maxPrsPerDay.limit)}
 								options={MAX_PRS_PER_DAY_OPTIONS}
-								onChange={(val) =>
-									updateRuleValue("maxPrsPerDay", { limit: Number(val) })
-								}
+								onChange={(value) => updateRuleValue("maxPrsPerDay", { limit: Number(value) })}
 							/>{" "}
 							PRs per day
 						</>
-					}
+					)}
 					description="Rate limit how many PRs or issues a single user can open per day"
-					enabled={config.maxPrsPerDay.enabled}
-					action={config.maxPrsPerDay.action}
-					onToggle={(v) => toggleRule("maxPrsPerDay", v)}
-					onActionChange={(a) => updateRuleValue("maxPrsPerDay", { action: a })}
+					enabled={activeConfig.maxPrsPerDay.enabled}
+					action={activeConfig.maxPrsPerDay.action}
+					onToggle={(value) => toggleRule("maxPrsPerDay", value)}
+					onActionChange={(action) => updateRuleValue("maxPrsPerDay", { action })}
 					visualization={<MaxPrsPerDayViz />}
 				/>
 				<RuleCardGrid
-					title={
+					title={(
 						<>
 							Max{" "}
 							<RuleDropdown
-								value={String(config.maxFilesChanged.limit)}
+								value={String(activeConfig.maxFilesChanged.limit)}
 								options={MAX_FILES_CHANGED_OPTIONS}
-								onChange={(val) =>
-									updateRuleValue("maxFilesChanged", { limit: Number(val) })
-								}
+								onChange={(value) => updateRuleValue("maxFilesChanged", { limit: Number(value) })}
 							/>{" "}
 							files changed
 						</>
-					}
+					)}
 					description="Block pull requests that touch too many files in a single submission"
-					enabled={config.maxFilesChanged.enabled}
-					action={config.maxFilesChanged.action}
-					onToggle={(v) => toggleRule("maxFilesChanged", v)}
-					onActionChange={(a) => updateRuleValue("maxFilesChanged", { action: a })}
+					enabled={activeConfig.maxFilesChanged.enabled}
+					action={activeConfig.maxFilesChanged.action}
+					onToggle={(value) => toggleRule("maxFilesChanged", value)}
+					onActionChange={(action) => updateRuleValue("maxFilesChanged", { action })}
 					visualization={<MaxFilesChangedViz />}
 				/>
 				<RuleCardGrid
-					title={
+					title={(
 						<>
 							At least{" "}
 							<RuleDropdown
-								value={String(config.repoActivityMinimum.minRepos)}
+								value={String(activeConfig.repoActivityMinimum.minRepos)}
 								options={REPO_ACTIVITY_OPTIONS}
-								onChange={(val) =>
-									updateRuleValue("repoActivityMinimum", { minRepos: Number(val) })
-								}
+								onChange={(value) =>
+									updateRuleValue("repoActivityMinimum", { minRepos: Number(value) })}
 							/>{" "}
 							public repos
 						</>
-					}
+					)}
 					description="Contributor must have meaningful activity across other public repos"
-					enabled={config.repoActivityMinimum.enabled}
-					action={config.repoActivityMinimum.action}
-					onToggle={(v) => toggleRule("repoActivityMinimum", v)}
-					onActionChange={(a) => updateRuleValue("repoActivityMinimum", { action: a })}
+					enabled={activeConfig.repoActivityMinimum.enabled}
+					action={activeConfig.repoActivityMinimum.action}
+					onToggle={(value) => toggleRule("repoActivityMinimum", value)}
+					onActionChange={(action) => updateRuleValue("repoActivityMinimum", { action })}
 					visualization={<RepoActivityViz />}
 				/>
 				<RuleCardGrid
 					title="Require profile README"
 					description="Contributors must have a profile README on their GitHub account"
-					enabled={config.requireProfileReadme.enabled}
-					action={config.requireProfileReadme.action}
-					onToggle={(v) => toggleRule("requireProfileReadme", v)}
-					onActionChange={(a) => updateRuleValue("requireProfileReadme", { action: a })}
+					enabled={activeConfig.requireProfileReadme.enabled}
+					action={activeConfig.requireProfileReadme.action}
+					onToggle={(value) => toggleRule("requireProfileReadme", value)}
+					onActionChange={(action) => updateRuleValue("requireProfileReadme", { action })}
 					visualization={<ProfileReadmeViz />}
 				/>
 				<RuleCardGrid
 					title="Crypto address detection"
 					description="Block content containing cryptocurrency wallet addresses (BTC, ETH, SOL, XMR, DASH)"
-					enabled={config.cryptoAddressDetection.enabled}
-					action={config.cryptoAddressDetection.action}
-					onToggle={(v) => toggleRule("cryptoAddressDetection", v)}
-					onActionChange={(a) => updateRuleValue("cryptoAddressDetection", { action: a })}
+					enabled={activeConfig.cryptoAddressDetection.enabled}
+					action={activeConfig.cryptoAddressDetection.action}
+					onToggle={(value) => toggleRule("cryptoAddressDetection", value)}
+					onActionChange={(action) => updateRuleValue("cryptoAddressDetection", { action })}
 					visualization={<CryptoViz />}
 				/>
 			</div>
 
-			{/* Whitelist */}
 			<UserList
 				title="Whitelist"
 				description="Allow specific users to interact with your repositories without being affected by the rules"
@@ -473,7 +488,6 @@ function RulesPage() {
 				isAdding={addWhitelist.isPending}
 			/>
 
-			{/* Blacklist */}
 			<UserList
 				title="Blacklist"
 				description="Prevent any user on GitHub from interacting with your repositories"
@@ -493,6 +507,68 @@ function RulesPage() {
 				}}
 				isAdding={addBlacklist.isPending}
 			/>
+
+			<RulesSaveBar
+				dirty={dirty}
+				saving={updateConfig.isPending}
+				saved={showSavedState}
+				changes={changes}
+				onSave={() => {
+					void handleSave();
+				}}
+				onDiscard={handleDiscard}
+				onRevert={handleRevert}
+			/>
+
+			<AnimatePresence>
+				{leaveBlocker.status === "blocked" ? (
+					<motion.div
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						transition={{ duration: 0.16, ease: "easeOut" }}
+						className="fixed inset-0 z-[70] flex items-end justify-center bg-[rgba(7,7,9,0.64)] p-4 backdrop-blur-[2px] sm:items-center"
+						onClick={() => leaveBlocker.reset()}
+					>
+						<motion.div
+							initial={{ opacity: 0, y: 14, scale: 0.985 }}
+							animate={{ opacity: 1, y: 0, scale: 1 }}
+							exit={{ opacity: 0, y: 10, scale: 0.985 }}
+							transition={{ type: "spring", stiffness: 340, damping: 28, mass: 0.82 }}
+							className="w-full max-w-[360px] rounded-2xl bg-tw-card p-1.5"
+							style={{ boxShadow: "0 8px 24px #00000040, 0 1px 2px #0000001a" }}
+							onClick={(event) => event.stopPropagation()}
+						>
+							<div className="flex items-start justify-between gap-3 px-3.5 py-3">
+								<div>
+									<h2 className="text-[15px] leading-5 font-medium text-tw-text-primary">
+										Leave without saving?
+									</h2>
+									<p className="mt-1 text-[13px] leading-5 text-tw-text-secondary">
+										Unsaved rule changes will be lost.
+									</p>
+								</div>
+							</div>
+							<div className="flex items-center justify-end gap-1.5 border-t border-white/[0.05] px-1.5 pt-1.5">
+								<button
+									type="button"
+									onClick={() => leaveBlocker.reset()}
+									className="inline-flex h-8 items-center rounded-[10px] px-3 text-[12px] font-medium text-tw-text-tertiary transition-colors hover:bg-tw-hover hover:text-tw-text-secondary"
+								>
+									Stay
+								</button>
+								<button
+									type="button"
+									onClick={() => leaveBlocker.proceed()}
+									className="inline-flex h-8 items-center rounded-[10px] bg-[#363639] px-3 text-[12px] font-medium text-tw-text-primary transition-colors hover:bg-[#404044]"
+								>
+									Leave
+								</button>
+							</div>
+						</motion.div>
+					</motion.div>
+				) : null}
+			</AnimatePresence>
 		</div>
 	);
 }

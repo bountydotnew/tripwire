@@ -151,10 +151,10 @@ describe("rule config defaults", () => {
 	it("should have correct default values for new rules", async () => {
 		const { DEFAULT_RULE_CONFIG } = await import("#/db/schema");
 
-		expect(DEFAULT_RULE_CONFIG.maxPrsPerDay).toEqual({ enabled: false, limit: 5 });
-		expect(DEFAULT_RULE_CONFIG.maxFilesChanged).toEqual({ enabled: false, limit: 20 });
-		expect(DEFAULT_RULE_CONFIG.repoActivityMinimum).toEqual({ enabled: false, minRepos: 3 });
-		expect(DEFAULT_RULE_CONFIG.requireProfileReadme).toEqual({ enabled: false });
+		expect(DEFAULT_RULE_CONFIG.maxPrsPerDay).toEqual({ enabled: false, action: "block", limit: 5 });
+		expect(DEFAULT_RULE_CONFIG.maxFilesChanged).toEqual({ enabled: false, action: "block", limit: 20 });
+		expect(DEFAULT_RULE_CONFIG.repoActivityMinimum).toEqual({ enabled: false, action: "block", minRepos: 3 });
+		expect(DEFAULT_RULE_CONFIG.requireProfileReadme).toEqual({ enabled: false, action: "block" });
 	});
 
 	it("should have all new rules disabled by default", async () => {
