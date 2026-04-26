@@ -2,7 +2,6 @@ import {
 	AreaChart,
 	Area,
 	XAxis,
-	CartesianGrid,
 	ResponsiveContainer,
 	Tooltip,
 } from "recharts";
@@ -33,11 +32,6 @@ export function BlacklistTrendChart({ data }: BlacklistTrendChartProps) {
 									<stop offset="95%" stopColor="#DF750C" stopOpacity={0.1} />
 								</linearGradient>
 							</defs>
-							<CartesianGrid
-								strokeDasharray="4 4"
-								stroke="#FFFFFF0F"
-								vertical={false}
-							/>
 							<XAxis
 								dataKey="month"
 								tick={{ fill: "#FFFFFF66", fontSize: 11, fontFamily: "Inter, system-ui, sans-serif" }}

@@ -99,6 +99,24 @@ export const catalog = defineCatalog(schema, {
 			description: "Shows all users on the blacklist and whitelist",
 		},
 
+		// ─── Rule Config Card ─────────────────────────────────────────
+		RuleConfigCard: {
+			props: z.object({
+				rules: z.array(
+					z.object({
+						id: z.string(),
+						name: z.string(),
+						enabled: z.boolean(),
+						action: z.string(),
+						detail: z.string().optional(),
+					}),
+				),
+				enabledCount: z.number(),
+				totalCount: z.number(),
+			}),
+			description: "Displays the rule configuration for a repository with enabled/disabled states and action levels",
+		},
+
 		// ─── Text Block ───────────────────────────────────────────────
 		Text: {
 			props: z.object({

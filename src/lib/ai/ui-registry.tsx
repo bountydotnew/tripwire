@@ -212,15 +212,15 @@ export const { registry } = defineRegistry(catalog, {
 			return (
 				<div className="flex flex-col gap-3">
 					{/* Blacklist */}
-					<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
-						<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted uppercase tracking-wider">
-							<svg width="10" height="10" viewBox="0 0 14 14" fill="none" className="text-tw-error">
-								<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
-								<path d="M4 7h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-							</svg>
-							Blacklist
-						</div>
-						{hasBlacklist ? (
+					{hasBlacklist && (
+						<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+							<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted uppercase tracking-wider">
+								<svg width="10" height="10" viewBox="0 0 14 14" fill="none" className="text-tw-error">
+									<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
+									<path d="M4 7h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+								</svg>
+								Blacklist
+							</div>
 							<div className="space-y-1.5">
 								{props.blacklist.map((user) => (
 									<div key={user.username} className="flex items-center gap-2 text-[12px]">
@@ -232,23 +232,19 @@ export const { registry } = defineRegistry(catalog, {
 									</div>
 								))}
 							</div>
-						) : (
-							<div className="text-[12px] text-tw-text-muted">
-								No users blacklisted.
-							</div>
-						)}
-					</div>
+						</div>
+					)}
 
 					{/* Whitelist */}
-					<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
-						<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted uppercase tracking-wider">
-							<svg width="10" height="10" viewBox="0 0 14 14" fill="none" className="text-tw-success">
-								<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
-								<path d="M4 7L6 9L10 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-							</svg>
-							Whitelist
-						</div>
-						{hasWhitelist ? (
+					{hasWhitelist && (
+						<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+							<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted uppercase tracking-wider">
+								<svg width="10" height="10" viewBox="0 0 14 14" fill="none" className="text-tw-success">
+									<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
+									<path d="M4 7L6 9L10 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+								</svg>
+								Whitelist
+							</div>
 							<div className="space-y-1.5">
 								{props.whitelist.map((user) => (
 									<div key={user.username} className="flex items-center gap-2 text-[12px]">
@@ -260,12 +256,8 @@ export const { registry } = defineRegistry(catalog, {
 									</div>
 								))}
 							</div>
-						) : (
-							<div className="text-[12px] text-tw-text-muted">
-								No users whitelisted.
-							</div>
-						)}
-					</div>
+						</div>
+					)}
 				</div>
 			);
 		},
@@ -311,6 +303,53 @@ export const { registry } = defineRegistry(catalog, {
 					{reason && (
 						<div className="text-[11px] text-tw-text-secondary">{reason}</div>
 					)}
+				</div>
+			);
+		},
+
+		// ─── Rule Config Card ─────────────────────────────────────────
+		RuleConfigCard: ({ props }) => {
+			return (
+				<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+					<div className="flex items-center justify-between">
+						<div className="text-[12px] text-tw-text-muted uppercase tracking-wider">
+							Rule Configuration
+						</div>
+						<span className="text-[11px] text-tw-text-muted">
+							{props.enabledCount} / {props.totalCount} active
+						</span>
+					</div>
+					<div className="space-y-1">
+						{props.rules.map((rule) => (
+							<div key={rule.id} className="flex items-center justify-between py-1">
+								<div className="flex items-center gap-2 min-w-0">
+									<span
+										className={`size-1.5 rounded-full shrink-0 ${
+											rule.enabled ? "bg-tw-success" : "bg-tw-text-muted/30"
+										}`}
+									/>
+									<span className={`text-[12px] ${rule.enabled ? "text-tw-text-primary" : "text-tw-text-muted"}`}>
+										{rule.name}
+									</span>
+								</div>
+								<div className="flex items-center gap-2 shrink-0">
+									{rule.detail && (
+										<span className="text-[11px] text-tw-text-muted">{rule.detail}</span>
+									)}
+									{rule.enabled && (
+										<span className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded ${
+											rule.action === "block" ? "bg-red-500/10 text-red-400"
+												: rule.action === "warn" ? "bg-amber-500/10 text-amber-400"
+													: rule.action === "log" ? "bg-blue-500/10 text-blue-400"
+														: "bg-purple-500/10 text-purple-400"
+										}`}>
+											{rule.action}
+										</span>
+									)}
+								</div>
+							</div>
+						))}
+					</div>
 				</div>
 			);
 		},

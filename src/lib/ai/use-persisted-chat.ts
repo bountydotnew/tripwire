@@ -67,7 +67,7 @@ export function usePersistedChat({
 				refetchCustomer();
 				return;
 			}
-			console.error("[persisted-chat] Stream error:", error);
+			console.error("[chat]", error.message);
 			setChatError(error);
 		},
 	});

@@ -1,12 +1,15 @@
-import { useState, useRef, type KeyboardEvent } from "react";
+import { useState, useRef, useCallback, type KeyboardEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Outlet, useRouterState } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "./top-nav";
 import { WorkspaceProvider } from "#/lib/workspace-context";
 import { AuthProvider } from "#/lib/auth-context";
 import { ChatProvider, useAIChat } from "#/lib/ai/chat-context";
 import { ChatThread } from "../ask/chat-thread";
 import { useTRPC } from "#/integrations/trpc/react";
+import { UnicodeSpinner } from "#/components/ui/unicode-spinner";
+import { useCustomer } from "autumn-js/react";
 
 export function AppShell() {
 	return (
@@ -21,7 +24,7 @@ export function AppShell() {
 }
 
 function AppShellInner() {
-	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted } = useAIChat();
+	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted, newChat } = useAIChat();
 	const [inputValue, setInputValue] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -86,20 +89,38 @@ function AppShellInner() {
 										Ask Tripwire
 									</span>
 								</div>
-								<button
-									onClick={close}
-									type="button"
-									className="flex items-center justify-center size-6 rounded-md hover:bg-tw-hover transition-colors"
-								>
-									<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-										<path
-											d="M11 3L3 11M3 3L11 11"
-											stroke="#9F9FA9"
-											strokeWidth="1.5"
-											strokeLinecap="round"
-										/>
-									</svg>
-								</button>
+								<div className="flex items-center gap-1.5">
+									<CreditBalancePill />
+									<button
+										onClick={newChat}
+										type="button"
+										className="flex items-center justify-center size-6 rounded-md hover:bg-tw-hover transition-colors"
+										title="New chat"
+									>
+										<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+											<path
+												d="M7 3v8M3 7h8"
+												stroke="#9F9FA9"
+												strokeWidth="1.5"
+												strokeLinecap="round"
+											/>
+										</svg>
+									</button>
+									<button
+										onClick={close}
+										type="button"
+										className="flex items-center justify-center size-6 rounded-md hover:bg-tw-hover transition-colors"
+									>
+										<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+											<path
+												d="M11 3L3 11M3 3L11 11"
+												stroke="#9F9FA9"
+												strokeWidth="1.5"
+												strokeLinecap="round"
+											/>
+										</svg>
+									</button>
+								</div>
 							</div>
 
 							<div className="px-3 pb-3 shrink-0">
@@ -186,15 +207,68 @@ function AppShellInner() {
 	);
 }
 
+function CreditBalancePill() {
+	const { data: customer } = useCustomer();
+	const balance = customer?.balances?.ai_messages;
+
+	if (!balance) return null;
+
+	const remaining = balance.remaining ?? 0;
+	const granted = balance.granted ?? 0;
+	const unlimited = balance.unlimited ?? false;
+
+	if (unlimited) return null;
+
+	const isEmpty = remaining <= 0;
+	const isLow = !isEmpty && granted > 0 && remaining / granted < 0.2;
+
+	return (
+		<span
+			className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums transition-colors ${
+				isEmpty
+					? "bg-red-500/10 text-red-400"
+					: isLow
+						? "bg-amber-500/10 text-amber-400"
+						: "bg-[#FAFAFA08] text-tw-text-muted"
+			}`}
+		>
+			{remaining} / {granted}
+		</span>
+	);
+}
+
 function SidebarRecentChats() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const { loadChat, open } = useAIChat();
 	const [loadingId, setLoadingId] = useState<string | null>(null);
+	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 	const chatsQuery = useQuery(trpc.chats.list.queryOptions({ limit: 3 }));
 	const chats = chatsQuery.data ?? [];
 
-	if (chats.length === 0) return null;
+	const listQueryKey = trpc.chats.list.queryKey({ limit: 3 });
+	const deleteChat = useMutation(
+		trpc.chats.delete.mutationOptions({
+			onMutate: async ({ chatId }) => {
+				setConfirmDeleteId(null);
+				await queryClient.cancelQueries({ queryKey: listQueryKey });
+				const previous = queryClient.getQueryData(listQueryKey);
+				await new Promise((r) => setTimeout(r, 300));
+				queryClient.setQueryData(listQueryKey, (old: typeof chats | undefined) =>
+					old ? old.filter((c) => c.id !== chatId) : [],
+				);
+				return { previous };
+			},
+			onError: (_err, _vars, ctx) => {
+				if (ctx?.previous) {
+					queryClient.setQueryData(listQueryKey, ctx.previous);
+				}
+			},
+			onSettled: () => {
+				queryClient.invalidateQueries({ queryKey: listQueryKey });
+			},
+		}),
+	);
 
 	const handleLoadChat = async (chatId: string) => {
 		setLoadingId(chatId);
@@ -203,13 +277,15 @@ function SidebarRecentChats() {
 				trpc.chats.get.queryOptions({ chatId }),
 			);
 			if (conv?.messages) {
-				loadChat(conv.messages as any[]);
+				loadChat(chatId, conv.messages as any[]);
 				open();
 			}
 		} finally {
 			setLoadingId(null);
 		}
 	};
+
+	if (chats.length === 0) return null;
 
 	return (
 		<div className="px-2 pb-1 shrink-0">
@@ -218,39 +294,90 @@ function SidebarRecentChats() {
 					Recent
 				</span>
 			</div>
-			<div className="flex flex-col gap-px">
+			<AnimatePresence initial={false}>
 				{chats.map((chat) => {
 					const isLoading = loadingId === chat.id;
+					const isConfirming = confirmDeleteId === chat.id;
+
+					if (isConfirming) {
+						return (
+							<motion.div
+								key={chat.id}
+								layout
+								transition={{ layout: { duration: 0.25, ease: [0.25, 1, 0.5, 1] } }}
+								className="flex items-center gap-2 w-full px-1.5 py-1.5 rounded-lg bg-tw-hover"
+							>
+								<span className="text-[12px] text-tw-text-secondary flex-1 truncate">
+									Delete this chat?
+								</span>
+								<button
+									type="button"
+									onClick={() => deleteChat.mutate({ chatId: chat.id })}
+									className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors px-1"
+								>
+									Delete
+								</button>
+								<button
+									type="button"
+									onClick={() => setConfirmDeleteId(null)}
+									className="text-[11px] font-medium text-tw-text-muted hover:text-tw-text-secondary transition-colors px-1"
+								>
+									Cancel
+								</button>
+							</motion.div>
+						);
+					}
+
 					return (
-						<button
+						<motion.div
 							key={chat.id}
-							type="button"
-							disabled={loadingId !== null}
-							onClick={() => handleLoadChat(chat.id)}
-							className={`flex items-center gap-2 w-full px-1.5 py-1.5 rounded-lg text-left transition-all duration-200 ${
+							layout
+							exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0, overflow: "hidden" }}
+							transition={{
+								layout: { duration: 0.25, ease: [0.25, 1, 0.5, 1] },
+								exit: { duration: 0.2, ease: [0.25, 1, 0.5, 1] },
+							}}
+							className={`group flex items-center gap-2 w-full px-1.5 py-1.5 rounded-lg text-left ${
 								isLoading
 									? "bg-tw-hover"
-									: "hover:bg-tw-hover disabled:opacity-50"
+									: "hover:bg-tw-hover"
 							}`}
 						>
-							{isLoading ? (
-								<svg width="12" height="12" viewBox="0 0 12 12" className="shrink-0 text-tw-text-secondary animate-spin">
-									<circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" fill="none" strokeDasharray="16" strokeDashoffset="4" />
+							<button
+								type="button"
+								disabled={loadingId !== null}
+								onClick={() => handleLoadChat(chat.id)}
+								className="flex items-center gap-2 flex-1 min-w-0 disabled:opacity-50"
+							>
+								{isLoading ? (
+									<UnicodeSpinner variant="dots" className="text-[12px] text-tw-text-secondary" label="Loading chat" />
+								) : (
+									<svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-tw-text-muted">
+										<path d="M2.5 3.5C2.5 2.67 3.17 2 4 2h4c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5H5.5L3.5 10V8H4c-.83 0-1.5-.67-1.5-1.5v-3Z" stroke="currentColor" strokeWidth="1" />
+									</svg>
+								)}
+								<span className={`text-[12px] truncate transition-colors duration-200 ${
+									isLoading ? "text-tw-text-primary" : "text-tw-text-secondary"
+								}`}>
+									{chat.title ?? "New chat"}
+								</span>
+							</button>
+							<button
+								type="button"
+								onClick={(e) => {
+									e.stopPropagation();
+									setConfirmDeleteId(chat.id);
+								}}
+								className="shrink-0 flex items-center justify-center size-5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-[#FAFAFA10] transition-all"
+							>
+								<svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+									<path d="M7.5 2.5L2.5 7.5M2.5 2.5L7.5 7.5" stroke="#9F9FA9" strokeWidth="1.2" strokeLinecap="round" />
 								</svg>
-							) : (
-								<svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-tw-text-muted">
-									<path d="M2.5 3.5C2.5 2.67 3.17 2 4 2h4c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5H5.5L3.5 10V8H4c-.83 0-1.5-.67-1.5-1.5v-3Z" stroke="currentColor" strokeWidth="1" />
-								</svg>
-							)}
-							<span className={`text-[12px] truncate transition-colors duration-200 ${
-								isLoading ? "text-tw-text-primary" : "text-tw-text-secondary"
-							}`}>
-								{chat.title ?? "New chat"}
-							</span>
-						</button>
+							</button>
+						</motion.div>
 					);
 				})}
-			</div>
+			</AnimatePresence>
 		</div>
 	);
 }

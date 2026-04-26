@@ -1,4 +1,6 @@
 import { useRef, useEffect, useMemo, useState } from "react";
+import { UnicodeSpinner, useRandomThinkingVariant } from "#/components/ui/unicode-spinner";
+import { useThinkingPhrase } from "#/lib/ai/thinking-phrases";
 import type { UIMessage, MessagePart } from "@tanstack/ai-client";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import { Streamdown } from "streamdown";
@@ -177,6 +179,9 @@ function ErrorMessage({ message }: { message: string }) {
 }
 
 function LoadingIndicator() {
+	const variant = useRandomThinkingVariant();
+	const phrase = useThinkingPhrase();
+
 	return (
 		<div className="flex items-end gap-2 px-1">
 			<div className="w-6 shrink-0">
@@ -185,10 +190,8 @@ function LoadingIndicator() {
 				</div>
 			</div>
 			<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted">
-				<svg width="14" height="14" viewBox="0 0 14 14" className="animate-spin">
-					<circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeDasharray="20" strokeDashoffset="5" />
-				</svg>
-				<span>Thinking...</span>
+				<UnicodeSpinner variant={variant} className="text-[13px] opacity-80" label={phrase} />
+				<span>{phrase}...</span>
 			</div>
 		</div>
 	);
@@ -200,6 +203,10 @@ interface ChatMessageProps {
 	onRespondToApproval: (approvalId: string, approved: boolean) => void;
 }
 
+// Track approval IDs that have already been responded to.
+// Module-level so it survives component remounts.
+const handledApprovalIds = new Set<string>();
+
 function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessageProps) {
 	if (message.role === "user") {
 		return <UserMessage content={getTextContent(message)} />;
@@ -207,26 +214,41 @@ function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessagePr
 
 	const pendingApprovals = (message.parts ?? []).filter(
 		(part): part is MessagePart & { type: "tool-call"; approval: { id: string } } =>
-			part.type === "tool-call" && part.state === "approval-requested" && !!part.approval,
+			part.type === "tool-call" && part.state === "approval-requested" && !!part.approval
+			&& !handledApprovalIds.has(part.approval.id),
 	);
 
-	const handleApproveAll = async () => {
-		for (let i = 0; i < pendingApprovals.length; i++) {
-			onRespondToApproval(pendingApprovals[i].approval.id, true);
-			if (i < pendingApprovals.length - 1) {
-				await new Promise((r) => setTimeout(r, 200));
-			}
+	const handleApproveAll = () => {
+		for (const part of pendingApprovals) {
+			if (handledApprovalIds.has(part.approval.id)) continue;
+			handledApprovalIds.add(part.approval.id);
+			onRespondToApproval(part.approval.id, true);
 		}
 	};
 
 	const handleDenyAll = () => {
 		for (const part of pendingApprovals) {
+			if (handledApprovalIds.has(part.approval.id)) continue;
+			handledApprovalIds.add(part.approval.id);
 			onRespondToApproval(part.approval.id, false);
 		}
 	};
 
 	const groupedParts = useMemo(() => {
-		const parts = message.parts ?? [];
+		const rawParts = message.parts ?? [];
+
+		// Deduplicate parts by toolCallId (TanStack AI can send duplicates)
+		const seen = new Set<string>();
+		const parts = rawParts.filter((part) => {
+			if (part.type === "tool-call" || part.type === "tool-result") {
+				const id = (part as any).toolCallId || (part as any).id;
+				const key = `${part.type}-${id}`;
+				if (id && seen.has(key)) return false;
+				if (id) seen.add(key);
+			}
+			return true;
+		});
+
 		const result: Array<MessagePart | { type: "grouped-results"; results: ActionResultData[]; key: string }> = [];
 		let currentGroup: Array<{ part: MessagePart; data: ActionResultData }> = [];
 		let currentAction: string | null = null;
@@ -325,6 +347,9 @@ function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererP
 		case "text":
 			return <MarkdownText content={part.content} />;
 
+		case "reasoning":
+			return <ReasoningBlock content={(part as any).content ?? (part as any).text ?? ""} />;
+
 		case "tool-call": {
 			let toolArgs: Record<string, unknown> = {};
 			if (part.arguments) {
@@ -337,26 +362,37 @@ function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererP
 				toolArgs = part.input as Record<string, unknown>;
 			}
 
-			if (part.state === "approval-requested" && part.approval) {
+			if (part.state === "approval-requested" && part.approval && !handledApprovalIds.has(part.approval.id)) {
 				return (
 					<ToolApprovalCard
 						toolName={part.name}
 						args={toolArgs}
-						onApprove={() => onRespondToApproval(part.approval!.id, true)}
-						onDeny={() => onRespondToApproval(part.approval!.id, false)}
+						onApprove={() => {
+							handledApprovalIds.add(part.approval!.id);
+							onRespondToApproval(part.approval!.id, true);
+						}}
+						onDeny={() => {
+							handledApprovalIds.add(part.approval!.id);
+							onRespondToApproval(part.approval!.id, false);
+						}}
 					/>
 				);
 			}
 
-			return <ToolCallChip toolName={part.name} args={toolArgs} state={part.state} />;
+			return <ToolStep toolName={part.name} args={toolArgs} state={part.state} />;
 		}
 
 		case "tool-result":
+			// Tool results are now shown inside ToolStep's collapsible detail
+			// Only render standalone if there's a UI card (json-render spec)
 			try {
 				const parsed = JSON.parse(part.content);
-				return <ToolResultDisplay result={parsed} />;
+				if (parsed && typeof parsed === "object" && "root" in parsed && "elements" in parsed) {
+					return <ToolResultDisplay result={parsed} />;
+				}
+				return null; // Absorbed into ToolStep
 			} catch {
-				return <div className="text-[12px] text-tw-text-muted">{part.content}</div>;
+				return null;
 			}
 
 		default:
@@ -372,31 +408,89 @@ function MarkdownText({ content }: { content: string }) {
 	);
 }
 
-interface ToolCallChipProps {
+interface ToolStepProps {
 	toolName: string;
 	args: Record<string, unknown>;
 	state: string;
 }
 
-function ToolCallChip({ toolName, args, state }: ToolCallChipProps) {
+function ToolStep({ toolName, args, state }: ToolStepProps) {
+	const [isOpen, setIsOpen] = useState(false);
 	const isComplete = state === "input-complete" || state === "approval-responded";
+	const isError = state === "error" || state === "output-error";
 	const displayName = formatToolName(toolName);
 	const argsStr = formatToolArgs(toolName, args);
+	const hasArgs = Object.keys(args).length > 0;
 
 	return (
-		<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted">
-			{isComplete ? (
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-tw-success">
-					<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5" />
-					<path d="M4 7L6 9L10 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-				</svg>
-			) : (
-				<svg width="14" height="14" viewBox="0 0 14 14" className="animate-spin">
-					<circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeDasharray="20" strokeDashoffset="5" />
-				</svg>
+		<div className="flex flex-col">
+			<button
+				type="button"
+				onClick={() => hasArgs && setIsOpen(!isOpen)}
+				className={`flex items-center gap-2 py-0.5 text-[12px] text-tw-text-muted ${hasArgs ? "cursor-pointer hover:text-[#E0E0E0]" : "cursor-default"} transition-colors`}
+			>
+				{isError ? (
+					<svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-red-400/60">
+						<circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
+						<path d="M4.5 4.5L7.5 7.5M7.5 4.5L4.5 7.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+					</svg>
+				) : isComplete ? (
+					<svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-tw-success/60">
+						<circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
+						<path d="M3.5 6L5 7.5L8.5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+					</svg>
+				) : (
+					<UnicodeSpinner variant="dots" className="text-[12px] text-tw-text-secondary" label={displayName} />
+				)}
+				<span className={isComplete ? "" : "text-tw-text-secondary"}>{displayName}</span>
+				{!isOpen && argsStr && <span className="text-tw-text-tertiary truncate max-w-[140px]">{argsStr}</span>}
+			</button>
+			{isOpen && hasArgs && (
+				<div className="ml-5 mt-0.5 mb-1 text-[11px] flex flex-col gap-0.5">
+					{Object.entries(args).map(([key, val]) => (
+						<div key={key} className="flex gap-2">
+							<span className="text-tw-text-muted shrink-0">{key}</span>
+							<span className="text-tw-text-secondary font-mono truncate">
+								{typeof val === "string" ? val : JSON.stringify(val)}
+							</span>
+						</div>
+					))}
+				</div>
 			)}
-			<span className="font-mono">{displayName}</span>
-			{argsStr && <span className="text-tw-text-tertiary truncate max-w-[140px]">{argsStr}</span>}
+		</div>
+	);
+}
+
+function ReasoningBlock({ content }: { content: string }) {
+	const [isOpen, setIsOpen] = useState(false);
+
+	if (!content.trim()) return null;
+
+	return (
+		<div className="flex flex-col gap-1">
+			<button
+				type="button"
+				onClick={() => setIsOpen(!isOpen)}
+				className="flex items-center gap-1.5 text-[12px] text-tw-text-muted hover:text-tw-text-secondary transition-colors py-0.5"
+			>
+				<svg
+					width="10"
+					height="10"
+					viewBox="0 0 10 10"
+					fill="none"
+					className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+				>
+					<path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+				</svg>
+				<span>Thought</span>
+			</button>
+			{isOpen && (
+				<div className="pl-4 border-l border-[#27272A] text-[12px] leading-[18px] text-tw-text-muted/70">
+					<Streamdown className="tw-chat-markdown" mode="static" plugins={{ code }} controls={false} linkSafety={{ enabled: false }}>
+						{content}
+					</Streamdown>
+				</div>
+			)}
 		</div>
 	);
 }

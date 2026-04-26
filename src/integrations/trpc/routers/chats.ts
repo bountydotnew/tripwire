@@ -21,8 +21,9 @@ export const chatsRouter = {
 					userId: ctx.user.id,
 					repoId: input.repoId ?? null,
 				})
+				.onConflictDoNothing()
 				.returning();
-			return conv;
+			return conv ?? null;
 		}),
 
 	get: authedProcedure
@@ -50,19 +51,24 @@ export const chatsRouter = {
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
+			// Upsert: create if missing (race with create mutation), update if exists
 			await db
-				.update(conversations)
-				.set({
+				.insert(conversations)
+				.values({
+					id: input.chatId,
+					userId: ctx.user.id,
 					messages: input.messages,
-					...(input.title ? { title: input.title } : {}),
-					updatedAt: new Date(),
+					title: input.title ?? "New chat",
 				})
-				.where(
-					and(
-						eq(conversations.id, input.chatId),
-						eq(conversations.userId, ctx.user.id),
-					),
-				);
+				.onConflictDoUpdate({
+					target: conversations.id,
+					set: {
+						messages: input.messages,
+						...(input.title ? { title: input.title } : {}),
+						updatedAt: new Date(),
+					},
+					setWhere: eq(conversations.userId, ctx.user.id),
+				});
 		}),
 
 	list: authedProcedure

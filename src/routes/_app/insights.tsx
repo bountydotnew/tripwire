@@ -80,8 +80,19 @@ function InsightsPage() {
 	// Transform trend data from tRPC into chart format
 	const trendRows = trendsQuery.data ?? [];
 
-	// Group by month for spam trend (all blocked actions)
+	// Build a full list of the last 8 months so empty months show as 0
+	const allMonths: string[] = [];
+	const now = new Date();
+	for (let i = 7; i >= 0; i--) {
+		const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+		allMonths.push(d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }));
+	}
+
+	// Group event data by month
 	const monthMap = new Map<string, { spam: number; prCreated: number; prMerged: number }>();
+	for (const month of allMonths) {
+		monthMap.set(month, { spam: 0, prCreated: 0, prMerged: 0 });
+	}
 	for (const row of trendRows) {
 		const existing = monthMap.get(row.month) ?? { spam: 0, prCreated: 0, prMerged: 0 };
 		if (row.action === "pr_closed" || row.action === "issue_deleted" || row.action === "comment_deleted") {
@@ -96,15 +107,15 @@ function InsightsPage() {
 		monthMap.set(row.month, existing);
 	}
 
-	const spamTrendData = Array.from(monthMap.entries()).map(([month, d]) => ({
+	const spamTrendData = allMonths.map((month) => ({
 		month,
-		spam: d.spam,
+		spam: monthMap.get(month)?.spam ?? 0,
 	}));
 
-	const blacklistTrendData = Array.from(monthMap.entries()).map(([month, d]) => ({
+	const blacklistTrendData = allMonths.map((month) => ({
 		month,
-		created: d.prCreated,
-		merged: d.prMerged,
+		created: monthMap.get(month)?.prCreated ?? 0,
+		merged: monthMap.get(month)?.prMerged ?? 0,
 	}));
 
 	// Cumulative bot count

@@ -5,7 +5,11 @@ import {
 	events,
 	whitelistEntries,
 	blacklistEntries,
+	ruleConfigs,
+	DEFAULT_RULE_CONFIG,
 	type EventAction,
+	type RuleConfig,
+	type RuleAction,
 } from "#/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { logEvent } from "#/lib/events";
@@ -79,7 +83,23 @@ export const listEventsDef = toolDefinition({
 export const getListsDef = toolDefinition({
 	name: "get_lists",
 	description:
-		"Show all users currently on the blacklist and whitelist for this repository. Use this when the user asks to see the lists, view blocked users, or check who is blacklisted/whitelisted.",
+		"Show all users on BOTH the blacklist and whitelist. Use when the user asks to see 'the lists' or wants an overview of both.",
+	inputSchema: z.object({}),
+	outputSchema: specSchema,
+});
+
+export const getBlacklistDef = toolDefinition({
+	name: "get_blacklist",
+	description:
+		"Show only the blacklisted users. Use when the user specifically asks about the blacklist.",
+	inputSchema: z.object({}),
+	outputSchema: specSchema,
+});
+
+export const getWhitelistDef = toolDefinition({
+	name: "get_whitelist",
+	description:
+		"Show only the whitelisted users. Use when the user specifically asks about the whitelist.",
 	inputSchema: z.object({}),
 	outputSchema: specSchema,
 });
@@ -155,6 +175,77 @@ export const moveToBlacklistDef = toolDefinition({
 		"Move a user from the whitelist to the blacklist in one action. Use this when user asks to remove whitelist AND block someone.",
 	inputSchema: z.object({
 		username: z.string(),
+	}),
+	outputSchema: specSchema,
+	needsApproval: true,
+});
+
+// ─── Rule Config Tools ──────────────────────────────────────────
+
+const RULE_NAMES: Record<string, string> = {
+	aiSlopDetection: "AI Slop Detection",
+	requireProfilePicture: "Require Profile Picture",
+	languageRequirement: "Language Requirement",
+	minMergedPrs: "Minimum Merged PRs",
+	accountAge: "Account Age",
+	maxPrsPerDay: "Max PRs Per Day",
+	maxFilesChanged: "Max Files Changed",
+	repoActivityMinimum: "Repo Activity Minimum",
+	requireProfileReadme: "Require Profile README",
+	cryptoAddressDetection: "Crypto Address Detection",
+};
+
+function getRuleDetail(ruleId: string, config: Record<string, unknown>): string | undefined {
+	if (ruleId === "languageRequirement" && config.language) return `${config.language}`;
+	if (ruleId === "minMergedPrs" && config.count != null) return `${config.count} PRs`;
+	if (ruleId === "accountAge" && config.days != null) return `${config.days} days`;
+	if (ruleId === "maxPrsPerDay" && config.limit != null) return `${config.limit}/day`;
+	if (ruleId === "maxFilesChanged" && config.limit != null) return `${config.limit} files`;
+	if (ruleId === "repoActivityMinimum" && config.minRepos != null) return `${config.minRepos} repos`;
+	return undefined;
+}
+
+export const getRuleConfigDef = toolDefinition({
+	name: "get_rule_config",
+	description:
+		"Get the current rule configuration for this repository. Shows which rules are enabled, their action levels (block/warn/log/threshold), and their settings.",
+	inputSchema: z.object({}),
+	outputSchema: specSchema,
+});
+
+export const toggleRuleDef = toolDefinition({
+	name: "toggle_rule",
+	description:
+		"Enable or disable a specific rule. Valid ruleIds: aiSlopDetection, requireProfilePicture, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
+	inputSchema: z.object({
+		ruleId: z.string(),
+		enabled: z.boolean(),
+	}),
+	outputSchema: specSchema,
+	needsApproval: true,
+});
+
+export const updateRuleActionDef = toolDefinition({
+	name: "update_rule_action",
+	description:
+		"Change a rule's action level. Actions: 'block' (close PR/issue), 'warn' (leave comment), 'log' (record silently), 'threshold' (ignore until N violations then block). Valid ruleIds: aiSlopDetection, requireProfilePicture, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
+	inputSchema: z.object({
+		ruleId: z.string(),
+		action: z.enum(["block", "warn", "log", "threshold"]),
+		thresholdCount: z.number().optional(),
+	}),
+	outputSchema: specSchema,
+	needsApproval: true,
+});
+
+export const updateRuleValueDef = toolDefinition({
+	name: "update_rule_value",
+	description:
+		"Set a rule's numeric or string parameter. Valid fields per rule: minMergedPrs.count, accountAge.days, maxPrsPerDay.limit, maxFilesChanged.limit, repoActivityMinimum.minRepos, languageRequirement.language. Valid ruleIds: aiSlopDetection, requireProfilePicture, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
+	inputSchema: z.object({
+		ruleId: z.string().describe("The rule ID (e.g. 'minMergedPrs', 'accountAge')"),
+		field: z.string().describe("The field to update (e.g. 'count', 'days', 'limit', 'minRepos', 'language')"),
+		value: z.union([z.number(), z.string()]).describe("The new value"),
 	}),
 	outputSchema: specSchema,
 	needsApproval: true,
@@ -355,6 +446,42 @@ export function createTripwireTools(ctx: ToolContext) {
 			});
 		}),
 
+		// ─── Get Blacklist ──────────────────────────────────────
+		getBlacklistDef.server(async () => {
+			const blacklist = await db
+				.select()
+				.from(blacklistEntries)
+				.where(eq(blacklistEntries.repoId, repoId))
+				.orderBy(desc(blacklistEntries.createdAt));
+
+			return makeSpec("ListsOverview", {
+				blacklist: blacklist.map((e) => ({
+					username: e.githubUsername,
+					avatar: e.avatarUrl,
+					addedAt: e.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+				})),
+				whitelist: [],
+			});
+		}),
+
+		// ─── Get Whitelist ──────────────────────────────────────
+		getWhitelistDef.server(async () => {
+			const whitelist = await db
+				.select()
+				.from(whitelistEntries)
+				.where(eq(whitelistEntries.repoId, repoId))
+				.orderBy(desc(whitelistEntries.createdAt));
+
+			return makeSpec("ListsOverview", {
+				blacklist: [],
+				whitelist: whitelist.map((e) => ({
+					username: e.githubUsername,
+					avatar: e.avatarUrl,
+					addedAt: e.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+				})),
+			});
+		}),
+
 		// ─── Check Lists ────────────────────────────────────────
 		checkListsDef.server(async ({ username }) => {
 			const [whitelist, blacklist] = await Promise.all([
@@ -392,6 +519,25 @@ export function createTripwireTools(ctx: ToolContext) {
 		// ─── Add to Blacklist ───────────────────────────────────
 		addToBlacklistDef.server(async ({ username }) => {
 			const ghUser = await fetchGitHubUser(username);
+
+			const [whitelisted] = await db
+				.select()
+				.from(whitelistEntries)
+				.where(
+					and(
+						eq(whitelistEntries.repoId, repoId),
+						eq(whitelistEntries.githubUsername, ghUser.login),
+					),
+				)
+				.limit(1);
+
+			if (whitelisted) {
+				return makeSpec("ActionResult", {
+					success: false,
+					message: `@${ghUser.login} is on the whitelist. Remove them from the whitelist first.`,
+					action: "add_to_blacklist",
+				});
+			}
 
 			const [existing] = await db
 				.select()
@@ -661,6 +807,187 @@ export function createTripwireTools(ctx: ToolContext) {
 				success: true,
 				message: `@${ghUser.login} has been moved to the blacklist. All their future contributions will be blocked.`,
 				action: "move_to_blacklist",
+			});
+		}),
+
+		// ─── Get Rule Config ────────────────────────────────────
+		getRuleConfigDef.server(async () => {
+			const [configRow] = await db
+				.select()
+				.from(ruleConfigs)
+				.where(eq(ruleConfigs.repoId, repoId))
+				.limit(1);
+
+			const config = (configRow?.config ?? DEFAULT_RULE_CONFIG) as RuleConfig;
+			const entries = Object.entries(config) as [string, any][];
+
+			let enabledCount = 0;
+			const rules = entries.map(([id, rule]) => {
+				if (rule.enabled) enabledCount++;
+				return {
+					id,
+					name: RULE_NAMES[id] ?? id,
+					enabled: rule.enabled,
+					action: rule.action,
+					detail: getRuleDetail(id, rule),
+				};
+			});
+
+			return makeSpec("RuleConfigCard", {
+				rules,
+				enabledCount,
+				totalCount: rules.length,
+			});
+		}),
+
+		// ─── Toggle Rule ────────────────────────────────────────
+		toggleRuleDef.server(async ({ ruleId, enabled }) => {
+			const [configRow] = await db
+				.select()
+				.from(ruleConfigs)
+				.where(eq(ruleConfigs.repoId, repoId))
+				.limit(1);
+
+			const config = { ...(configRow?.config ?? DEFAULT_RULE_CONFIG) } as any;
+
+			if (!(ruleId in config)) {
+				return makeSpec("ActionResult", {
+					success: false,
+					message: `Unknown rule: ${ruleId}`,
+					action: "toggle_rule",
+				});
+			}
+
+			config[ruleId] = { ...config[ruleId], enabled };
+
+			if (configRow) {
+				await db
+					.update(ruleConfigs)
+					.set({ config, updatedAt: new Date() })
+					.where(eq(ruleConfigs.repoId, repoId));
+			} else {
+				await db.insert(ruleConfigs).values({ repoId, config });
+			}
+
+			const ruleName = RULE_NAMES[ruleId] ?? ruleId;
+
+			await logEvent({
+				repoId,
+				action: "rule_config_updated",
+				severity: "info",
+				description: `${ruleName} ${enabled ? "enabled" : "disabled"} by AI assistant`,
+				metadata: { updatedBy: userName, viaAI: true, ruleId, enabled },
+			});
+
+			return makeSpec("ActionResult", {
+				success: true,
+				message: `${ruleName} has been ${enabled ? "enabled" : "disabled"}.`,
+				action: "toggle_rule",
+			});
+		}),
+
+		// ─── Update Rule Action ─────────────────────────────────
+		updateRuleActionDef.server(async ({ ruleId, action, thresholdCount }) => {
+			const [configRow] = await db
+				.select()
+				.from(ruleConfigs)
+				.where(eq(ruleConfigs.repoId, repoId))
+				.limit(1);
+
+			const config = { ...(configRow?.config ?? DEFAULT_RULE_CONFIG) } as any;
+
+			if (!(ruleId in config)) {
+				return makeSpec("ActionResult", {
+					success: false,
+					message: `Unknown rule: ${ruleId}`,
+					action: "update_rule_action",
+				});
+			}
+
+			config[ruleId] = {
+				...config[ruleId],
+				action,
+				...(action === "threshold" && thresholdCount ? { thresholdCount } : {}),
+			};
+
+			if (configRow) {
+				await db
+					.update(ruleConfigs)
+					.set({ config, updatedAt: new Date() })
+					.where(eq(ruleConfigs.repoId, repoId));
+			} else {
+				await db.insert(ruleConfigs).values({ repoId, config });
+			}
+
+			const ruleName = RULE_NAMES[ruleId] ?? ruleId;
+
+			await logEvent({
+				repoId,
+				action: "rule_config_updated",
+				severity: "info",
+				description: `${ruleName} action changed to ${action} by AI assistant`,
+				metadata: { updatedBy: userName, viaAI: true, ruleId, action, thresholdCount },
+			});
+
+			return makeSpec("ActionResult", {
+				success: true,
+				message: `${ruleName} action set to ${action}.${action === "threshold" && thresholdCount ? ` Threshold: ${thresholdCount} violations.` : ""}`,
+				action: "update_rule_action",
+			});
+		}),
+
+		// ─── Update Rule Value ──────────────────────────────────
+		updateRuleValueDef.server(async ({ ruleId, field, value }) => {
+			const [configRow] = await db
+				.select()
+				.from(ruleConfigs)
+				.where(eq(ruleConfigs.repoId, repoId))
+				.limit(1);
+
+			const config = { ...(configRow?.config ?? DEFAULT_RULE_CONFIG) } as any;
+
+			if (!(ruleId in config)) {
+				return makeSpec("ActionResult", {
+					success: false,
+					message: `Unknown rule: ${ruleId}`,
+					action: "update_rule_value",
+				});
+			}
+
+			// Don't allow setting core fields via this tool
+			if (field === "enabled" || field === "action") {
+				return makeSpec("ActionResult", {
+					success: false,
+					message: `Use the toggle_rule or update_rule_action tools to change '${field}'.`,
+					action: "update_rule_value",
+				});
+			}
+
+			config[ruleId] = { ...config[ruleId], [field]: value };
+
+			if (configRow) {
+				await db
+					.update(ruleConfigs)
+					.set({ config, updatedAt: new Date() })
+					.where(eq(ruleConfigs.repoId, repoId));
+			} else {
+				await db.insert(ruleConfigs).values({ repoId, config });
+			}
+
+			const ruleName = RULE_NAMES[ruleId] ?? ruleId;
+
+			await logEvent({
+				repoId,
+				action: "rule_config_updated",
+				severity: "info",
+				description: `${ruleName} ${field} set to ${value} by AI assistant`,
+				metadata: { updatedBy: userName, viaAI: true, ruleId, field, value },
+			});
+
+			return makeSpec("ActionResult", {
+				success: true,
+				message: `${ruleName} ${field} set to ${value}.`,
+				action: "update_rule_value",
 			});
 		}),
 	];

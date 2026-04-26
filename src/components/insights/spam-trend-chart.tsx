@@ -2,7 +2,6 @@ import {
 	AreaChart,
 	Area,
 	XAxis,
-	CartesianGrid,
 	ResponsiveContainer,
 	Tooltip,
 } from "recharts";
@@ -29,11 +28,6 @@ export function SpamTrendChart({ data }: SpamTrendChartProps) {
 									<stop offset="95%" stopColor="#118AF3" stopOpacity={0.1} />
 								</linearGradient>
 							</defs>
-							<CartesianGrid
-								strokeDasharray="4 4"
-								stroke="#FFFFFF0F"
-								vertical={false}
-							/>
 							<XAxis
 								dataKey="month"
 								tick={{ fill: "#FFFFFF66", fontSize: 11, fontFamily: "Inter, system-ui, sans-serif" }}

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, useBlocker } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
 import {
 	AccountAgeViz,
 	AiSlopViz,
@@ -19,6 +18,15 @@ import { RuleDropdown } from "../../components/rules/rule-dropdown";
 import { RulesSaveBar } from "../../components/rules/rules-save-bar";
 import { UserList } from "../../components/rules/user-list";
 import { EmptyState } from "../../components/layout/empty-state";
+import { Button } from "#/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#/components/ui/dialog";
 import { toastManager } from "#/components/ui/toast";
 import type { RuleConfig } from "#/db/schema";
 import { env } from "#/env";
@@ -123,19 +131,6 @@ function RulesPage() {
 		withResolver: true,
 		disabled: !dirty,
 	});
-
-	useEffect(() => {
-		if (leaveBlocker.status !== "blocked") return;
-
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") {
-				leaveBlocker.reset();
-			}
-		};
-
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [leaveBlocker]);
 
 	const toggleRule = useCallback(<K extends keyof RuleConfig>(key: K, enabled: boolean) => {
 		if (updateConfig.isPending) return;
@@ -520,55 +515,48 @@ function RulesPage() {
 				onRevert={handleRevert}
 			/>
 
-			<AnimatePresence>
-				{leaveBlocker.status === "blocked" ? (
-					<motion.div
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						exit={{ opacity: 0 }}
-						transition={{ duration: 0.16, ease: "easeOut" }}
-						className="fixed inset-0 z-[70] flex items-end justify-center bg-[rgba(7,7,9,0.64)] p-4 backdrop-blur-[2px] sm:items-center"
-						onClick={() => leaveBlocker.reset()}
+			<Dialog
+				open={leaveBlocker.status === "blocked"}
+				onOpenChange={(open) => {
+					if (!open) {
+						leaveBlocker.reset?.();
+					}
+				}}
+			>
+				<DialogContent
+					showCloseButton={false}
+					className="w-full max-w-[360px] border-transparent bg-tw-card p-0"
+				>
+					<DialogHeader className="px-5 py-4">
+						<DialogTitle className="text-[15px] leading-5 font-medium text-tw-text-primary">
+							Leave without saving?
+						</DialogTitle>
+						<DialogDescription className="text-[13px] leading-5 text-tw-text-secondary">
+							Unsaved rule changes will be lost.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter
+						className="gap-1.5 border-t border-white/[0.05] bg-transparent px-2 py-2"
+						variant="default"
 					>
-						<motion.div
-							initial={{ opacity: 0, y: 14, scale: 0.985 }}
-							animate={{ opacity: 1, y: 0, scale: 1 }}
-							exit={{ opacity: 0, y: 10, scale: 0.985 }}
-							transition={{ type: "spring", stiffness: 340, damping: 28, mass: 0.82 }}
-							className="w-full max-w-[360px] rounded-2xl bg-tw-card p-1.5"
-							style={{ boxShadow: "0 8px 24px #00000040, 0 1px 2px #0000001a" }}
-							onClick={(event) => event.stopPropagation()}
+						<button
+							type="button"
+							onClick={() => leaveBlocker.reset?.()}
+							className="inline-flex h-8 items-center rounded-[10px] px-3 text-[12px] font-medium text-tw-text-tertiary transition-colors hover:bg-tw-hover hover:text-tw-text-secondary"
 						>
-							<div className="flex items-start justify-between gap-3 px-3.5 py-3">
-								<div>
-									<h2 className="text-[15px] leading-5 font-medium text-tw-text-primary">
-										Leave without saving?
-									</h2>
-									<p className="mt-1 text-[13px] leading-5 text-tw-text-secondary">
-										Unsaved rule changes will be lost.
-									</p>
-								</div>
-							</div>
-							<div className="flex items-center justify-end gap-1.5 border-t border-white/[0.05] px-1.5 pt-1.5">
-								<button
-									type="button"
-									onClick={() => leaveBlocker.reset()}
-									className="inline-flex h-8 items-center rounded-[10px] px-3 text-[12px] font-medium text-tw-text-tertiary transition-colors hover:bg-tw-hover hover:text-tw-text-secondary"
-								>
-									Stay
-								</button>
-								<button
-									type="button"
-									onClick={() => leaveBlocker.proceed()}
-									className="inline-flex h-8 items-center rounded-[10px] bg-[#363639] px-3 text-[12px] font-medium text-tw-text-primary transition-colors hover:bg-[#404044]"
-								>
-									Leave
-								</button>
-							</div>
-						</motion.div>
-					</motion.div>
-				) : null}
-			</AnimatePresence>
+							Stay
+						</button>
+						<Button
+							size="sm"
+							variant="destructive"
+							onClick={() => leaveBlocker.proceed?.()}
+							className="h-8 rounded-[10px] px-3 text-[12px] font-medium"
+						>
+							Leave
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
