@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
 	HomeNavIcon,
@@ -10,9 +10,11 @@ import {
 	DotsHorizontalIcon,
 	TripwireSparkIcon,
 } from "../icons/nav-icons";
+import { Menu, MenuTrigger, MenuPopup, MenuItem, MenuSeparator } from "#/components/ui/menu";
 import { useAuth } from "#/lib/auth-context";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
+import { authClient } from "#/lib/auth-client";
 
 interface NavItem {
 	key: string;
@@ -93,23 +95,60 @@ export function TopNav({ askOpen, onToggleAsk, onOpenTweaks }: TopNavProps) {
 		return currentPath.startsWith(item.path);
 	};
 
+	const navigate = useNavigate();
 	const isHomePage = currentPath === "/home" || currentPath === "/";
 	const showAskButton = !isHomePage;
+
+	const handleSignOut = async () => {
+		await authClient.signOut();
+		navigate({ to: "/login" });
+	};
 
 	return (
 		<div className="flex items-center justify-between gap-3 py-2 px-3 shrink-0">
 			<div className="flex items-start gap-3">
-				{/* User avatar */}
-				<div className="flex items-center justify-center rounded-full size-8">
-					<div
-						className="shrink-0 relative rounded-full overflow-hidden size-7 bg-cover bg-center bg-tw-card"
-						style={{
-							backgroundImage: user?.image
-								? `url('${user.image}')`
-								: "url('https://i.pravatar.cc/80?img=12')",
-						}}
-					/>
-				</div>
+				{/* User avatar with dropdown */}
+				<Menu>
+					<MenuTrigger className="flex items-center justify-center rounded-full size-8 hover:opacity-80 transition-opacity cursor-pointer">
+						<div
+							className="shrink-0 relative rounded-full overflow-hidden size-7 bg-cover bg-center bg-tw-card"
+							style={{
+								backgroundImage: user?.image
+									? `url('${user.image}')`
+									: "url('https://i.pravatar.cc/80?img=12')",
+							}}
+						/>
+					</MenuTrigger>
+					<MenuPopup>
+						<div className="flex items-center gap-3 px-2 py-1.5">
+							<div
+								className="shrink-0 rounded-full overflow-hidden size-8 bg-cover bg-center bg-tw-card"
+								style={{
+									backgroundImage: user?.image
+										? `url('${user.image}')`
+										: undefined,
+								}}
+							/>
+							<div className="flex flex-col">
+								<span className="text-[14px] font-medium text-tw-text-primary leading-tight">
+									{user?.name ?? "User"}
+								</span>
+								<span className="text-[12px] text-tw-text-muted leading-tight">
+									{user?.email ?? ""}
+								</span>
+							</div>
+						</div>
+						<MenuSeparator />
+						<MenuItem onClick={() => navigate({ to: "/settings/account" })}>
+							Profile
+						</MenuItem>
+						<MenuItem onClick={() => navigate({ to: "/settings/general" })}>
+							Settings
+						</MenuItem>
+						<MenuSeparator />
+						<MenuItem onClick={handleSignOut}>Sign out</MenuItem>
+					</MenuPopup>
+				</Menu>
 
 				{/* Navigation items */}
 				<nav className="flex items-center gap-0.5">

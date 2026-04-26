@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiChatRouteImport } from './routes/api.chat'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppSearchRouteImport } from './routes/_app/search'
 import { Route as AppRulesRouteImport } from './routes/_app/rules'
 import { Route as AppIntegrationsRouteImport } from './routes/_app/integrations'
@@ -24,6 +25,9 @@ import { Route as ApiTrpcSplatRouteImport } from './routes/api.trpc.$'
 import { Route as ApiGithubWebhookRouteImport } from './routes/api.github.webhook'
 import { Route as ApiGithubCallbackRouteImport } from './routes/api.github.callback'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/general'
+import { Route as AppSettingsBillingRouteImport } from './routes/_app/settings/billing'
+import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/account'
 import { Route as AppEventsEventIdRouteImport } from './routes/_app/events.$eventId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -44,6 +48,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppSearchRoute = AppSearchRouteImport.update({
   id: '/search',
@@ -100,6 +109,21 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppSettingsGeneralRoute = AppSettingsGeneralRouteImport.update({
+  id: '/general',
+  path: '/general',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsBillingRoute = AppSettingsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsAccountRoute = AppSettingsAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppEventsEventIdRoute = AppEventsEventIdRouteImport.update({
   id: '/events/$eventId',
   path: '/events/$eventId',
@@ -115,8 +139,12 @@ export interface FileRoutesByFullPath {
   '/integrations': typeof AppIntegrationsRoute
   '/rules': typeof AppRulesRoute
   '/search': typeof AppSearchRoute
+  '/settings': typeof AppSettingsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
+  '/settings/account': typeof AppSettingsAccountRoute
+  '/settings/billing': typeof AppSettingsBillingRoute
+  '/settings/general': typeof AppSettingsGeneralRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/webhook': typeof ApiGithubWebhookRoute
@@ -132,8 +160,12 @@ export interface FileRoutesByTo {
   '/integrations': typeof AppIntegrationsRoute
   '/rules': typeof AppRulesRoute
   '/search': typeof AppSearchRoute
+  '/settings': typeof AppSettingsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
+  '/settings/account': typeof AppSettingsAccountRoute
+  '/settings/billing': typeof AppSettingsBillingRoute
+  '/settings/general': typeof AppSettingsGeneralRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/webhook': typeof ApiGithubWebhookRoute
@@ -151,8 +183,12 @@ export interface FileRoutesById {
   '/_app/integrations': typeof AppIntegrationsRoute
   '/_app/rules': typeof AppRulesRoute
   '/_app/search': typeof AppSearchRoute
+  '/_app/settings': typeof AppSettingsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/_app/events/$eventId': typeof AppEventsEventIdRoute
+  '/_app/settings/account': typeof AppSettingsAccountRoute
+  '/_app/settings/billing': typeof AppSettingsBillingRoute
+  '/_app/settings/general': typeof AppSettingsGeneralRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/webhook': typeof ApiGithubWebhookRoute
@@ -170,8 +206,12 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/rules'
     | '/search'
+    | '/settings'
     | '/api/chat'
     | '/events/$eventId'
+    | '/settings/account'
+    | '/settings/billing'
+    | '/settings/general'
     | '/api/auth/$'
     | '/api/github/callback'
     | '/api/github/webhook'
@@ -187,8 +227,12 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/rules'
     | '/search'
+    | '/settings'
     | '/api/chat'
     | '/events/$eventId'
+    | '/settings/account'
+    | '/settings/billing'
+    | '/settings/general'
     | '/api/auth/$'
     | '/api/github/callback'
     | '/api/github/webhook'
@@ -205,8 +249,12 @@ export interface FileRouteTypes {
     | '/_app/integrations'
     | '/_app/rules'
     | '/_app/search'
+    | '/_app/settings'
     | '/api/chat'
     | '/_app/events/$eventId'
+    | '/_app/settings/account'
+    | '/_app/settings/billing'
+    | '/_app/settings/general'
     | '/api/auth/$'
     | '/api/github/callback'
     | '/api/github/webhook'
@@ -254,6 +302,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/search': {
       id: '/_app/search'
@@ -332,6 +387,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/settings/general': {
+      id: '/_app/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AppSettingsGeneralRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/billing': {
+      id: '/_app/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof AppSettingsBillingRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/account': {
+      id: '/_app/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof AppSettingsAccountRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/_app/events/$eventId': {
       id: '/_app/events/$eventId'
       path: '/events/$eventId'
@@ -342,6 +418,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppSettingsRouteChildren {
+  AppSettingsAccountRoute: typeof AppSettingsAccountRoute
+  AppSettingsBillingRoute: typeof AppSettingsBillingRoute
+  AppSettingsGeneralRoute: typeof AppSettingsGeneralRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsAccountRoute: AppSettingsAccountRoute,
+  AppSettingsBillingRoute: AppSettingsBillingRoute,
+  AppSettingsGeneralRoute: AppSettingsGeneralRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
 interface AppRouteChildren {
   AppAutomationsRoute: typeof AppAutomationsRoute
   AppHomeRoute: typeof AppHomeRoute
@@ -349,6 +441,7 @@ interface AppRouteChildren {
   AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppRulesRoute: typeof AppRulesRoute
   AppSearchRoute: typeof AppSearchRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppEventsEventIdRoute: typeof AppEventsEventIdRoute
   AppEventsIndexRoute: typeof AppEventsIndexRoute
 }
@@ -360,6 +453,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIntegrationsRoute: AppIntegrationsRoute,
   AppRulesRoute: AppRulesRoute,
   AppSearchRoute: AppSearchRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppEventsEventIdRoute: AppEventsEventIdRoute,
   AppEventsIndexRoute: AppEventsIndexRoute,
 }
