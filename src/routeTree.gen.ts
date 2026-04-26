@@ -29,6 +29,7 @@ import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/g
 import { Route as AppSettingsBillingRouteImport } from './routes/_app/settings/billing'
 import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/account'
 import { Route as AppEventsEventIdRouteImport } from './routes/_app/events.$eventId'
+import { Route as AppChatChatIdRouteImport } from './routes/_app/chat.$chatId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -129,6 +130,11 @@ const AppEventsEventIdRoute = AppEventsEventIdRouteImport.update({
   path: '/events/$eventId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppChatChatIdRoute = AppChatChatIdRouteImport.update({
+  id: '/chat/$chatId',
+  path: '/chat/$chatId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof AppSearchRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
+  '/chat/$chatId': typeof AppChatChatIdRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/billing': typeof AppSettingsBillingRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/search': typeof AppSearchRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
+  '/chat/$chatId': typeof AppChatChatIdRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/billing': typeof AppSettingsBillingRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/_app/search': typeof AppSearchRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
+  '/_app/chat/$chatId': typeof AppChatChatIdRoute
   '/_app/events/$eventId': typeof AppEventsEventIdRoute
   '/_app/settings/account': typeof AppSettingsAccountRoute
   '/_app/settings/billing': typeof AppSettingsBillingRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/api/chat'
+    | '/chat/$chatId'
     | '/events/$eventId'
     | '/settings/account'
     | '/settings/billing'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/api/chat'
+    | '/chat/$chatId'
     | '/events/$eventId'
     | '/settings/account'
     | '/settings/billing'
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/_app/search'
     | '/_app/settings'
     | '/api/chat'
+    | '/_app/chat/$chatId'
     | '/_app/events/$eventId'
     | '/_app/settings/account'
     | '/_app/settings/billing'
@@ -415,6 +427,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEventsEventIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/chat/$chatId': {
+      id: '/_app/chat/$chatId'
+      path: '/chat/$chatId'
+      fullPath: '/chat/$chatId'
+      preLoaderRoute: typeof AppChatChatIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -442,6 +461,7 @@ interface AppRouteChildren {
   AppRulesRoute: typeof AppRulesRoute
   AppSearchRoute: typeof AppSearchRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
+  AppChatChatIdRoute: typeof AppChatChatIdRoute
   AppEventsEventIdRoute: typeof AppEventsEventIdRoute
   AppEventsIndexRoute: typeof AppEventsIndexRoute
 }
@@ -454,6 +474,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRulesRoute: AppRulesRoute,
   AppSearchRoute: AppSearchRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
+  AppChatChatIdRoute: AppChatChatIdRoute,
   AppEventsEventIdRoute: AppEventsEventIdRoute,
   AppEventsIndexRoute: AppEventsIndexRoute,
 }

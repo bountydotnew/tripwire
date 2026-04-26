@@ -33,6 +33,7 @@ interface ChatContextValue {
 	close: () => void;
 	toggle: () => void;
 	clearChat: () => void;
+	loadChat: (messages: UIMessage[]) => void;
 }
 
 // Default no-op context for SSR
@@ -48,6 +49,7 @@ const defaultContextValue: ChatContextValue = {
 	close: () => {},
 	toggle: () => {},
 	clearChat: () => {},
+	loadChat: () => {},
 };
 
 const ChatContext = createContext<ChatContextValue>(defaultContextValue);
@@ -174,6 +176,14 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 		setChatError(null);
 	}, [setMessages]);
 
+	const loadChat = useCallback(
+		(msgs: UIMessage[]) => {
+			setChatError(null);
+			setMessages(msgs);
+		},
+		[setMessages],
+	);
+
 	const value: ChatContextValue = {
 		messages,
 		isLoading,
@@ -186,6 +196,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 		close,
 		toggle,
 		clearChat,
+		loadChat,
 	};
 
 	return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

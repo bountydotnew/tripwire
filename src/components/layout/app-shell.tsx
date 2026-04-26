@@ -1,10 +1,12 @@
 import { useState, useRef, type KeyboardEvent } from "react";
 import { Outlet, useRouterState } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "./top-nav";
 import { WorkspaceProvider } from "#/lib/workspace-context";
 import { AuthProvider } from "#/lib/auth-context";
 import { ChatProvider, useAIChat } from "#/lib/ai/chat-context";
 import { ChatThread } from "../ask/chat-thread";
+import { useTRPC } from "#/integrations/trpc/react";
 
 export function AppShell() {
 	return (
@@ -26,8 +28,9 @@ function AppShellInner() {
 	const routerState = useRouterState();
 	const currentPath = routerState.location.pathname;
 	const isHomePage = currentPath === "/home" || currentPath === "/";
+	const isChatRoute = currentPath.startsWith("/chat/");
 
-	const showSidePanel = !isHomePage && isOpen;
+	const showSidePanel = !isHomePage && !isChatRoute && isOpen;
 
 	const handleSubmit = () => {
 		if (!inputValue.trim() || isLoading || isQuotaExhausted) return;
@@ -45,10 +48,10 @@ function AppShellInner() {
 	return (
 		<div className="h-screen flex flex-col overflow-hidden bg-tw-bg tw-root antialiased">
 			<TopNav askOpen={isOpen} onToggleAsk={toggle} />
-			<div className="flex-1 min-h-0 px-2 pb-2 flex gap-2">
+			<div className={`flex-1 min-h-0 flex gap-2 ${isChatRoute ? "" : "px-2 pb-2"}`}>
 				<div
-					className="flex-1 min-w-0 relative tw-inset"
-					style={{ boxShadow: "#00000008 0px 1px 4px" }}
+					className={`flex-1 min-w-0 relative ${isChatRoute ? "" : "tw-inset"}`}
+					style={isChatRoute ? undefined : { boxShadow: "#00000008 0px 1px 4px" }}
 				>
 					<div className="absolute inset-0 overflow-auto">
 						<Outlet />
@@ -109,6 +112,8 @@ function AppShellInner() {
 							<div className="flex-1 min-h-0 overflow-auto px-2 pb-2">
 								<ChatThread />
 							</div>
+
+							<SidebarRecentChats />
 
 							<div className="px-2 pb-2 shrink-0">
 								<div className="flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5">
@@ -176,6 +181,75 @@ function AppShellInner() {
 						</div>
 					)}
 				</aside>
+			</div>
+		</div>
+	);
+}
+
+function SidebarRecentChats() {
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const { loadChat, open } = useAIChat();
+	const [loadingId, setLoadingId] = useState<string | null>(null);
+	const chatsQuery = useQuery(trpc.chats.list.queryOptions({ limit: 3 }));
+	const chats = chatsQuery.data ?? [];
+
+	if (chats.length === 0) return null;
+
+	const handleLoadChat = async (chatId: string) => {
+		setLoadingId(chatId);
+		try {
+			const conv = await queryClient.fetchQuery(
+				trpc.chats.get.queryOptions({ chatId }),
+			);
+			if (conv?.messages) {
+				loadChat(conv.messages as any[]);
+				open();
+			}
+		} finally {
+			setLoadingId(null);
+		}
+	};
+
+	return (
+		<div className="px-2 pb-1 shrink-0">
+			<div className="flex items-center justify-between px-1 mb-1">
+				<span className="text-[11px] font-medium text-tw-text-muted uppercase tracking-wider">
+					Recent
+				</span>
+			</div>
+			<div className="flex flex-col gap-px">
+				{chats.map((chat) => {
+					const isLoading = loadingId === chat.id;
+					return (
+						<button
+							key={chat.id}
+							type="button"
+							disabled={loadingId !== null}
+							onClick={() => handleLoadChat(chat.id)}
+							className={`flex items-center gap-2 w-full px-1.5 py-1.5 rounded-lg text-left transition-all duration-200 ${
+								isLoading
+									? "bg-tw-hover"
+									: "hover:bg-tw-hover disabled:opacity-50"
+							}`}
+						>
+							{isLoading ? (
+								<svg width="12" height="12" viewBox="0 0 12 12" className="shrink-0 text-tw-text-secondary animate-spin">
+									<circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" fill="none" strokeDasharray="16" strokeDashoffset="4" />
+								</svg>
+							) : (
+								<svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-tw-text-muted">
+									<path d="M2.5 3.5C2.5 2.67 3.17 2 4 2h4c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5H5.5L3.5 10V8H4c-.83 0-1.5-.67-1.5-1.5v-3Z" stroke="currentColor" strokeWidth="1" />
+								</svg>
+							)}
+							<span className={`text-[12px] truncate transition-colors duration-200 ${
+								isLoading ? "text-tw-text-primary" : "text-tw-text-secondary"
+							}`}>
+								{chat.title ?? "New chat"}
+							</span>
+						</button>
+					);
+				})}
 			</div>
 		</div>
 	);

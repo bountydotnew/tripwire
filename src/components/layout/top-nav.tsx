@@ -97,7 +97,8 @@ export function TopNav({ askOpen, onToggleAsk, onOpenTweaks }: TopNavProps) {
 
 	const navigate = useNavigate();
 	const isHomePage = currentPath === "/home" || currentPath === "/";
-	const showAskButton = !isHomePage;
+	const isChatRoute = currentPath.startsWith("/chat/");
+	const showAskButton = !isHomePage && !isChatRoute;
 
 	const handleSignOut = async () => {
 		await authClient.signOut();

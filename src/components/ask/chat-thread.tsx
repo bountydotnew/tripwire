@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import type { UIMessage, MessagePart } from "@tanstack/ai-client";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import { Streamdown } from "streamdown";
@@ -20,8 +20,21 @@ import {
 	TripwireMiniLogo,
 } from "#/utils/chat";
 
-export function ChatThread() {
-	const { messages, isLoading, respondToToolApproval, error, isQuotaExhausted } = useAIChat();
+interface ChatThreadProps {
+	messages?: UIMessage[];
+	isLoading?: boolean;
+	error?: Error | null;
+	isQuotaExhausted?: boolean;
+	respondToToolApproval?: (approvalId: string, approved: boolean) => void;
+}
+
+export function ChatThread(props: ChatThreadProps = {}) {
+	const ctx = useAIChat();
+	const messages = props.messages ?? ctx.messages;
+	const isLoading = props.isLoading ?? ctx.isLoading;
+	const error = props.error ?? ctx.error;
+	const isQuotaExhausted = props.isQuotaExhausted ?? ctx.isQuotaExhausted;
+	const respondToToolApproval = props.respondToToolApproval ?? ctx.respondToToolApproval;
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -42,6 +55,19 @@ export function ChatThread() {
 		return out;
 	}, [messages]);
 
+	// Detect bulk-loaded messages (conversation loaded from DB)
+	const prevCount = useRef(0);
+	const [animatingIn, setAnimatingIn] = useState(false);
+	useEffect(() => {
+		const jumped = messages.length - prevCount.current;
+		prevCount.current = messages.length;
+		if (jumped > 1) {
+			setAnimatingIn(true);
+			const timer = setTimeout(() => setAnimatingIn(false), 400 + messages.length * 40);
+			return () => clearTimeout(timer);
+		}
+	}, [messages.length]);
+
 	if (isQuotaExhausted) {
 		return <QuotaExhaustedState />;
 	}
@@ -60,13 +86,24 @@ export function ChatThread() {
 
 	return (
 		<div className="flex flex-col gap-3 pt-1 pb-2">
-			{messages.map((msg) => (
-				<ChatMessage
+			{messages.map((msg, i) => (
+				<div
 					key={msg.id}
-					message={msg}
-					showAvatar={avatarMap[msg.id] !== false}
-					onRespondToApproval={respondToToolApproval}
-				/>
+					className="transition-all duration-300 ease-out"
+					style={
+						animatingIn
+							? {
+									animation: `chatFadeIn 0.3s ease-out ${i * 40}ms both`,
+								}
+							: undefined
+					}
+				>
+					<ChatMessage
+						message={msg}
+						showAvatar={avatarMap[msg.id] !== false}
+						onRespondToApproval={respondToToolApproval}
+					/>
+				</div>
 			))}
 			{isLoading && <LoadingIndicator />}
 			{error && <ErrorMessage message={error.message} />}
