@@ -13,6 +13,8 @@ import {
 	type UIMessage,
 } from "@tanstack/ai-react";
 import { useWorkspace } from "#/lib/workspace-context";
+import { useRouterState } from "@tanstack/react-router";
+import { useCustomer } from "autumn-js/react";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -22,6 +24,7 @@ interface ChatContextValue {
 	isLoading: boolean;
 	isOpen: boolean;
 	error: Error | null;
+	isQuotaExhausted: boolean;
 
 	// Actions
 	sendMessage: (content: string) => void;
@@ -38,6 +41,7 @@ const defaultContextValue: ChatContextValue = {
 	isLoading: false,
 	isOpen: false,
 	error: null,
+	isQuotaExhausted: false,
 	sendMessage: () => {},
 	respondToToolApproval: () => {},
 	open: () => {},
@@ -77,11 +81,19 @@ export function ChatProvider({ children }: ChatProviderProps) {
 // ─── Client-only Provider ────────────────────────────────────
 
 function ChatProviderClient({ children }: ChatProviderProps) {
-	const { repo } = useWorkspace();
+	const { repo, org } = useWorkspace();
+	const currentPath = useRouterState({ select: (s) => s.location.pathname });
 	const [isOpen, setIsOpen] = useState(() => {
 		return localStorage.getItem("tw.askOpen") === "true";
 	});
 	const [chatError, setChatError] = useState<Error | null>(null);
+	const [quotaExhaustedByError, setQuotaExhaustedByError] = useState(false);
+
+	// Check quota proactively via Autumn's customer data
+	const { data: customer, refetch: refetchCustomer } = useCustomer();
+	const aiBalance = customer?.balances?.ai_messages;
+	const isQuotaExhausted = quotaExhaustedByError
+		|| (aiBalance != null && aiBalance.remaining <= 0 && !aiBalance.unlimited);
 
 	// Generate unique conversation ID per session
 	const [conversationId] = useState(() => crypto.randomUUID());
@@ -95,10 +107,11 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 					body: {
 						repoId: repo?.id,
 						conversationId,
+						currentPage: currentPath,
 					},
 				};
 			}),
-		[repo?.id, conversationId],
+		[repo?.id, conversationId, currentPath],
 	);
 
 	const {
@@ -111,13 +124,13 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	} = useChat({
 		connection,
 		onError: (error) => {
+			// Detect quota exhaustion (429 from Autumn billing check)
+			if (error.message.includes("429")) {
+				setQuotaExhaustedByError(true);
+				refetchCustomer();
+				return;
+			}
 			console.error("[chat] Stream error:", error);
-			console.error("[chat] Error details:", {
-				name: error.name,
-				message: error.message,
-				cause: (error as any).cause,
-				stack: error.stack,
-			});
 			setChatError(error);
 		},
 	});
@@ -140,11 +153,13 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 
 	const sendMessage = useCallback(
 		(content: string) => {
-			if (!content.trim()) return;
+			if (!content.trim() || isQuotaExhausted) return;
 			setChatError(null);
 			sendChatMessage(content);
+			// Refetch balance after a delay to account for tracking
+			setTimeout(() => refetchCustomer(), 2000);
 		},
-		[sendChatMessage],
+		[sendChatMessage, isQuotaExhausted, refetchCustomer],
 	);
 
 	const respondToToolApproval = useCallback(
@@ -163,7 +178,8 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 		messages,
 		isLoading,
 		isOpen,
-		error: combinedError,
+		error: isQuotaExhausted ? null : combinedError,
+		isQuotaExhausted,
 		sendMessage,
 		respondToToolApproval,
 		open,

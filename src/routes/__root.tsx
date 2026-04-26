@@ -1,5 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import RootProvider from "#/integrations/tanstack-query/root-provider";
+import { AutumnProvider } from "autumn-js/react";
 import { ToastProvider, AnchoredToastProvider } from "#/components/ui/toast";
 import appCss from "../styles.css?url";
 
@@ -38,11 +39,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</head>
 			<body>
 				<RootProvider>
-					<ToastProvider>
-						<AnchoredToastProvider>
-							{children}
-						</AnchoredToastProvider>
-					</ToastProvider>
+					<AutumnProvider useBetterAuth>
+						<ToastProvider>
+							<AnchoredToastProvider>
+								{children}
+							</AnchoredToastProvider>
+						</ToastProvider>
+					</AutumnProvider>
 				</RootProvider>
 				<Scripts />
 			</body>

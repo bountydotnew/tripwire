@@ -13,6 +13,7 @@ export const env = createEnv({
     DATABASE_URL: z.string().min(1).optional(),
     UNKEY_ROOT_KEY: z.string().min(1).optional(),
     OPENROUTER_API_KEY: z.string().min(1).optional(),
+    AUTUMN_SECRET_KEY: z.string().min(1).optional(),
   },
 
   /**

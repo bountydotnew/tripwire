@@ -2,6 +2,8 @@ import { betterAuth } from "better-auth";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
+import { autumn as autumnPlugin } from "autumn-js/better-auth";
+import { autumn as autumnClient } from "#/lib/autumn";
 import { db } from "#/db";
 import * as schema from "#/db/schema";
 
@@ -32,6 +34,9 @@ export const auth = betterAuth({
 				// Auto-create a personal org for new users handled below
 			},
 		}),
+		autumnPlugin({
+			customerScope: "user",
+		}),
 	],
 	databaseHooks: {
 		user: {
@@ -48,6 +53,17 @@ export const auth = betterAuth({
 						});
 					} catch (err) {
 						console.error("[Tripwire] Failed to auto-create org:", err);
+					}
+
+					// Create Autumn billing customer (idempotent)
+					try {
+						await autumnClient.customers.create({
+							customerId: user.id,
+							name: user.name,
+							email: user.email,
+						});
+					} catch (err) {
+						console.error("[Tripwire] Failed to create Autumn customer:", err);
 					}
 				},
 			},

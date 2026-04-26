@@ -19,7 +19,7 @@ export function AppShell() {
 }
 
 function AppShellInner() {
-	const { isOpen, toggle, close, sendMessage, isLoading } = useAIChat();
+	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted } = useAIChat();
 	const [inputValue, setInputValue] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -30,7 +30,7 @@ function AppShellInner() {
 	const showSidePanel = !isHomePage && isOpen;
 
 	const handleSubmit = () => {
-		if (!inputValue.trim() || isLoading) return;
+		if (!inputValue.trim() || isLoading || isQuotaExhausted) return;
 		sendMessage(inputValue);
 		setInputValue("");
 	};
@@ -116,11 +116,11 @@ function AppShellInner() {
 										<input
 											ref={inputRef}
 											type="text"
-											placeholder="Ask anything..."
+											placeholder={isQuotaExhausted ? "Out of messages" : "Ask anything..."}
 											value={inputValue}
 											onChange={(e) => setInputValue(e.target.value)}
 											onKeyDown={handleKeyDown}
-											disabled={isLoading}
+											disabled={isLoading || isQuotaExhausted}
 											className="flex-1 h-9 bg-tw-inner rounded-[10px] px-2.5 text-[14px] text-tw-text-primary placeholder:text-tw-text-tertiary outline-none disabled:opacity-50"
 										/>
 										<button
@@ -157,7 +157,7 @@ function AppShellInner() {
 										<button
 											type="button"
 											onClick={handleSubmit}
-											disabled={!inputValue.trim() || isLoading}
+											disabled={!inputValue.trim() || isLoading || isQuotaExhausted}
 											className="flex items-center self-stretch px-1.5 rounded-[10px] justify-center gap-1 bg-[#363639] hover:bg-[#404044] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 										>
 											<span className="text-[14px] leading-none text-center text-tw-text-primary px-0.5">

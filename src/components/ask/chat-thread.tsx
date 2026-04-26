@@ -21,7 +21,7 @@ import {
 } from "#/utils/chat";
 
 export function ChatThread() {
-	const { messages, isLoading, respondToToolApproval, error } = useAIChat();
+	const { messages, isLoading, respondToToolApproval, error, isQuotaExhausted } = useAIChat();
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -41,6 +41,10 @@ export function ChatThread() {
 		}
 		return out;
 	}, [messages]);
+
+	if (isQuotaExhausted) {
+		return <QuotaExhaustedState />;
+	}
 
 	if (messages.length === 0 && !error) {
 		return <EmptyState />;
@@ -80,6 +84,23 @@ function EmptyState() {
 			<p className="text-[14px] text-tw-text-secondary mb-1">Ask me anything</p>
 			<p className="text-[12px] text-tw-text-muted max-w-[240px]">
 				I can help you investigate contributors, manage your blacklist, and understand activity patterns.
+			</p>
+		</div>
+	);
+}
+
+function QuotaExhaustedState() {
+	return (
+		<div className="flex flex-col items-center justify-center py-8 text-center">
+			<div className="size-12 flex items-center justify-center mb-3 rounded-full bg-[#FAFAFA08]">
+				<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+					<rect x="4" y="9" width="12" height="9" rx="1.5" stroke="#9F9FA9" strokeWidth="1.5" />
+					<path d="M7 9V6a3 3 0 1 1 6 0v3" stroke="#9F9FA9" strokeWidth="1.5" strokeLinecap="round" />
+				</svg>
+			</div>
+			<p className="text-[14px] text-tw-text-secondary mb-1">Out of messages</p>
+			<p className="text-[12px] text-tw-text-muted max-w-[220px]">
+				You've used all your AI messages for this month.
 			</p>
 		</div>
 	);

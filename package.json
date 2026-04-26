@@ -43,6 +43,7 @@
     "@trpc/server": "^11.11.0",
     "@trpc/tanstack-react-query": "^11.11.0",
     "@unkey/ratelimit": "^2.1.4",
+    "autumn-js": "^1.2.12",
     "better-auth": "^1.5.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

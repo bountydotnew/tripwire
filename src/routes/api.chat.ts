@@ -4,6 +4,7 @@ import { openRouterText } from "@tanstack/ai-openrouter";
 import { createTripwireTools } from "#/lib/ai/tools";
 import { buildSystemPrompt } from "#/lib/ai/prompt";
 import { createContext } from "#/integrations/trpc/init";
+import { autumn } from "#/lib/autumn";
 import { db } from "#/db";
 import { organizations, repositories } from "#/db/schema";
 import { eq } from "drizzle-orm";
@@ -22,7 +23,51 @@ export const Route = createFileRoute("/api/chat")({
 				}
 
 				try {
-					const { messages: rawMessages, repoId, conversationId } = await request.json();
+					// Check AI message quota (auto-create customer if not found)
+					let quota: any;
+					try {
+						quota = await autumn.check({
+							customerId: ctx.user.id,
+							featureId: "ai_messages",
+							withPreview: true,
+						});
+					} catch (checkErr: any) {
+						if (checkErr?.statusCode === 404) {
+							// Existing user without Autumn record, create and retry
+							await autumn.customers.create({ customerId: ctx.user.id });
+							quota = await autumn.check({
+								customerId: ctx.user.id,
+								featureId: "ai_messages",
+								withPreview: true,
+							});
+						} else {
+							// Autumn is down or misconfigured, allow chat to proceed
+							console.error("[Tripwire] Autumn check failed, allowing request:", checkErr);
+							quota = { allowed: true };
+						}
+					}
+
+					if (!quota?.allowed) {
+						const code = quota?.code ?? "usage_limit";
+						return new Response(
+							JSON.stringify({
+								error: "quota_exhausted",
+								code,
+								message: code === "usage_limit"
+									? "You've used all your AI messages this month."
+									: "AI chat is not included in your current plan.",
+							}),
+							{
+								status: 429,
+								headers: {
+									"Content-Type": "application/json",
+									"X-Quota-Code": code,
+								},
+							},
+						);
+					}
+
+					const { messages: rawMessages, repoId, conversationId, currentPage } = await request.json();
 
 					// Filter corrupted messages from TanStack AI batch approval bug
 					// TODO: Remove when TanStack AI fixes tool approval state management
@@ -88,6 +133,7 @@ export const Route = createFileRoute("/api/chat")({
 					const systemPrompt = buildSystemPrompt({
 						repoName,
 						userName: ctx.user.name ?? ctx.user.email ?? "User",
+						currentPage: currentPage ?? "/home",
 					});
 
 					// Create tools with context
@@ -104,6 +150,15 @@ export const Route = createFileRoute("/api/chat")({
 						tools,
 						systemPrompts: [systemPrompt],
 						conversationId,
+					});
+
+					// Track AI message usage (fire-and-forget)
+					autumn.track({
+						customerId: ctx.user.id,
+						featureId: "ai_messages",
+						value: 1,
+					}).catch((err) => {
+						console.error("[Tripwire] Failed to track AI message usage:", err);
 					});
 
 					return toServerSentEventsResponse(stream);
