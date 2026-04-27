@@ -23,6 +23,8 @@ export const catalog = defineCatalog(schema, {
 				following: z.number(),
 				accountAgeDays: z.number(),
 				mergedPrs: z.number(),
+				closedPrs: z.number(),
+				closedUnmergedPrs: z.number(),
 				hasProfileReadme: z.boolean(),
 				hasTwoFactor: z.boolean(),
 				// event breakdown
@@ -135,6 +137,21 @@ export const catalog = defineCatalog(schema, {
 				totalCount: z.number(),
 			}),
 			description: "Displays the rule configuration for a repository with enabled/disabled states and action levels",
+		},
+
+		// ─── Reputation Leaderboard ───────────────────────────────────
+		ReputationLeaderboard: {
+			props: z.object({
+				users: z.array(z.object({
+					username: z.string(),
+					score: z.number(),
+					totalBlocks: z.number(),
+					totalAllows: z.number(),
+					totalNearMisses: z.number(),
+					lastSeenAt: z.string(),
+				})),
+			}),
+			description: "Shows the most blocked GitHub users ranked by total blocks",
 		},
 
 		// ─── Text Block ───────────────────────────────────────────────

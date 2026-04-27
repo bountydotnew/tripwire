@@ -318,6 +318,39 @@ export const events = pgTable(
 );
 
 /**
+ * GitHub user reputation — event-driven running score per GitHub user.
+ * Updated on every pipeline event (blocked/allowed/near-miss).
+ *
+ * Score formula: totalAllows - (totalBlocks * 3) - totalNearMisses
+ *
+ * TODO: cross-repo sharing (opt-in anonymous block signals to global pool)
+ * TODO: velocity detection (flag users whose block rate is spiking)
+ * TODO: time decay (recent events weigh more than old ones)
+ * TODO: auto-rules ("auto-block users with reputation below X")
+ * TODO: weekly digest email with trends
+ */
+export const githubReputation = pgTable(
+	"github_reputation",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		githubUsername: text("github_username").notNull().unique(),
+		githubUserId: integer("github_user_id"),
+		score: integer("score").notNull().default(0),
+		totalBlocks: integer("total_blocks").notNull().default(0),
+		totalAllows: integer("total_allows").notNull().default(0),
+		totalNearMisses: integer("total_near_misses").notNull().default(0),
+		firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
+		lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("reputation_score_idx").on(t.score),
+		index("reputation_blocks_idx").on(t.totalBlocks),
+		index("reputation_username_idx").on(t.githubUsername),
+	],
+);
+
+/**
  * AI chat conversations — persisted chats with full message history.
  */
 export const conversations = pgTable(

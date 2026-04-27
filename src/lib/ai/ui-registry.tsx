@@ -78,7 +78,12 @@ export const { registry } = defineRegistry(catalog, {
 						<div><span className="text-tw-text-muted">Account age </span><span className="text-tw-text-secondary">{ageText}</span></div>
 						<div><span className="text-tw-text-muted">Repos </span><span className="text-tw-text-secondary">{props.publicRepos}</span></div>
 						<div><span className="text-tw-text-muted">Followers </span><span className="text-tw-text-secondary">{props.followers}</span></div>
-						<div><span className="text-tw-text-muted">Merged PRs </span><span className="text-tw-text-secondary">{props.mergedPrs}</span></div>
+						<div className="col-span-3">
+							<span className="text-tw-text-muted">PRs </span>
+							<span className="text-tw-text-secondary">
+								{props.closedPrs} closed PRs: {props.mergedPrs} merged, {props.closedUnmergedPrs} not merged
+							</span>
+						</div>
 						<div><span className="text-tw-text-muted">Contributions </span><span className="text-tw-text-secondary">{props.contributionsLastYear}</span></div>
 						<div><span className="text-tw-text-muted">Following </span><span className="text-tw-text-secondary">{props.following}</span></div>
 					</div>
@@ -321,6 +326,41 @@ export const { registry } = defineRegistry(catalog, {
 							</div>
 						</div>
 					)}
+				</div>
+			);
+		},
+
+		// ─── Reputation Leaderboard ───────────────────────────────────
+		ReputationLeaderboard: ({ props }) => {
+			if (props.users.length === 0) {
+				return (
+					<div className="rounded-xl bg-tw-card p-3 text-[13px] text-tw-text-secondary">
+						No blocked users yet.
+					</div>
+				);
+			}
+
+			return (
+				<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+					<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted uppercase tracking-wider">
+						<svg width="10" height="10" viewBox="0 0 14 14" fill="none" className="text-tw-error">
+							<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
+							<path d="M4 7h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+						</svg>
+						Most Blocked Users
+					</div>
+					<div className="space-y-1.5">
+						{props.users.map((user, i) => (
+							<div key={user.username} className="flex items-center gap-2 text-[12px]">
+								<span className="text-tw-text-muted w-4 text-right shrink-0">{i + 1}.</span>
+								<span className="text-tw-text-primary font-medium">@{user.username}</span>
+								<span className="text-tw-error">{user.totalBlocks} blocked</span>
+								{user.totalAllows > 0 && <span className="text-tw-success">{user.totalAllows} allowed</span>}
+								{user.totalNearMisses > 0 && <span className="text-tw-warning">{user.totalNearMisses} near-miss</span>}
+								<span className="ml-auto text-tw-text-muted">{user.lastSeenAt}</span>
+							</div>
+						))}
+					</div>
 				</div>
 			);
 		},

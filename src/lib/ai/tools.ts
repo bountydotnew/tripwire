@@ -8,6 +8,7 @@ import {
 	ruleConfigs,
 	repositories,
 	organizations,
+	githubReputation,
 	DEFAULT_RULE_CONFIG,
 	type EventAction,
 	type RuleConfig,
@@ -17,6 +18,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { logEvent } from "#/lib/events";
 import {
 	getMergedPrCount,
+	getClosedPrCount,
 	hasProfileReadme,
 	fetchUserGraphQL,
 	fetchUserAchievements,
@@ -265,6 +267,17 @@ export const updateRuleValueDef = toolDefinition({
 	needsApproval: true,
 });
 
+export const getReputationLeaderboardDef = toolDefinition({
+	name: "get_reputation_leaderboard",
+	description:
+		"Show the most blocked GitHub users across all events. Returns users ranked by total blocks with their reputation scores. Use when asked about repeat offenders, most blocked users, or threat analysis.",
+	inputSchema: z.object({
+		limit: z.number().min(1).max(25).optional().meta({ description: "Number of users to return (default 10)" }),
+	}),
+	outputSchema: specSchema,
+	lazy: true,
+});
+
 // ─── Tool Factory ───────────────────────────────────────────────
 
 interface ToolContext {
@@ -321,16 +334,19 @@ export function createTripwireTools(ctx: ToolContext) {
 			const token = await getTokenForRepo(repoId);
 
 			// Fetch all data in parallel
-			const [ghUser, whitelist, blacklist, allEvents, mergedPrs, profileReadme, graphqlData, achievements] = await Promise.all([
+			const [ghUser, whitelist, blacklist, allEvents, mergedPrs, closedPrs, profileReadme, graphqlData, achievements] = await Promise.all([
 				fetchGitHubUser(username, token ?? undefined),
 				db.select().from(whitelistEntries).where(and(eq(whitelistEntries.repoId, repoId), usernameEq(whitelistEntries.githubUsername, username))).limit(1),
 				db.select().from(blacklistEntries).where(and(eq(blacklistEntries.repoId, repoId), usernameEq(blacklistEntries.githubUsername, username))).limit(1),
 				db.select().from(events).where(and(eq(events.repoId, repoId), usernameEq(events.targetGithubUsername, username))),
 				token ? getMergedPrCount(token, username).catch(() => 0) : Promise.resolve(0),
+				token ? getClosedPrCount(token, username).catch(() => 0) : Promise.resolve(0),
 				token ? hasProfileReadme(token, username).catch(() => false) : Promise.resolve(false),
 				token ? fetchUserGraphQL(token, username).catch(() => null) : Promise.resolve(null),
 				fetchUserAchievements(username).catch(() => []),
 			]);
+
+			const closedUnmergedPrs = Math.max(0, closedPrs - mergedPrs);
 
 			// Event breakdown
 			const blockedCount = allEvents.filter((e) => e.action === "pipeline_blocked").length;
@@ -358,6 +374,8 @@ export function createTripwireTools(ctx: ToolContext) {
 				graphql: graphqlData,
 				achievements,
 				mergedPrCount: mergedPrs,
+				closedPrCount: closedPrs,
+				closedUnmergedPrCount: closedUnmergedPrs,
 				blockedCount,
 				allowedCount,
 				nearMissCount,
@@ -385,6 +403,8 @@ export function createTripwireTools(ctx: ToolContext) {
 				following: ghUser.following ?? 0,
 				accountAgeDays,
 				mergedPrs: mergedPrs,
+				closedPrs: closedPrs,
+				closedUnmergedPrs: closedUnmergedPrs,
 				hasProfileReadme: profileReadme,
 				hasTwoFactor: ghUser.two_factor_authentication ?? false,
 				blockedCount,
@@ -1046,6 +1066,27 @@ export function createTripwireTools(ctx: ToolContext) {
 				success: true,
 				message: `${ruleName} ${field} set to ${value}.`,
 				action: "update_rule_value",
+			});
+		}),
+
+		// ─── Reputation Leaderboard ─────────────────────────────
+		getReputationLeaderboardDef.server(async ({ limit }) => {
+			const rows = await db
+				.select()
+				.from(githubReputation)
+				.where(sql`${githubReputation.totalBlocks} > 0`)
+				.orderBy(desc(githubReputation.totalBlocks))
+				.limit(limit ?? 10);
+
+			return makeSpec("ReputationLeaderboard", {
+				users: rows.map((r) => ({
+					username: r.githubUsername,
+					score: r.score,
+					totalBlocks: r.totalBlocks,
+					totalAllows: r.totalAllows,
+					totalNearMisses: r.totalNearMisses,
+					lastSeenAt: r.lastSeenAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+				})),
 			});
 		}),
 	];
