@@ -2,6 +2,17 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "#/lib/auth-context";
 import { authClient } from "#/lib/auth-client";
+import {
+	Dialog,
+	DialogTrigger,
+	DialogPopup,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogPanel,
+	DialogFooter,
+	DialogClose,
+} from "#/components/ui/dialog";
 
 export const Route = createFileRoute("/_app/settings/account")({
 	component: AccountSettingsPage,
@@ -75,24 +86,99 @@ function AccountSettingsPage() {
 							Sign out
 						</button>
 					</div>
-					<div className="flex items-center justify-between p-4">
-						<div>
-							<div className="text-[13px] font-medium text-tw-text-primary">
-								Delete account
-							</div>
-							<div className="text-[12px] text-tw-text-muted mt-0.5">
-								Permanently delete your Tripwire account and all associated data.
-							</div>
-						</div>
-						<button
-							type="button"
-							className="flex items-center h-8 px-3 rounded-lg border border-red-500/30 text-[13px] font-medium text-red-400 hover:bg-red-500/10 transition-colors"
-						>
-							Delete
-						</button>
-					</div>
+					<DeleteAccountRow />
 				</div>
 			</SettingsSection>
+		</div>
+	);
+}
+
+function DeleteAccountRow() {
+	const [confirmText, setConfirmText] = useState("");
+	const [isDeleting, setIsDeleting] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+	const navigate = useNavigate();
+
+	const handleDelete = async () => {
+		setIsDeleting(true);
+		setDeleteError(null);
+		try {
+			const res = await authClient.deleteUser();
+			if (res.error) {
+				setDeleteError(res.error.message ?? "Failed to delete account.");
+				setIsDeleting(false);
+				return;
+			}
+			window.location.href = "/login";
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Failed to delete account.";
+			setDeleteError(msg);
+			setIsDeleting(false);
+		}
+	};
+
+	return (
+		<div className="flex items-center justify-between p-4">
+			<div>
+				<div className="text-[13px] font-medium text-tw-text-primary">
+					Delete account
+				</div>
+				<div className="text-[12px] text-tw-text-muted mt-0.5">
+					Permanently delete your Tripwire account and all associated data.
+				</div>
+			</div>
+			<Dialog onOpenChange={() => { setConfirmText(""); setDeleteError(null); }}>
+				<DialogTrigger
+					className="flex items-center h-8 px-3 rounded-lg border border-red-500/30 text-[13px] font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+				>
+					Delete
+				</DialogTrigger>
+				<DialogPopup showCloseButton={false} className="max-w-sm">
+					<DialogHeader>
+						<DialogTitle>Delete account</DialogTitle>
+						<DialogDescription>
+							This will permanently delete your account, repos, rules, and chat history. This cannot be undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogPanel>
+						<div className="flex flex-col gap-3">
+							{deleteError && (
+								<div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-[12px] text-red-400">
+									{deleteError}
+								</div>
+							)}
+							<div className="flex flex-col gap-1.5">
+								<label className="text-[12px] text-tw-text-muted">
+									Type <span className="font-mono text-tw-text-secondary">delete</span> to confirm
+								</label>
+							<input
+								type="text"
+								value={confirmText}
+								onChange={(e) => setConfirmText(e.target.value)}
+								placeholder="delete"
+								autoComplete="off"
+								className="h-9 w-full rounded-lg bg-tw-inner px-2.5 text-[13px] text-tw-text-primary placeholder:text-tw-text-tertiary outline-none border border-[#27272A] focus:border-red-500/50"
+							/>
+							</div>
+						</div>
+					</DialogPanel>
+					<DialogFooter variant="bare">
+						<DialogClose
+							className="flex items-center h-8 px-3 rounded-lg border border-[#27272A] text-[13px] font-medium text-tw-text-secondary hover:bg-tw-hover transition-colors"
+						>
+							Cancel
+						</DialogClose>
+						<button
+							type="button"
+							disabled={confirmText !== "delete" || isDeleting}
+							onClick={handleDelete}
+							className="flex items-center h-8 px-3 rounded-lg bg-red-500 text-[13px] font-medium text-white hover:bg-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+						>
+							{isDeleting ? "Deleting..." : "Delete my account"}
+						</button>
+					</DialogFooter>
+				</DialogPopup>
+			</Dialog>
 		</div>
 	);
 }

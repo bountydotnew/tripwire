@@ -46,6 +46,27 @@ async function createAppJwt(): Promise<string> {
 }
 
 /**
+ * Delete (uninstall) a GitHub App installation.
+ * Uses the App JWT directly, not an installation token.
+ */
+export async function deleteInstallation(installationId: number): Promise<void> {
+	const jwt = await createAppJwt();
+	const res = await fetch(
+		`https://api.github.com/app/installations/${installationId}`,
+		{
+			method: "DELETE",
+			headers: {
+				Authorization: `Bearer ${jwt}`,
+				Accept: "application/vnd.github.v3+json",
+			},
+		},
+	);
+	if (!res.ok && res.status !== 404) {
+		console.error(`[github] Failed to delete installation ${installationId}: ${res.status}`);
+	}
+}
+
+/**
  * Get an installation access token for a GitHub App installation.
  * Caches tokens until 5 minutes before expiry.
  */

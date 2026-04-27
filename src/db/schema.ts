@@ -216,7 +216,7 @@ export const whitelistEntries = pgTable(
 		githubUsername: text("github_username").notNull(),
 		githubUserId: integer("github_user_id"),
 		avatarUrl: text("avatar_url"),
-		addedById: text("added_by_id").references(() => user.id),
+		addedById: text("added_by_id").references(() => user.id, { onDelete: "set null" }),
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
 	(t) => [
@@ -238,7 +238,7 @@ export const blacklistEntries = pgTable(
 		githubUsername: text("github_username").notNull(),
 		githubUserId: integer("github_user_id"),
 		avatarUrl: text("avatar_url"),
-		addedById: text("added_by_id").references(() => user.id),
+		addedById: text("added_by_id").references(() => user.id, { onDelete: "set null" }),
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
 	(t) => [
