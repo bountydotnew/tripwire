@@ -7,7 +7,6 @@ import {
 	WorkflowsNavIcon,
 	EventsNavIcon,
 	IntegrationsNavIcon,
-	DotsHorizontalIcon,
 	TripwireSparkIcon,
 } from "../icons/nav-icons";
 import { Menu, MenuTrigger, MenuPopup, MenuItem, MenuSeparator } from "#/components/ui/menu";
@@ -36,10 +35,9 @@ const navItems: NavItem[] = [
 interface TopNavProps {
 	askOpen?: boolean;
 	onToggleAsk?: () => void;
-	onOpenTweaks?: () => void;
 }
 
-export function TopNav({ askOpen, onToggleAsk, onOpenTweaks }: TopNavProps) {
+export function TopNav({ askOpen, onToggleAsk }: TopNavProps) {
 	const { user } = useAuth();
 	const { repo } = useWorkspace();
 	const trpc = useTRPC();
@@ -205,13 +203,6 @@ export function TopNav({ askOpen, onToggleAsk, onOpenTweaks }: TopNavProps) {
 						<span className="text-[13px] leading-none font-medium">Ask</span>
 					</button>
 				) : null}
-				<button
-					onClick={onOpenTweaks}
-					type="button"
-					className="flex items-center justify-center rounded-lg size-8 hover:bg-tw-hover transition-colors"
-				>
-					<DotsHorizontalIcon />
-				</button>
 			</div>
 		</div>
 	);

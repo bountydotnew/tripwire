@@ -246,6 +246,9 @@ function RulesPage() {
 		}),
 	);
 
+	const [tab, setTab] = useState<"marketplace" | "installed" | "people">("marketplace");
+	const [searchQuery, setSearchQuery] = useState("");
+
 	const activeCount = [
 		activeConfig.aiSlopDetection.enabled,
 		activeConfig.requireProfilePicture.enabled,
@@ -297,20 +300,85 @@ function RulesPage() {
 		return <RulesPageSkeleton />;
 	}
 
-	return (
-		<div className="mx-auto flex w-full max-w-[1000px] flex-col gap-6 px-4 py-6 md:px-[50px] md:py-8">
-			<div className="flex w-full items-start justify-between">
-				<div className="flex flex-col gap-0.5">
-					<h1 className="m-0 text-xl leading-[30px] font-medium tracking-[-0.02em] text-white md:text-2xl">
-						Rules
-					</h1>
-					<p className="m-0 text-sm leading-[18px] text-[#FFFFFF73]">
-						{activeCount} active
-					</p>
-				</div>
-			</div>
+	// Build rule list for filtering
+	const allRules = [
+		{ key: "aiSlopDetection" as const, title: "AI slop detection", searchable: "ai slop detection automated" },
+		{ key: "requireProfilePicture" as const, title: "Require profile picture", searchable: "require profile picture avatar" },
+		{ key: "languageRequirement" as const, title: "Language requirement", searchable: "language requirement english" },
+		{ key: "minMergedPrs" as const, title: "Minimum merged PRs", searchable: "minimum merged prs pull requests" },
+		{ key: "accountAge" as const, title: "Account age", searchable: "account age days old new" },
+		{ key: "maxPrsPerDay" as const, title: "Max PRs per day", searchable: "max prs per day rate limit" },
+		{ key: "maxFilesChanged" as const, title: "Max files changed", searchable: "max files changed" },
+		{ key: "repoActivityMinimum" as const, title: "Repo activity minimum", searchable: "repo activity minimum public repos" },
+		{ key: "requireProfileReadme" as const, title: "Require profile README", searchable: "require profile readme" },
+		{ key: "cryptoAddressDetection" as const, title: "Crypto address detection", searchable: "crypto address detection bitcoin ethereum" },
+	];
 
-			<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+	const q = searchQuery.toLowerCase();
+	const matchesSearch = (r: typeof allRules[number]) =>
+		!q || r.searchable.includes(q) || r.title.toLowerCase().includes(q);
+
+	const installedRuleKeys = allRules.filter((r) => activeConfig[r.key].enabled);
+	const availableRuleKeys = allRules.filter((r) => !activeConfig[r.key].enabled);
+
+	return (
+		<div className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-4 py-8 md:px-[50px] md:py-10">
+			<div className="grid grid-cols-[180px_1fr] gap-6">
+				{/* Side column */}
+				<div className="flex flex-col gap-4 pt-1">
+					<div>
+						<h1 className="m-0 text-[22px] leading-[28px] font-semibold tracking-[-0.02em] text-white">Rules</h1>
+						<p className="m-0 text-[13px] text-[#FFFFFF73] mt-0.5">{activeCount} active</p>
+					</div>
+					<nav className="flex flex-col gap-0.5 -mx-1.5">
+						<button
+							type="button"
+							onClick={() => setTab("marketplace")}
+							className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${tab === "marketplace" ? "bg-tw-card text-white" : "text-[#FFFFFF99] hover:bg-[#ffffff08]"}`}
+						>
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 4v7h10V4M1 4h12l-1-2H2L1 4ZM5 7h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+							Marketplace
+						</button>
+						<button
+							type="button"
+							onClick={() => setTab("installed")}
+							className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${tab === "installed" ? "bg-tw-card text-white" : "text-[#FFFFFF99] hover:bg-[#ffffff08]"}`}
+						>
+							<span className="flex items-center gap-2">
+								<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7.2l1.8 1.8 3.2-3.6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+								Installed
+							</span>
+							<span className="text-[11px] text-[#FFFFFF59] tabular-nums">{activeCount}</span>
+						</button>
+						<button
+							type="button"
+							onClick={() => setTab("people")}
+							className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${tab === "people" ? "bg-tw-card text-white" : "text-[#FFFFFF99] hover:bg-[#ffffff08]"}`}
+						>
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2"/><path d="M2.5 12c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+							People
+						</button>
+					</nav>
+				</div>
+
+				{/* Main column */}
+				<div className="flex flex-col gap-4 min-w-0">
+					{/* Search bar */}
+					{tab !== "people" && (
+						<div className="flex items-center gap-2 h-9 rounded-[10px] bg-tw-card px-2.5">
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#6E6E6E" strokeWidth="1.2"/><path d="M9.5 9.5L12.5 12.5" stroke="#6E6E6E" strokeWidth="1.2" strokeLinecap="round"/></svg>
+							<input
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								placeholder={tab === "marketplace" ? "Search all rules" : "Search installed rules"}
+								className="flex-1 bg-transparent outline-none text-[13px] text-white placeholder:text-[#6E6E6E]"
+							/>
+						</div>
+					)}
+
+					{/* Marketplace tab: all rules */}
+					{tab === "marketplace" && (
+						<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 				<RuleCardGrid
 					title="AI slop detection"
 					description="Use known detection patterns to minimize automated activity"
@@ -461,47 +529,93 @@ function RulesPage() {
 					onActionChange={(action) => updateRuleValue("cryptoAddressDetection", { action })}
 					visualization={<CryptoViz />}
 				/>
+						</div>
+					)}
+
+					{/* Installed tab: only enabled rules */}
+					{tab === "installed" && (
+						installedRuleKeys.filter(matchesSearch).length === 0 ? (
+							<div className="rounded-xl bg-tw-card p-6 text-center">
+								<p className="text-[13px] text-[#FFFFFF73]">
+									{searchQuery ? "No installed rules match your search." : "No rules installed yet. Browse the marketplace to get started."}
+								</p>
+							</div>
+						) : (
+							<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+								{/* Same cards but filtered to enabled only — reuse the same JSX pattern */}
+								{activeConfig.aiSlopDetection.enabled && matchesSearch(allRules[0]) && (
+									<RuleCardGrid title="AI slop detection" description="Use known detection patterns to minimize automated activity" enabled={true} action={activeConfig.aiSlopDetection.action} onToggle={(v) => toggleRule("aiSlopDetection", v)} onActionChange={(a) => updateRuleValue("aiSlopDetection", { action: a })} visualization={<AiSlopViz />} />
+								)}
+								{activeConfig.requireProfilePicture.enabled && matchesSearch(allRules[1]) && (
+									<RuleCardGrid title="Require profile picture" description="Require a custom profile picture instead of GitHub's fallback" enabled={true} action={activeConfig.requireProfilePicture.action} onToggle={(v) => toggleRule("requireProfilePicture", v)} onActionChange={(a) => updateRuleValue("requireProfilePicture", { action: a })} visualization={<ProfilePictureViz />} />
+								)}
+								{activeConfig.languageRequirement.enabled && matchesSearch(allRules[2]) && (
+									<RuleCardGrid title={<>Require all contributions in{" "}<RuleDropdown value={activeConfig.languageRequirement.language} options={LANGUAGE_OPTIONS} onChange={(language) => updateRuleValue("languageRequirement", { language })} /></>} description="Contributions in a disallowed language will be declined" enabled={true} action={activeConfig.languageRequirement.action} onToggle={(v) => toggleRule("languageRequirement", v)} onActionChange={(a) => updateRuleValue("languageRequirement", { action: a })} visualization={<LanguageViz />} />
+								)}
+								{activeConfig.minMergedPrs.enabled && matchesSearch(allRules[3]) && (
+									<RuleCardGrid title={<>At least{" "}<RuleDropdown value={String(activeConfig.minMergedPrs.count)} options={PR_COUNT_OPTIONS} onChange={(v) => updateRuleValue("minMergedPrs", { count: Number(v) })} />{" "}merged PRs</>} description="Minimum merged pull requests before they can contribute" enabled={true} action={activeConfig.minMergedPrs.action} onToggle={(v) => toggleRule("minMergedPrs", v)} onActionChange={(a) => updateRuleValue("minMergedPrs", { action: a })} visualization={<MergedPrsViz />} />
+								)}
+								{activeConfig.accountAge.enabled && matchesSearch(allRules[4]) && (
+									<RuleCardGrid title={<>Account older than{" "}<RuleDropdown value={`${activeConfig.accountAge.days} days`} options={ACCOUNT_AGE_OPTIONS} onChange={(v) => updateRuleValue("accountAge", { days: Number.parseInt(v, 10) })} /></>} description="Block accounts created too recently from contributing" enabled={true} action={activeConfig.accountAge.action} onToggle={(v) => toggleRule("accountAge", v)} onActionChange={(a) => updateRuleValue("accountAge", { action: a })} visualization={<AccountAgeViz />} />
+								)}
+								{activeConfig.maxPrsPerDay.enabled && matchesSearch(allRules[5]) && (
+									<RuleCardGrid title={<>Max{" "}<RuleDropdown value={String(activeConfig.maxPrsPerDay.limit)} options={MAX_PRS_PER_DAY_OPTIONS} onChange={(v) => updateRuleValue("maxPrsPerDay", { limit: Number(v) })} />{" "}PRs per day</>} description="Rate limit how many PRs or issues a single user can open per day" enabled={true} action={activeConfig.maxPrsPerDay.action} onToggle={(v) => toggleRule("maxPrsPerDay", v)} onActionChange={(a) => updateRuleValue("maxPrsPerDay", { action: a })} visualization={<MaxPrsPerDayViz />} />
+								)}
+								{activeConfig.maxFilesChanged.enabled && matchesSearch(allRules[6]) && (
+									<RuleCardGrid title={<>Max{" "}<RuleDropdown value={String(activeConfig.maxFilesChanged.limit)} options={MAX_FILES_CHANGED_OPTIONS} onChange={(v) => updateRuleValue("maxFilesChanged", { limit: Number(v) })} />{" "}files changed</>} description="Block pull requests that touch too many files in a single submission" enabled={true} action={activeConfig.maxFilesChanged.action} onToggle={(v) => toggleRule("maxFilesChanged", v)} onActionChange={(a) => updateRuleValue("maxFilesChanged", { action: a })} visualization={<MaxFilesChangedViz />} />
+								)}
+								{activeConfig.repoActivityMinimum.enabled && matchesSearch(allRules[7]) && (
+									<RuleCardGrid title={<>At least{" "}<RuleDropdown value={String(activeConfig.repoActivityMinimum.minRepos)} options={REPO_ACTIVITY_OPTIONS} onChange={(v) => updateRuleValue("repoActivityMinimum", { minRepos: Number(v) })} />{" "}public repos</>} description="Contributor must have meaningful activity across other public repos" enabled={true} action={activeConfig.repoActivityMinimum.action} onToggle={(v) => toggleRule("repoActivityMinimum", v)} onActionChange={(a) => updateRuleValue("repoActivityMinimum", { action: a })} visualization={<RepoActivityViz />} />
+								)}
+								{activeConfig.requireProfileReadme.enabled && matchesSearch(allRules[8]) && (
+									<RuleCardGrid title="Require profile README" description="Contributors must have a profile README on their GitHub account" enabled={true} action={activeConfig.requireProfileReadme.action} onToggle={(v) => toggleRule("requireProfileReadme", v)} onActionChange={(a) => updateRuleValue("requireProfileReadme", { action: a })} visualization={<ProfileReadmeViz />} />
+								)}
+								{activeConfig.cryptoAddressDetection.enabled && matchesSearch(allRules[9]) && (
+									<RuleCardGrid title="Crypto address detection" description="Block content containing cryptocurrency wallet addresses (BTC, ETH, SOL, XMR, DASH)" enabled={true} action={activeConfig.cryptoAddressDetection.action} onToggle={(v) => toggleRule("cryptoAddressDetection", v)} onActionChange={(a) => updateRuleValue("cryptoAddressDetection", { action: a })} visualization={<CryptoViz />} />
+								)}
+							</div>
+						)
+					)}
+
+					{/* People tab: whitelist + blacklist */}
+					{tab === "people" && (
+						<div className="flex flex-col gap-6">
+							<UserList
+								title="Whitelist"
+								description="Allow specific users to interact with your repositories without being affected by the rules"
+								users={whitelistUsers}
+								onAdd={async (username) => {
+									if (repoId) {
+										await addWhitelist.mutateAsync({ repoId, githubUsername: username });
+									}
+								}}
+								onRemove={(username) => {
+									if (repoId) {
+										removeWhitelist.mutate({ repoId, githubUsername: username });
+									}
+								}}
+								isAdding={addWhitelist.isPending}
+							/>
+							<UserList
+								title="Blacklist"
+								description="Prevent any user on GitHub from interacting with your repositories"
+								users={blacklistUsers}
+								onAdd={async (username) => {
+									if (repoId) {
+										await addBlacklist.mutateAsync({ repoId, githubUsername: username });
+									}
+								}}
+								onRemove={(username) => {
+									if (repoId) {
+										removeBlacklist.mutate({ repoId, githubUsername: username });
+									}
+								}}
+								isAdding={addBlacklist.isPending}
+							/>
+						</div>
+					)}
+				</div>
 			</div>
-
-			<UserList
-				title="Whitelist"
-				description="Allow specific users to interact with your repositories without being affected by the rules"
-				users={whitelistUsers}
-				onAdd={async (username) => {
-					if (repoId) {
-						await addWhitelist.mutateAsync({
-							repoId,
-							githubUsername: username,
-						});
-					}
-				}}
-				onRemove={(username) => {
-					if (repoId) {
-						removeWhitelist.mutate({ repoId, githubUsername: username });
-					}
-				}}
-				isAdding={addWhitelist.isPending}
-			/>
-
-			<UserList
-				title="Blacklist"
-				description="Prevent any user on GitHub from interacting with your repositories"
-				users={blacklistUsers}
-				onAdd={async (username) => {
-					if (repoId) {
-						await addBlacklist.mutateAsync({
-							repoId,
-							githubUsername: username,
-						});
-					}
-				}}
-				onRemove={(username) => {
-					if (repoId) {
-						removeBlacklist.mutate({ repoId, githubUsername: username });
-					}
-				}}
-				isAdding={addBlacklist.isPending}
-			/>
 
 			<RulesSaveBar
 				dirty={dirty}
