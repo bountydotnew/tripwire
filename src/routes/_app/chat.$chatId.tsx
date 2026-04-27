@@ -111,7 +111,7 @@ function ChatPage() {
 							ref={inputRef}
 							type="text"
 							placeholder={
-								chat.isQuotaExhausted ? "Out of messages" : "Ask anything..."
+								chat.isQuotaExhausted ? "Out of credits" : "Ask anything..."
 							}
 							value={inputValue}
 							onChange={(e) => setInputValue(e.target.value)}

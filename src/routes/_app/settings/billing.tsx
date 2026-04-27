@@ -20,15 +20,15 @@ function BillingSettingsPage() {
 	const planName = planId === "pro" ? "Pro" : "Free";
 	const isFreePlan = planId === "free";
 
-	// AI messages balance
-	const aiBalance = customer?.balances?.ai_messages;
-	const messagesUsed = aiBalance?.usage ?? 0;
-	const messagesGranted = aiBalance?.granted ?? 0;
-	const messagesRemaining = aiBalance?.remaining ?? 0;
+	// AI credits balance
+	const aiBalance = customer?.balances?.ai_credits;
+	const creditsUsed = aiBalance?.usage ?? 0;
+	const creditsGranted = aiBalance?.granted ?? 0;
+	const creditsRemaining = aiBalance?.remaining ?? 0;
 	const isUnlimited = aiBalance?.unlimited ?? false;
 
 	// Usage percentage for progress bar
-	const usagePercent = messagesGranted > 0 ? Math.min((messagesUsed / messagesGranted) * 100, 100) : 0;
+	const usagePercent = creditsGranted > 0 ? Math.min((creditsUsed / creditsGranted) * 100, 100) : 0;
 
 	// Price
 	const price = isFreePlan ? 0 : 9;
@@ -63,17 +63,17 @@ function BillingSettingsPage() {
 					<div className="grid grid-cols-2 gap-4 px-4 pb-3 border-t border-[#27272A] pt-3">
 						<div>
 							<div className="text-[11px] font-medium text-tw-text-muted uppercase tracking-wider mb-1">
-								AI Messages
+								AI Spend
 							</div>
 							<div className="flex items-baseline gap-1">
 								<span className="text-[18px] font-semibold text-tw-text-primary tabular-nums">
-									{messagesUsed.toLocaleString()}
+									${(creditsUsed / 100).toFixed(2)}
 								</span>
 								<span className="text-[12px] text-tw-text-muted">
-									/ {isUnlimited ? "Unlimited" : messagesGranted.toLocaleString()}
+									/ {isUnlimited ? "Unlimited" : `$${(creditsGranted / 100).toFixed(2)}`}
 								</span>
 							</div>
-							{!isUnlimited && messagesGranted > 0 && (
+							{!isUnlimited && creditsGranted > 0 && (
 								<div className="mt-1.5 h-1 w-full rounded-full bg-[#27272A]">
 									<div
 										className="h-1 rounded-full bg-tw-text-primary transition-all"

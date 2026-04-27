@@ -143,7 +143,7 @@ function AppShellInner() {
 										<input
 											ref={inputRef}
 											type="text"
-											placeholder={isQuotaExhausted ? "Out of messages" : "Ask anything..."}
+											placeholder={isQuotaExhausted ? "Out of credits" : "Ask anything..."}
 											value={inputValue}
 											onChange={(e) => setInputValue(e.target.value)}
 											onKeyDown={handleKeyDown}
@@ -210,7 +210,7 @@ function AppShellInner() {
 
 function CreditBalancePill() {
 	const { data: customer } = useCustomer();
-	const balance = customer?.balances?.ai_messages;
+	const balance = customer?.balances?.ai_credits;
 
 	if (!balance) return null;
 
@@ -233,7 +233,7 @@ function CreditBalancePill() {
 						: "bg-[#FAFAFA08] text-tw-text-muted"
 			}`}
 		>
-			{remaining} / {granted}
+			${(remaining / 100).toFixed(2)}
 		</span>
 	);
 }

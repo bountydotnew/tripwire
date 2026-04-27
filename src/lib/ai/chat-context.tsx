@@ -115,7 +115,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 
 	// Check quota proactively via Autumn's customer data
 	const { data: customer, refetch: refetchCustomer } = useCustomer();
-	const aiBalance = customer?.balances?.ai_messages;
+	const aiBalance = customer?.balances?.ai_credits;
 	const isQuotaExhausted = quotaExhaustedByError
 		|| (aiBalance != null && aiBalance.remaining <= 0 && !aiBalance.unlimited);
 

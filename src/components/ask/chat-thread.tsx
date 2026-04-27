@@ -137,9 +137,9 @@ function QuotaExhaustedState() {
 					<path d="M7 9V6a3 3 0 1 1 6 0v3" stroke="#9F9FA9" strokeWidth="1.5" strokeLinecap="round" />
 				</svg>
 			</div>
-			<p className="text-[14px] text-tw-text-secondary mb-1">Out of messages</p>
+			<p className="text-[14px] text-tw-text-secondary mb-1">Out of credits</p>
 			<p className="text-[12px] text-tw-text-muted max-w-[220px]">
-				You've used all your AI messages for this month.
+				You've used all your AI credits for this month.
 			</p>
 		</div>
 	);
