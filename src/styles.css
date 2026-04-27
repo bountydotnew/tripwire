@@ -19,12 +19,15 @@
   --font-sans: "Geist", system-ui, sans-serif;
   --font-display: "Playfair Display", Georgia, serif;
 
+  /* Default border color for Tailwind's `border` utility */
+  --default-border-color: #27272A;
+
   /* Tripwire color palette (from prototype) */
   --color-tw-bg: #0D0D0F;
   --color-tw-surface: #17171A;
   --color-tw-card: #202023;
   --color-tw-inner: #FAFAFA1A;
-  --color-tw-border: #FFFFFF14;
+  --color-tw-border: #27272A;
   --color-tw-border-card: #0000004D;
   --color-tw-hover: #18181B;
   --color-tw-hover-light: #25252A;
@@ -55,7 +58,7 @@
   --color-foreground: #EEEEEE;
   --color-popover: #1F1E1E;
   --color-popover-foreground: #EEEEEE;
-  --color-border: #FFFFFF14;
+  --color-border: #27272A;
   --color-accent: #202023;
   --color-accent-foreground: #EEEEEE;
   --color-muted: #202023;
