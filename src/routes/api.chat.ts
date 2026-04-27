@@ -3,6 +3,7 @@ import { chat, toServerSentEventsResponse, maxIterations } from "@tanstack/ai";
 import { openRouterText } from "@tanstack/ai-openrouter";
 import { webSearchTool } from "@tanstack/ai-openrouter/tools";
 import { createTripwireTools } from "#/lib/ai/tools";
+import { createCreditMiddleware } from "#/lib/ai/credit-middleware";
 import { buildSystemPrompt } from "#/lib/ai/prompt";
 import { createContext } from "#/integrations/trpc/init";
 import { autumn } from "#/lib/autumn";
@@ -30,16 +31,20 @@ export const Route = createFileRoute("/api/chat")({
 					try {
 						quota = await autumn.check({
 							customerId: ctx.user.id,
-							featureId: "ai_messages",
+							featureId: "ai_credits",
 							withPreview: true,
 						});
 					} catch (checkErr: any) {
-						if (checkErr?.statusCode === 404) {
+						const isNotFound = checkErr?.statusCode === 404
+							|| checkErr?.code === "customer_not_found"
+							|| checkErr?.body?.code === "customer_not_found"
+							|| String(checkErr?.message).includes("not found");
+						if (isNotFound) {
 							// Existing user without Autumn record, create and retry
-							await autumn.customers.create({ customerId: ctx.user.id });
+							await autumn.customers.getOrCreate({ customerId: ctx.user.id });
 							quota = await autumn.check({
 								customerId: ctx.user.id,
-								featureId: "ai_messages",
+								featureId: "ai_credits",
 								withPreview: true,
 							});
 						} else {
@@ -56,7 +61,7 @@ export const Route = createFileRoute("/api/chat")({
 								error: "quota_exhausted",
 								code,
 								message: code === "usage_limit"
-									? "You've used all your AI messages this month."
+									? "You've used all your AI credits this month."
 									: "AI chat is not included in your current plan.",
 							}),
 							{
@@ -156,6 +161,12 @@ export const Route = createFileRoute("/api/chat")({
 					// The server must execute them and inject results before chat().
 					await executeApprovedTools(messages, tools);
 
+					// Credit tracking middleware — accumulates tokens, computes credits, fires autumn.track()
+					const creditMiddleware = createCreditMiddleware({
+						customerId: ctx.user.id,
+						modelId: aiModel,
+					});
+
 					// Create streaming chat response with concise error logging
 					// (TanStack AI's default ConsoleLogger uses console.dir with
 					// depth:null, dumping entire HTTP response objects on errors)
@@ -166,6 +177,7 @@ export const Route = createFileRoute("/api/chat")({
 						systemPrompts: [systemPrompt],
 						conversationId,
 						agentLoopStrategy: maxIterations(10),
+						middleware: [creditMiddleware],
 						debug: {
 							errors: true,
 							provider: false,
@@ -192,15 +204,7 @@ export const Route = createFileRoute("/api/chat")({
 						},
 					});
 
-					// Track AI message usage (fire-and-forget)
-					autumn.track({
-						customerId: ctx.user.id,
-						featureId: "ai_messages",
-						value: 1,
-					}).catch((err) => {
-						console.error("[Tripwire] Failed to track AI message usage:", err);
-					});
-
+					// Credit tracking is handled by creditMiddleware (onFinish → ctx.defer)
 					return toServerSentEventsResponse(stream);
 				} catch (error: any) {
 					// Log concise error, not the full stack/object dump
