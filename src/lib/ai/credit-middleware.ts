@@ -1,6 +1,8 @@
 /**
  * TanStack AI ChatMiddleware that tracks token usage and reports
  * dollar-denominated spend (in cents) to Autumn after each chat completes.
+ *
+ * Uses tokenlens for live provider pricing via the OpenRouter catalog.
  */
 
 import type { ChatMiddleware } from "@tanstack/ai";
@@ -27,14 +29,14 @@ export function createCreditMiddleware({
 			totalCompletionTokens += usage.completionTokens;
 		},
 
-		onFinish(ctx) {
+		async onFinish(ctx) {
 			if (totalPromptTokens === 0 && totalCompletionTokens === 0) return;
 
-			const cents = computeCostCents(modelId, totalPromptTokens, totalCompletionTokens);
+			const cents = await computeCostCents(modelId, totalPromptTokens, totalCompletionTokens);
 
 			if (process.env.NODE_ENV !== "production") {
 				console.log(
-					`[billing] ${totalPromptTokens} in + ${totalCompletionTokens} out → ${cents}¢ [${modelId}]`,
+					`[billing] ${totalPromptTokens} in + ${totalCompletionTokens} out = ${cents}c [${modelId}]`,
 				);
 			}
 
