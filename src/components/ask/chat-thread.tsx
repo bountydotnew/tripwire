@@ -348,6 +348,7 @@ function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererP
 			return <MarkdownText content={part.content} />;
 
 		case "reasoning":
+		case "thinking":
 			return <ReasoningBlock content={(part as any).content ?? (part as any).text ?? ""} />;
 
 		case "tool-call": {

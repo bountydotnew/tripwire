@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { chat, toServerSentEventsResponse } from "@tanstack/ai";
+import { chat, toServerSentEventsResponse, maxIterations } from "@tanstack/ai";
 import { openRouterText } from "@tanstack/ai-openrouter";
+import { webSearchTool } from "@tanstack/ai-openrouter/tools";
 import { createTripwireTools } from "#/lib/ai/tools";
 import { buildSystemPrompt } from "#/lib/ai/prompt";
 import { createContext } from "#/integrations/trpc/init";
@@ -137,6 +138,9 @@ export const Route = createFileRoute("/api/chat")({
 						currentPage: currentPage ?? "/home",
 					});
 
+					// Model selection (configurable via env)
+					const aiModel = process.env.TRIPWIRE_AI_MODEL || "openai/gpt-4o-mini";
+
 					// Create tools with context
 					const tools = createTripwireTools({
 						userId: ctx.user.id,
@@ -155,11 +159,12 @@ export const Route = createFileRoute("/api/chat")({
 					// (TanStack AI's default ConsoleLogger uses console.dir with
 					// depth:null, dumping entire HTTP response objects on errors)
 					const stream = chat({
-						adapter: openRouterText("openai/gpt-4o-mini"),
+						adapter: openRouterText(aiModel as any),
 						messages,
-						tools,
+						tools: [...tools, webSearchTool({ maxResults: 3 })],
 						systemPrompts: [systemPrompt],
 						conversationId,
+						agentLoopStrategy: maxIterations(10),
 						debug: {
 							errors: true,
 							provider: false,
@@ -374,7 +379,7 @@ function sanitizeMessages(rawMessages: any[]): any[] {
 	// Pass 3: Strip anything that isn't a completed call/result pair.
 	// This removes: pending approvals, orphaned results, nameless calls,
 	// and tool-calls whose results are from a different (older) turn.
-	return merged
+	const result = merged
 		.map((msg: any) => {
 			if (msg.role === "tool") {
 				if (!msg.tool_call_id || !completedCallIds.has(msg.tool_call_id)) return null;

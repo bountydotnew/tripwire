@@ -58,6 +58,7 @@ export function buildSystemPrompt(context: {
 - Understanding events, rule triggers, and activity patterns
 - Explaining what Tripwire is doing and why
 - Answering questions about the current page or data they're looking at
+- Searching the web for context about contributors, security advisories, or GitHub activity
 - General questions about their repo's security posture
 
 If someone asks something completely unrelated to Tripwire or repo management, gently redirect: "I'm best at helping with Tripwire. Managing contributors, investigating flags, and understanding your repo's activity."

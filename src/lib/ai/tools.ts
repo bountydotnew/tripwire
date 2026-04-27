@@ -65,6 +65,7 @@ export const getEventDef = toolDefinition({
 		eventId: z.string(),
 	}),
 	outputSchema: specSchema,
+	lazy: true,
 });
 
 export const listEventsDef = toolDefinition({
@@ -78,6 +79,7 @@ export const listEventsDef = toolDefinition({
 		limit: z.number().min(1).max(20).optional(),
 	}),
 	outputSchema: specSchema,
+	lazy: true,
 });
 
 export const getListsDef = toolDefinition({
@@ -167,6 +169,7 @@ export const moveToWhitelistDef = toolDefinition({
 	}),
 	outputSchema: specSchema,
 	needsApproval: true,
+	lazy: true,
 });
 
 export const moveToBlacklistDef = toolDefinition({
@@ -178,6 +181,7 @@ export const moveToBlacklistDef = toolDefinition({
 	}),
 	outputSchema: specSchema,
 	needsApproval: true,
+	lazy: true,
 });
 
 // ─── Rule Config Tools ──────────────────────────────────────────
@@ -243,9 +247,9 @@ export const updateRuleValueDef = toolDefinition({
 	description:
 		"Set a rule's numeric or string parameter. Valid fields per rule: minMergedPrs.count, accountAge.days, maxPrsPerDay.limit, maxFilesChanged.limit, repoActivityMinimum.minRepos, languageRequirement.language. Valid ruleIds: aiSlopDetection, requireProfilePicture, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
 	inputSchema: z.object({
-		ruleId: z.string().describe("The rule ID (e.g. 'minMergedPrs', 'accountAge')"),
-		field: z.string().describe("The field to update (e.g. 'count', 'days', 'limit', 'minRepos', 'language')"),
-		value: z.union([z.number(), z.string()]).describe("The new value"),
+		ruleId: z.string().meta({ description: "The rule ID (e.g. 'minMergedPrs', 'accountAge')" }),
+		field: z.string().meta({ description: "The field to update (e.g. 'count', 'days', 'limit', 'minRepos', 'language')" }),
+		value: z.union([z.number(), z.string()]).meta({ description: "The new value" }),
 	}),
 	outputSchema: specSchema,
 	needsApproval: true,
