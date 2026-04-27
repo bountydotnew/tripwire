@@ -304,3 +304,136 @@ export async function hasProfileReadme(
 		return false;
 	}
 }
+
+/** Enriched user data from GraphQL API */
+export interface GitHubUserGraphQL {
+	hasSponsorsListing: boolean;
+	isBountyHunter: boolean;
+	isCampusExpert: boolean;
+	isDeveloperProgramMember: boolean;
+	isGitHubStar: boolean;
+	isHireable: boolean;
+	isSiteAdmin: boolean;
+	sponsoringCount: number;
+	sponsorsCount: number;
+	contributionYears: number[];
+	contributionsLastYear: number;
+	organizations: Array<{ login: string; avatarUrl: string }>;
+	socialAccounts: Array<{ provider: string; url: string }>;
+	topRepositories: Array<{ name: string; stars: number; language: string | null }>;
+}
+
+/** Fetch enriched user data via GitHub GraphQL API */
+export async function fetchUserGraphQL(
+	token: string,
+	username: string,
+): Promise<GitHubUserGraphQL | null> {
+	const query = `query($login: String!) {
+		user(login: $login) {
+			hasSponsorsListing
+			isBountyHunter
+			isCampusExpert
+			isDeveloperProgramMember
+			isGitHubStar
+			isHireable
+			isSiteAdmin
+			sponsoring(first: 0) { totalCount }
+			sponsors(first: 0) { totalCount }
+			contributionsCollection {
+				contributionCalendar { totalContributions }
+				contributionYears
+			}
+			organizations(first: 10) {
+				nodes { login avatarUrl }
+			}
+			socialAccounts(first: 10) {
+				nodes { provider url }
+			}
+			topRepositories(first: 5, orderBy: { field: STARGAZERS, direction: DESC }) {
+				nodes { name stargazerCount primaryLanguage { name } }
+			}
+		}
+	}`;
+
+	try {
+		const res = await fetch("https://api.github.com/graphql", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ query, variables: { login: username } }),
+		});
+
+		if (!res.ok) return null;
+		const json = await res.json();
+		const u = json.data?.user;
+		if (!u) return null;
+
+		return {
+			hasSponsorsListing: u.hasSponsorsListing ?? false,
+			isBountyHunter: u.isBountyHunter ?? false,
+			isCampusExpert: u.isCampusExpert ?? false,
+			isDeveloperProgramMember: u.isDeveloperProgramMember ?? false,
+			isGitHubStar: u.isGitHubStar ?? false,
+			isHireable: u.isHireable ?? false,
+			isSiteAdmin: u.isSiteAdmin ?? false,
+			sponsoringCount: u.sponsoring?.totalCount ?? 0,
+			sponsorsCount: u.sponsors?.totalCount ?? 0,
+			contributionYears: u.contributionsCollection?.contributionYears ?? [],
+			contributionsLastYear: u.contributionsCollection?.contributionCalendar?.totalContributions ?? 0,
+			organizations: (u.organizations?.nodes ?? []).map((o: { login: string; avatarUrl: string }) => ({
+				login: o.login,
+				avatarUrl: o.avatarUrl,
+			})),
+			socialAccounts: (u.socialAccounts?.nodes ?? []).map((s: { provider: string; url: string }) => ({
+				provider: s.provider,
+				url: s.url,
+			})),
+			topRepositories: (u.topRepositories?.nodes ?? []).map((r: { name: string; stargazerCount: number; primaryLanguage?: { name: string } | null }) => ({
+				name: r.name,
+				stars: r.stargazerCount ?? 0,
+				language: r.primaryLanguage?.name ?? null,
+			})),
+		};
+	} catch {
+		return null;
+	}
+}
+
+/** Achievement from GitHub profile */
+export interface GitHubAchievement {
+	type: string;
+	tier: number;
+}
+
+/** Fetch user achievements by scraping GitHub profile HTML */
+export async function fetchUserAchievements(
+	username: string,
+): Promise<GitHubAchievement[]> {
+	try {
+		const res = await fetch(`https://github.com/${username}?tab=achievements`, {
+			headers: { "User-Agent": "Tripwire" },
+		});
+		if (!res.ok) return [];
+
+		const html = await res.text();
+		const { parseHTML } = await import("linkedom");
+		const { document } = parseHTML(html);
+
+		const cards = document.querySelectorAll(".js-achievement-card-details");
+		const achievements: GitHubAchievement[] = [];
+
+		for (const card of cards) {
+			const type = (card as any).dataset?.achievementSlug;
+			if (!type) continue;
+			const tierLabel = card.querySelector(".achievement-tier-label")?.textContent?.trim();
+			const tier = tierLabel ? Number.parseInt(tierLabel.replace("x", ""), 10) || 1 : 1;
+			achievements.push({ type, tier });
+		}
+
+		return achievements.sort((a, b) => b.tier - a.tier);
+	} catch {
+		return [];
+	}
+}

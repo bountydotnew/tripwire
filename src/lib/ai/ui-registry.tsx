@@ -9,58 +9,121 @@ export const { registry } = defineRegistry(catalog, {
 	components: {
 		// ─── User Profile Card ────────────────────────────────────────
 		UserCard: ({ props }) => {
-			const statusText =
+			const statusColor =
+				props.status === "blacklisted"
+					? "text-tw-error"
+					: props.status === "whitelisted"
+						? "text-tw-success"
+						: "text-tw-text-muted";
+
+			const statusLabel =
 				props.status === "blacklisted"
 					? "Blacklisted"
 					: props.status === "whitelisted"
 						? "Whitelisted"
 						: "Normal";
 
-			const statusColor =
-				props.status === "blacklisted"
-					? "text-tw-error"
-					: props.status === "whitelisted"
-						? "text-tw-success"
-						: "text-tw-text-secondary";
+			const scoreColor =
+				props.contributorScore >= 60
+					? "text-tw-success"
+					: props.contributorScore >= 30
+						? "text-tw-warning"
+						: "text-tw-error";
+
+			const ageDays = props.accountAgeDays;
+			const ageText =
+				ageDays >= 365
+					? `${Math.floor(ageDays / 365)}y ${Math.floor((ageDays % 365) / 30)}mo`
+					: ageDays >= 30
+						? `${Math.floor(ageDays / 30)}mo`
+						: `${ageDays}d`;
+
+			const achievementText = props.achievements.length > 0
+				? props.achievements.map((a) => `${a.type}${a.tier > 1 ? ` x${a.tier}` : ""}`).join(", ")
+				: null;
 
 			return (
-				<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+				<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2.5">
+					{/* Header: avatar, name, score */}
 					<div className="flex items-center gap-2.5">
 						{props.avatar && (
-							<img
-								src={props.avatar}
-								alt=""
-								className="size-10 rounded-full"
-							/>
+							<img src={props.avatar} alt="" className="size-10 rounded-full" />
 						)}
-						<div>
-							<div className="text-[14px] text-tw-text-primary font-medium">
-								@{props.username}
+						<div className="flex-1 min-w-0">
+							<div className="flex items-center gap-2">
+								<span className="text-[14px] text-tw-text-primary font-medium">@{props.username}</span>
+								<span className={`text-[11px] font-medium ${statusColor}`}>{statusLabel}</span>
 							</div>
-							{props.name && (
-								<div className="text-[12px] text-tw-text-muted">{props.name}</div>
+							{(props.name || props.company) && (
+								<div className="text-[12px] text-tw-text-muted truncate">
+									{props.name}{props.company ? ` · ${props.company}` : ""}
+								</div>
 							)}
 						</div>
-					</div>
-					<div className="grid grid-cols-2 gap-2 text-[12px]">
-						<div>
-							<span className="text-tw-text-muted">Repos: </span>
-							<span className="text-tw-text-secondary">{props.publicRepos}</span>
-						</div>
-						<div>
-							<span className="text-tw-text-muted">Followers: </span>
-							<span className="text-tw-text-secondary">{props.followers}</span>
-						</div>
-						<div>
-							<span className="text-tw-text-muted">Tripwire events: </span>
-							<span className="text-tw-text-secondary">
-								{props.tripwireEventCount}
+						<div className="flex flex-col items-center shrink-0">
+							<span className={`text-[18px] font-semibold tabular-nums ${scoreColor}`}>
+								{props.contributorScore}
 							</span>
+							<span className="text-[9px] text-tw-text-muted uppercase tracking-wider">score</span>
 						</div>
-						<div>
-							<span className="text-tw-text-muted">Status: </span>
-							<span className={statusColor}>{statusText}</span>
+					</div>
+
+					{/* Bio */}
+					{props.bio && (
+						<div className="text-[12px] text-tw-text-secondary leading-relaxed">{props.bio}</div>
+					)}
+
+					{/* Stats grid */}
+					<div className="grid grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
+						<div><span className="text-tw-text-muted">Account age </span><span className="text-tw-text-secondary">{ageText}</span></div>
+						<div><span className="text-tw-text-muted">Repos </span><span className="text-tw-text-secondary">{props.publicRepos}</span></div>
+						<div><span className="text-tw-text-muted">Followers </span><span className="text-tw-text-secondary">{props.followers}</span></div>
+						<div><span className="text-tw-text-muted">Merged PRs </span><span className="text-tw-text-secondary">{props.mergedPrs}</span></div>
+						<div><span className="text-tw-text-muted">Contributions </span><span className="text-tw-text-secondary">{props.contributionsLastYear}</span></div>
+						<div><span className="text-tw-text-muted">Following </span><span className="text-tw-text-secondary">{props.following}</span></div>
+					</div>
+
+					{/* Event breakdown */}
+					{(props.blockedCount > 0 || props.allowedCount > 0 || props.nearMissCount > 0) && (
+						<div className="flex items-center gap-3 text-[11px]">
+							<span className="text-tw-text-muted">Events:</span>
+							{props.allowedCount > 0 && <span className="text-tw-success">{props.allowedCount} allowed</span>}
+							{props.blockedCount > 0 && <span className="text-tw-error">{props.blockedCount} blocked</span>}
+							{props.nearMissCount > 0 && <span className="text-tw-warning">{props.nearMissCount} near-miss</span>}
 						</div>
+					)}
+
+					{/* Badges + Achievements */}
+					{(props.badges.length > 0 || props.achievements.length > 0) && (
+						<div className="flex flex-wrap gap-1">
+							{props.badges.map((badge) => (
+								<span key={badge} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FAFAFA08] text-tw-text-muted">{badge}</span>
+							))}
+							{props.achievements.map((a) => (
+								<span key={a.type} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FAFAFA08] text-tw-text-secondary">
+									{a.type}{a.tier > 1 ? ` x${a.tier}` : ""}
+								</span>
+							))}
+						</div>
+					)}
+
+					{/* Orgs */}
+					{props.orgs.length > 0 && (
+						<div className="flex items-center gap-1.5">
+							<span className="text-[10px] text-tw-text-muted shrink-0">Orgs</span>
+							{props.orgs.slice(0, 6).map((org) => (
+								<img key={org.login} src={org.avatarUrl} alt={org.login} title={org.login} className="size-5 rounded-sm" />
+							))}
+							{props.orgs.length > 6 && <span className="text-[10px] text-tw-text-muted">+{props.orgs.length - 6}</span>}
+						</div>
+					)}
+
+					{/* Sponsors + signals */}
+					<div className="flex flex-wrap gap-2 text-[10px] text-tw-text-muted">
+						{props.sponsorsCount > 0 && <span>{props.sponsorsCount} sponsor{props.sponsorsCount !== 1 ? "s" : ""}</span>}
+						{props.sponsoringCount > 0 && <span>sponsoring {props.sponsoringCount}</span>}
+						{props.hasTwoFactor && <span className="text-tw-success">2FA</span>}
+						{props.hasProfileReadme && <span>README</span>}
 					</div>
 				</div>
 			);

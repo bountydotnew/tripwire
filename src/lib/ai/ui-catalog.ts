@@ -15,13 +15,33 @@ export const catalog = defineCatalog(schema, {
 				username: z.string(),
 				name: z.string().nullable(),
 				avatar: z.string().nullable(),
+				bio: z.string().nullable(),
+				company: z.string().nullable(),
+				location: z.string().nullable(),
 				publicRepos: z.number(),
 				followers: z.number(),
-				tripwireEventCount: z.number(),
+				following: z.number(),
+				accountAgeDays: z.number(),
+				mergedPrs: z.number(),
+				hasProfileReadme: z.boolean(),
+				hasTwoFactor: z.boolean(),
+				// event breakdown
+				blockedCount: z.number(),
+				allowedCount: z.number(),
+				nearMissCount: z.number(),
+				// enriched (graphql)
+				orgs: z.array(z.object({ login: z.string(), avatarUrl: z.string() })),
+				sponsorsCount: z.number(),
+				sponsoringCount: z.number(),
+				achievements: z.array(z.object({ type: z.string(), tier: z.number() })),
+				badges: z.array(z.string()),
+				contributionsLastYear: z.number(),
+				// score
+				contributorScore: z.number(),
 				status: z.enum(["normal", "blacklisted", "whitelisted"]),
 			}),
 			description:
-				"Displays a GitHub user profile with stats and Tripwire status",
+				"Displays a GitHub user profile with enriched metrics and contributor score",
 		},
 
 		// ─── Events List ──────────────────────────────────────────────

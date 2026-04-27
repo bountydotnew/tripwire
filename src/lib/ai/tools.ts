@@ -6,6 +6,8 @@ import {
 	whitelistEntries,
 	blacklistEntries,
 	ruleConfigs,
+	repositories,
+	organizations,
 	DEFAULT_RULE_CONFIG,
 	type EventAction,
 	type RuleConfig,
@@ -13,6 +15,14 @@ import {
 } from "#/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { logEvent } from "#/lib/events";
+import {
+	getMergedPrCount,
+	hasProfileReadme,
+	fetchUserGraphQL,
+	fetchUserAchievements,
+	getInstallationToken,
+} from "#/lib/github/github-api";
+import { computeContributorScore } from "#/lib/ai/contributor-score";
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -263,13 +273,14 @@ interface ToolContext {
 	repoId: string;
 }
 
-async function fetchGitHubUser(username: string) {
-	const res = await fetch(`https://api.github.com/users/${username}`, {
-		headers: {
-			Accept: "application/vnd.github.v3+json",
-			"User-Agent": "Tripwire",
-		},
-	});
+async function fetchGitHubUser(username: string, token?: string) {
+	const headers: Record<string, string> = {
+		Accept: "application/vnd.github.v3+json",
+		"User-Agent": "Tripwire",
+	};
+	if (token) headers.Authorization = `Bearer ${token}`;
+
+	const res = await fetch(`https://api.github.com/users/${username}`, { headers });
 
 	if (!res.ok) {
 		throw new Error(`GitHub user @${username} not found`);
@@ -278,71 +289,114 @@ async function fetchGitHubUser(username: string) {
 	return res.json();
 }
 
+async function getTokenForRepo(repoId: string): Promise<string | null> {
+	try {
+		const [repo] = await db
+			.select({ orgId: repositories.orgId })
+			.from(repositories)
+			.where(eq(repositories.id, repoId))
+			.limit(1);
+		if (!repo) return null;
+
+		const [org] = await db
+			.select({ installationId: organizations.githubInstallationId })
+			.from(organizations)
+			.where(eq(organizations.id, repo.orgId))
+			.limit(1);
+		if (!org) return null;
+
+		return await getInstallationToken(org.installationId);
+	} catch {
+		return null;
+	}
+}
+
 export function createTripwireTools(ctx: ToolContext) {
 	const { repoId, userId, userName } = ctx;
 
 	return [
 		// ─── Lookup User ────────────────────────────────────────
 		lookupUserDef.server(async ({ username }) => {
-			const ghUser = await fetchGitHubUser(username);
+			// Get installation token for authenticated API calls
+			const token = await getTokenForRepo(repoId);
 
-			const [, whitelist, blacklist] = await Promise.all([
-				db
-					.select()
-					.from(events)
-					.where(
-						and(
-							eq(events.repoId, repoId),
-							usernameEq(events.targetGithubUsername, username),
-						),
-					)
-					.orderBy(desc(events.createdAt))
-					.limit(5),
-				db
-					.select()
-					.from(whitelistEntries)
-					.where(
-						and(
-							eq(whitelistEntries.repoId, repoId),
-							usernameEq(whitelistEntries.githubUsername, username),
-						),
-					)
-					.limit(1),
-				db
-					.select()
-					.from(blacklistEntries)
-					.where(
-						and(
-							eq(blacklistEntries.repoId, repoId),
-							usernameEq(blacklistEntries.githubUsername, username),
-						),
-					)
-					.limit(1),
+			// Fetch all data in parallel
+			const [ghUser, whitelist, blacklist, allEvents, mergedPrs, profileReadme, graphqlData, achievements] = await Promise.all([
+				fetchGitHubUser(username, token ?? undefined),
+				db.select().from(whitelistEntries).where(and(eq(whitelistEntries.repoId, repoId), usernameEq(whitelistEntries.githubUsername, username))).limit(1),
+				db.select().from(blacklistEntries).where(and(eq(blacklistEntries.repoId, repoId), usernameEq(blacklistEntries.githubUsername, username))).limit(1),
+				db.select().from(events).where(and(eq(events.repoId, repoId), usernameEq(events.targetGithubUsername, username))),
+				token ? getMergedPrCount(token, username).catch(() => 0) : Promise.resolve(0),
+				token ? hasProfileReadme(token, username).catch(() => false) : Promise.resolve(false),
+				token ? fetchUserGraphQL(token, username).catch(() => null) : Promise.resolve(null),
+				fetchUserAchievements(username).catch(() => []),
 			]);
 
-			const allEvents = await db
-				.select()
-				.from(events)
-				.where(
-					and(
-						eq(events.repoId, repoId),
-						usernameEq(events.targetGithubUsername, username),
-					),
-				);
+			// Event breakdown
+			const blockedCount = allEvents.filter((e) => e.action === "pipeline_blocked").length;
+			const allowedCount = allEvents.filter((e) => e.action === "pipeline_allowed").length;
+			const nearMissCount = allEvents.filter((e) => e.action === "rule_near_miss").length;
 
-			const status = blacklist.length > 0
-				? "blacklisted"
-				: whitelist.length > 0
-					? "whitelisted"
-					: "normal";
+			// Account age
+			const createdAt = ghUser.created_at ? new Date(ghUser.created_at) : new Date();
+			const accountAgeDays = Math.floor((Date.now() - createdAt.getTime()) / 86400000);
+
+			// Contributor score
+			const score = computeContributorScore({
+				accountAgeDays,
+				followers: ghUser.followers ?? 0,
+				following: ghUser.following ?? 0,
+				publicRepos: ghUser.public_repos ?? 0,
+				publicGists: ghUser.public_gists ?? 0,
+				bio: ghUser.bio ?? null,
+				company: ghUser.company ?? null,
+				location: ghUser.location ?? null,
+				blog: ghUser.blog ?? null,
+				twitterUsername: ghUser.twitter_username ?? null,
+				hasTwoFactor: ghUser.two_factor_authentication ?? false,
+				hasProfileReadme: profileReadme,
+				graphql: graphqlData,
+				achievements,
+				mergedPrCount: mergedPrs,
+				blockedCount,
+				allowedCount,
+				nearMissCount,
+			});
+
+			// Collect badges from GraphQL data
+			const badges: string[] = [];
+			if (graphqlData?.isGitHubStar) badges.push("GitHub Star");
+			if (graphqlData?.isBountyHunter) badges.push("Bug Bounty Hunter");
+			if (graphqlData?.isDeveloperProgramMember) badges.push("Dev Program");
+			if (graphqlData?.isCampusExpert) badges.push("Campus Expert");
+			if (graphqlData?.isSiteAdmin) badges.push("GitHub Staff");
+
+			const status = blacklist.length > 0 ? "blacklisted" : whitelist.length > 0 ? "whitelisted" : "normal";
 
 			return makeSpec("UserCard", {
 				username: ghUser.login,
-				name: ghUser.name,
-				avatar: ghUser.avatar_url,
-				publicRepos: ghUser.public_repos,
-				followers: ghUser.followers,
-				tripwireEventCount: allEvents.length,
+				name: ghUser.name ?? null,
+				avatar: ghUser.avatar_url ?? null,
+				bio: ghUser.bio ?? null,
+				company: ghUser.company ?? null,
+				location: ghUser.location ?? null,
+				publicRepos: ghUser.public_repos ?? 0,
+				followers: ghUser.followers ?? 0,
+				following: ghUser.following ?? 0,
+				accountAgeDays,
+				mergedPrs: mergedPrs,
+				hasProfileReadme: profileReadme,
+				hasTwoFactor: ghUser.two_factor_authentication ?? false,
+				blockedCount,
+				allowedCount,
+				nearMissCount,
+				orgs: graphqlData?.organizations ?? [],
+				sponsorsCount: graphqlData?.sponsorsCount ?? 0,
+				sponsoringCount: graphqlData?.sponsoringCount ?? 0,
+				achievements,
+				badges,
+				contributionsLastYear: graphqlData?.contributionsLastYear ?? 0,
+				contributorScore: score.total,
 				status,
 			});
 		}),
