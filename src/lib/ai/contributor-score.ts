@@ -3,16 +3,15 @@
  * Tripwire event history, and community standing.
  *
  * Four categories:
- * - repoFamiliarity (0-35): tripwire event history, allowed/blocked ratio
- * - communityStanding (0-25): account age, followers, bio, orgs, 2FA
- * - ossPresence (0-20): repos, merged PRs, sponsors, achievements, badges
- * - trustSignal (0-20): blocked ratio, social accounts, profile completeness
+ * - globalReputation (0-40): account age, followers, merged PRs, achievements, repos
+ * - communitySignals (0-30): orgs, sponsors, badges, social accounts, 2FA, bio
+ * - repoHistory (0-20): tripwire events (allowed/blocked/near-miss ratio)
+ * - redFlags (0 to -10): high blocked ratio, suspicious patterns
  */
 
 import type { GitHubAchievement, GitHubUserGraphQL } from "#/lib/github/github-api";
 
 export interface ScoreInput {
-	// profile
 	accountAgeDays: number;
 	followers: number;
 	following: number;
@@ -25,17 +24,9 @@ export interface ScoreInput {
 	twitterUsername: string | null;
 	hasTwoFactor: boolean;
 	hasProfileReadme: boolean;
-
-	// github enriched (graphql)
 	graphql: GitHubUserGraphQL | null;
-
-	// achievements (scraped)
 	achievements: GitHubAchievement[];
-
-	// merged prs
 	mergedPrCount: number;
-
-	// tripwire events
 	blockedCount: number;
 	allowedCount: number;
 	nearMissCount: number;
@@ -43,136 +34,193 @@ export interface ScoreInput {
 
 export interface ScoreResult {
 	total: number;
-	repoFamiliarity: number;
-	communityStanding: number;
-	ossPresence: number;
-	trustSignal: number;
+	globalReputation: number;
+	communitySignals: number;
+	repoHistory: number;
+	redFlags: number;
 }
 
-function clamp(value: number, max: number): number {
-	return Math.min(Math.max(value, 0), max);
+function clamp(value: number, min: number, max: number): number {
+	return Math.min(Math.max(value, min), max);
 }
 
-function scoreRepoFamiliarity(input: ScoreInput): number {
+// ─── Achievement scoring ─────────────────────────────────────
+
+const TIER_POINTS: Record<number, number> = {
+	1: 1,   // default
+	2: 2,   // bronze
+	3: 4,   // silver
+	4: 6,   // gold
+};
+
+const RARITY_MULTIPLIER: Record<string, number> = {
+	"starstruck": 2,
+	"arctic-code-vault-contributor": 2,
+	"pull-shark": 1.5,
+	"galaxy-brain": 1.5,
+	"public-sponsor": 1.5,
+	"pair-extraordinaire": 1,
+	"open-sourcerer": 1,
+	"heart-on-your-sleeve": 1,
+	"mars-2020-contributor": 2,
+	"yolo": 0.5,
+	"quickdraw": 0.5,
+};
+
+function scoreAchievements(achievements: GitHubAchievement[]): number {
+	let total = 0;
+	for (const a of achievements) {
+		const tierPts = TIER_POINTS[a.tier] ?? 1;
+		const rarity = RARITY_MULTIPLIER[a.type] ?? 1;
+		total += tierPts * rarity;
+	}
+	return Math.min(total, 20);
+}
+
+// ─── Global Reputation (0-40) ────────────────────────────────
+
+function scoreGlobalReputation(input: ScoreInput): number {
 	let s = 0;
 
+	// account age: 15+y=15, 10-15y=12, 5-10y=10, 3-5y=8, 1-3y=5, 90d-1y=2, <90d=0
+	const days = input.accountAgeDays;
+	s += days >= 5475 ? 15 : days >= 3650 ? 12 : days >= 1825 ? 10 : days >= 1095 ? 8 : days >= 365 ? 5 : days >= 90 ? 2 : 0;
+
+	// followers: 500+=8, 100-500=6, 20-100=4, 5-20=2, <5=0
+	const f = input.followers;
+	s += f >= 500 ? 8 : f >= 100 ? 6 : f >= 20 ? 4 : f >= 5 ? 2 : 0;
+
+	// merged PRs: 500+=12, 200-500=10, 50-200=8, 10-50=5, 1-10=2, 0=0
+	const prs = input.mergedPrCount;
+	s += prs >= 500 ? 12 : prs >= 200 ? 10 : prs >= 50 ? 8 : prs >= 10 ? 5 : prs >= 1 ? 2 : 0;
+
+	// public repos: 50+=5, 20-50=4, 5-20=2, 1-5=1, 0=0
+	const repos = input.publicRepos;
+	s += repos >= 50 ? 5 : repos >= 20 ? 4 : repos >= 5 ? 2 : repos >= 1 ? 1 : 0;
+
+	// following (shows engagement): 50+=2, 10-50=1
+	s += input.following >= 50 ? 2 : input.following >= 10 ? 1 : 0;
+
+	// public gists: 5+=2, 1-5=1
+	s += input.publicGists >= 5 ? 2 : input.publicGists >= 1 ? 1 : 0;
+
+	return clamp(s, 0, 40);
+}
+
+// ─── Community Signals (0-30) ────────────────────────────────
+
+function scoreCommunitySignals(input: ScoreInput): number {
+	let s = 0;
+
+	// achievements (variable, capped at 20)
+	s += scoreAchievements(input.achievements);
+
+	// sponsoring anyone: +4
+	if (input.graphql?.sponsoringCount && input.graphql.sponsoringCount > 0) s += 4;
+
+	// being sponsored: +5
+	if (input.graphql?.sponsorsCount && input.graphql.sponsorsCount > 0) s += 5;
+
+	// has sponsors listing: +2
+	if (input.graphql?.hasSponsorsListing) s += 2;
+
+	// org memberships: 3+=3, 1-2=2, 0=0
+	const orgCount = input.graphql?.organizations.length ?? 0;
+	s += orgCount >= 3 ? 3 : orgCount >= 1 ? 2 : 0;
+
+	// github program badges: variable
+	if (input.graphql?.isGitHubStar) s += 4;
+	if (input.graphql?.isBountyHunter) s += 3;
+	if (input.graphql?.isDeveloperProgramMember) s += 2;
+	if (input.graphql?.isCampusExpert) s += 2;
+	if (input.graphql?.isSiteAdmin) s += 5;
+
+	// social signals
+	const socials = input.graphql?.socialAccounts.length ?? 0;
+	s += Math.min(socials, 2);
+	if (input.bio) s += 1;
+	if (input.company) s += 1;
+	if (input.blog) s += 1;
+	if (input.twitterUsername) s += 1;
+	if (input.hasTwoFactor) s += 2;
+	if (input.hasProfileReadme) s += 1;
+
+	return clamp(s, 0, 30);
+}
+
+// ─── Repo History (0-20) ─────────────────────────────────────
+
+function scoreRepoHistory(input: ScoreInput): number {
 	const totalEvents = input.blockedCount + input.allowedCount + input.nearMissCount;
 
-	// total events: 0=0, 1-5=5, 6-20=10, 20+=15
-	s += totalEvents === 0 ? 0 : totalEvents <= 5 ? 5 : totalEvents <= 20 ? 10 : 15;
+	// no repo history = neutral baseline (10/20)
+	if (totalEvents === 0) return 10;
 
-	// allowed events: 0=0, 1-5=5, 6-20=8, 20+=10
-	s += input.allowedCount === 0 ? 0 : input.allowedCount <= 5 ? 5 : input.allowedCount <= 20 ? 8 : 10;
+	let s = 10;
 
-	// penalty for blocks: each block = -3
+	// allowed events: +2 per (up to +10)
+	s += Math.min(input.allowedCount * 2, 10);
+
+	// blocked events: -3 per
 	s -= input.blockedCount * 3;
 
-	// penalty for near misses: each = -1
+	// near misses: -1 per
 	s -= input.nearMissCount;
 
-	return clamp(s, 35);
+	return clamp(s, 0, 20);
 }
 
-function scoreCommunityStanding(input: ScoreInput): number {
-	let s = 0;
+// ─── Red Flags (0 to -10) ────────────────────────────────────
 
-	// account age: <30d=0, 30-180d=2, 180d-1y=4, 1-3y=6, 3-7y=8, 7+=10
-	const days = input.accountAgeDays;
-	s += days < 30 ? 0 : days < 180 ? 2 : days < 365 ? 4 : days < 1095 ? 6 : days < 2555 ? 8 : 10;
+function scoreRedFlags(input: ScoreInput): number {
+	let penalty = 0;
 
-	// followers: 0-5=0, 5-20=2, 20-100=4, 100-500=6, 500+=8
-	const f = input.followers;
-	s += f < 5 ? 0 : f < 20 ? 2 : f < 100 ? 4 : f < 500 ? 6 : 8;
-
-	// has bio: +2
-	if (input.bio) s += 2;
-
-	// has company: +2
-	if (input.company) s += 2;
-
-	// org memberships (graphql): 0=0, 1-3=2, 3+=3
-	const orgCount = input.graphql?.organizations.length ?? 0;
-	s += orgCount === 0 ? 0 : orgCount <= 3 ? 2 : 3;
-
-	return clamp(s, 25);
-}
-
-function scoreOssPresence(input: ScoreInput): number {
-	let s = 0;
-
-	// public repos: 0=0, 1-5=1, 5-20=3, 20-50=5, 50+=7
-	const repos = input.publicRepos;
-	s += repos === 0 ? 0 : repos <= 5 ? 1 : repos <= 20 ? 3 : repos <= 50 ? 5 : 7;
-
-	// merged PRs: 0=0, 1-10=2, 10-50=4, 50-200=6, 200+=8
-	const prs = input.mergedPrCount;
-	s += prs === 0 ? 0 : prs <= 10 ? 2 : prs <= 50 ? 4 : prs <= 200 ? 6 : 8;
-
-	// sponsors/sponsoring (graphql): +1 each
-	if (input.graphql?.sponsorsCount && input.graphql.sponsorsCount > 0) s += 1;
-	if (input.graphql?.sponsoringCount && input.graphql.sponsoringCount > 0) s += 1;
-	if (input.graphql?.hasSponsorsListing) s += 1;
-
-	// github program badges: +1 each
-	if (input.graphql?.isBountyHunter) s += 1;
-	if (input.graphql?.isDeveloperProgramMember) s += 1;
-	if (input.graphql?.isGitHubStar) s += 2;
-	if (input.graphql?.isCampusExpert) s += 1;
-
-	// achievements: pull-shark gold = +3, silver = +2, bronze = +1
-	// starstruck gold = +3, etc.
-	for (const a of input.achievements) {
-		if (a.tier >= 4) s += 3;
-		else if (a.tier >= 3) s += 2;
-		else if (a.tier >= 2) s += 1;
-	}
-
-	return clamp(s, 20);
-}
-
-function scoreTrustSignal(input: ScoreInput): number {
-	let s = 10; // start neutral
-
-	// 2FA: +3
-	if (input.hasTwoFactor) s += 3;
-
-	// social accounts: +1 per (max 3)
-	const socials = input.graphql?.socialAccounts.length ?? 0;
-	s += Math.min(socials, 3);
-
-	// profile readme: +2
-	if (input.hasProfileReadme) s += 2;
-
-	// blog/website: +1
-	if (input.blog) s += 1;
-
-	// twitter: +1
-	if (input.twitterUsername) s += 1;
-
-	// blocked ratio penalty
+	// high blocked ratio
 	const total = input.blockedCount + input.allowedCount;
 	if (total > 0) {
 		const blockedRatio = input.blockedCount / total;
-		// >50% blocked = -5, >25% = -3, >10% = -1
-		if (blockedRatio > 0.5) s -= 5;
-		else if (blockedRatio > 0.25) s -= 3;
-		else if (blockedRatio > 0.1) s -= 1;
+		if (blockedRatio > 0.75) penalty -= 8;
+		else if (blockedRatio > 0.5) penalty -= 5;
+		else if (blockedRatio > 0.25) penalty -= 3;
 	}
 
-	return clamp(s, 20);
+	// brand new account + no activity = slight concern
+	if (input.accountAgeDays < 30 && input.mergedPrCount === 0 && input.publicRepos <= 1) {
+		penalty -= 3;
+	}
+
+	// zero followers + zero following (potential throwaway)
+	if (input.followers === 0 && input.following === 0 && input.accountAgeDays < 365) {
+		penalty -= 2;
+	}
+
+	return clamp(penalty, -10, 0);
 }
 
+// ─── Main ────────────────────────────────────────────────────
+
 export function computeContributorScore(input: ScoreInput): ScoreResult {
-	const repoFamiliarity = scoreRepoFamiliarity(input);
-	const communityStanding = scoreCommunityStanding(input);
-	const ossPresence = scoreOssPresence(input);
-	const trustSignal = scoreTrustSignal(input);
+	const globalReputation = scoreGlobalReputation(input);
+	const communitySignals = scoreCommunitySignals(input);
+	const repoHistory = scoreRepoHistory(input);
+	const redFlags = scoreRedFlags(input);
+
+	// longevity floor: very old accounts with any activity are unlikely to be malicious
+	// ensures 10+ year accounts never score below 45 regardless of other signals
+	let raw = globalReputation + communitySignals + repoHistory + redFlags;
+	if (input.accountAgeDays >= 3650 && input.publicRepos >= 1) {
+		raw = Math.max(raw, 45);
+	} else if (input.accountAgeDays >= 1825 && input.publicRepos >= 3) {
+		raw = Math.max(raw, 35);
+	}
+
+	const total = clamp(raw, 0, 100);
 
 	return {
-		total: repoFamiliarity + communityStanding + ossPresence + trustSignal,
-		repoFamiliarity,
-		communityStanding,
-		ossPresence,
-		trustSignal,
+		total,
+		globalReputation,
+		communitySignals,
+		repoHistory,
+		redFlags,
 	};
 }
