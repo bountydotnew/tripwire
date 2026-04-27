@@ -5,6 +5,7 @@ import { useWorkspace } from "#/lib/workspace-context";
 import { EmptyState } from "#/components/layout/empty-state";
 import { env } from "#/env";
 import { useState, useMemo } from "react";
+import type { EventAction } from "#/db/schema";
 
 export const Route = createFileRoute("/_app/events/")({
 	component: EventsPage,
@@ -30,7 +31,7 @@ type Event = {
 };
 
 type FilterState = {
-	action: string | null;
+	action: EventAction | null;
 	username: string;
 };
 
@@ -309,7 +310,7 @@ function EventsPage() {
 			repoId: repoId!,
 			limit,
 			offset: page * limit,
-			actions: filters.action ? [filters.action] as any[] : undefined,
+			actions: filters.action ? [filters.action] : undefined,
 			targetUsername: filters.username || undefined,
 		}),
 		[repoId, page, filters],

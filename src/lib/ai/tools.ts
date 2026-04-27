@@ -852,7 +852,7 @@ export function createTripwireTools(ctx: ToolContext) {
 				.where(eq(ruleConfigs.repoId, repoId))
 				.limit(1);
 
-			const config = { ...(configRow?.config ?? DEFAULT_RULE_CONFIG) } as any;
+			const config = { ...(configRow?.config ?? DEFAULT_RULE_CONFIG) } as Record<string, Record<string, unknown>>;
 
 			if (!(ruleId in config)) {
 				return makeSpec("ActionResult", {
@@ -898,7 +898,7 @@ export function createTripwireTools(ctx: ToolContext) {
 				.where(eq(ruleConfigs.repoId, repoId))
 				.limit(1);
 
-			const config = { ...(configRow?.config ?? DEFAULT_RULE_CONFIG) } as any;
+			const config = { ...(configRow?.config ?? DEFAULT_RULE_CONFIG) } as Record<string, Record<string, unknown>>;
 
 			if (!(ruleId in config)) {
 				return makeSpec("ActionResult", {
@@ -948,7 +948,7 @@ export function createTripwireTools(ctx: ToolContext) {
 				.where(eq(ruleConfigs.repoId, repoId))
 				.limit(1);
 
-			const config = { ...(configRow?.config ?? DEFAULT_RULE_CONFIG) } as any;
+			const config = { ...(configRow?.config ?? DEFAULT_RULE_CONFIG) } as Record<string, Record<string, unknown>>;
 
 			if (!(ruleId in config)) {
 				return makeSpec("ActionResult", {

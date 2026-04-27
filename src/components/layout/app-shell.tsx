@@ -10,6 +10,7 @@ import { ChatThread } from "../ask/chat-thread";
 import { useTRPC } from "#/integrations/trpc/react";
 import { UnicodeSpinner } from "#/components/ui/unicode-spinner";
 import { useCustomer } from "autumn-js/react";
+import type { UIMessage } from "#/types/chat";
 
 export function AppShell() {
 	return (
@@ -277,7 +278,7 @@ function SidebarRecentChats() {
 				trpc.chats.get.queryOptions({ chatId }),
 			);
 			if (conv?.messages) {
-				loadChat(chatId, conv.messages as any[]);
+				loadChat(chatId, conv.messages as UIMessage[]);
 				open();
 			}
 		} finally {

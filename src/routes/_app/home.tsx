@@ -182,9 +182,9 @@ function HomeFloatingBar() {
 		// Store initial message in sessionStorage (cleared on read, doesn't survive refresh)
 		sessionStorage.setItem(`tw.chat.init.${previewChat.id}`, previewChat.message);
 		navigate({
-			to: "/chat/$chatId" as any,
+			to: "/chat/$chatId",
 			params: { chatId: previewChat.id },
-		} as any);
+		});
 	};
 
 	return (
@@ -329,8 +329,8 @@ function RecentChats() {
 				{chats.map((chat) => (
 					<Link
 						key={chat.id}
-						to={"/chat/$chatId" as any}
-						params={{ chatId: chat.id } as any}
+						to="/chat/$chatId"
+						params={{ chatId: chat.id }}
 						className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-tw-hover transition-colors group"
 					>
 						<div className="flex items-center gap-2 min-w-0">

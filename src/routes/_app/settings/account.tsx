@@ -11,8 +11,9 @@ function AccountSettingsPage() {
 	const { user } = useAuth();
 	const navigate = useNavigate();
 
-	const joinedDate = (user as any).createdAt
-		? new Date((user as any).createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+	const createdAt = (user as { createdAt?: string | Date }).createdAt;
+	const joinedDate = createdAt
+		? new Date(createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
 		: null;
 
 	const handleSignOut = async () => {
@@ -110,14 +111,14 @@ function SessionsList() {
 		);
 	}
 
-	const sessionList = (sessions as any[]) ?? [];
+	const sessionList = (sessions ?? []) as Array<{ id: string; ipAddress?: string | null }>;
 
 	return (
 		<div className="rounded-xl bg-tw-card divide-y divide-[#27272A]">
 			{sessionList.length === 0 ? (
 				<div className="p-4 text-[13px] text-tw-text-muted">No active sessions.</div>
 			) : (
-				sessionList.map((session: any) => (
+				sessionList.map((session) => (
 					<div key={session.id} className="flex items-center justify-between p-4">
 						<div className="flex items-center gap-3">
 							<svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-tw-text-muted shrink-0">

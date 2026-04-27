@@ -11,8 +11,8 @@ import {
 import {
 	useChat,
 	fetchServerSentEvents,
-	type UIMessage,
 } from "@tanstack/ai-react";
+import type { UIMessage, SerializedMessage } from "#/types/chat";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useRouterState } from "@tanstack/react-router";
@@ -174,12 +174,12 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	useEffect(() => {
 		if (
 			convQuery.data?.messages &&
-			(convQuery.data.messages as any[]).length > 0 &&
+			(convQuery.data.messages as UIMessage[]).length > 0 &&
 			didSeed.current !== conversationId
 		) {
 			didSeed.current = conversationId;
 			createdConvIds.current.add(conversationId);
-			setMessages(convQuery.data.messages as any[]);
+			setMessages(convQuery.data.messages as UIMessage[]);
 		}
 	}, [convQuery.data, conversationId]);
 
@@ -192,7 +192,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 		if (wasLoading.current && !isLoading && messages.length > 0) {
 			saveMessages.mutate({
 				chatId: conversationId,
-				messages: messages as any[],
+				messages: messages as SerializedMessage[],
 				title: extractTitle(messages),
 			});
 			queryClient.invalidateQueries({ queryKey: trpc.chats.list.queryKey() });

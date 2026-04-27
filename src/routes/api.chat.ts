@@ -9,6 +9,7 @@ import { autumn } from "#/lib/autumn";
 import { db } from "#/db";
 import { organizations, repositories } from "#/db/schema";
 import { eq } from "drizzle-orm";
+import type { ProviderError } from "#/types/chat";
 
 export const Route = createFileRoute("/api/chat")({
 	server: {
@@ -159,7 +160,7 @@ export const Route = createFileRoute("/api/chat")({
 					// (TanStack AI's default ConsoleLogger uses console.dir with
 					// depth:null, dumping entire HTTP response objects on errors)
 					const stream = chat({
-						adapter: openRouterText(aiModel as any),
+						adapter: openRouterText(aiModel as Parameters<typeof openRouterText>[0]),
 						messages,
 						tools: [...tools, webSearchTool({ maxResults: 3 })],
 						systemPrompts: [systemPrompt],
@@ -180,7 +181,7 @@ export const Route = createFileRoute("/api/chat")({
 								warn: (msg: string) => console.warn(msg),
 								error: (msg: string, meta?: Record<string, unknown>) => {
 									if (meta?.error) {
-										const err = meta.error as any;
+										const err = meta.error as ProviderError;
 										const raw = err?.error?.metadata?.raw ?? err?.error?.message ?? err?.message ?? "Unknown";
 										console.error(msg, typeof raw === "string" ? raw : JSON.stringify(raw));
 									} else {

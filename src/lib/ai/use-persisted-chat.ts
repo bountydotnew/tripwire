@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useChat, fetchServerSentEvents, type UIMessage } from "@tanstack/ai-react";
+import { useChat, fetchServerSentEvents } from "@tanstack/ai-react";
+import type { UIMessage, SerializedMessage } from "#/types/chat";
 import { useMutation } from "@tanstack/react-query";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useCustomer } from "autumn-js/react";
@@ -91,7 +92,7 @@ export function usePersistedChat({
 		if (wasLoading.current && !isLoading && messages.length > 0) {
 			saveMessages.mutate({
 				chatId,
-				messages: messages as any[],
+				messages: messages as SerializedMessage[],
 				title: extractTitle(messages),
 			});
 			refetchCustomer();

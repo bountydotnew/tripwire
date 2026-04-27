@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo, useState } from "react";
 import { UnicodeSpinner, useRandomThinkingVariant } from "#/components/ui/unicode-spinner";
 import { useThinkingPhrase } from "#/lib/ai/thinking-phrases";
-import type { UIMessage, MessagePart } from "@tanstack/ai-client";
+import type { UIMessage, MessagePart, ToolCallPart, ToolResultPart, RenderSpec } from "#/types/chat";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
@@ -241,7 +241,9 @@ function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessagePr
 		const seen = new Set<string>();
 		const parts = rawParts.filter((part) => {
 			if (part.type === "tool-call" || part.type === "tool-result") {
-				const id = (part as any).toolCallId || (part as any).id;
+				const id = part.type === "tool-result"
+					? (part as ToolResultPart).toolCallId
+					: (part as ToolCallPart).id;
 				const key = `${part.type}-${id}`;
 				if (id && seen.has(key)) return false;
 				if (id) seen.add(key);
@@ -349,7 +351,7 @@ function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererP
 
 		case "reasoning":
 		case "thinking":
-			return <ReasoningBlock content={(part as any).content ?? (part as any).text ?? ""} />;
+			return <ReasoningBlock content={(part as { content?: string; text?: string }).content ?? (part as { text?: string }).text ?? ""} />;
 
 		case "tool-call": {
 			let toolArgs: Record<string, unknown> = {};
@@ -623,7 +625,7 @@ function ToolResultDisplay({ result }: { result: unknown }) {
 	if ("root" in r && "elements" in r && typeof r.root === "string") {
 		return (
 			<JSONUIProvider registry={registry}>
-				<Renderer spec={r as any} registry={registry} />
+				<Renderer spec={r as RenderSpec} registry={registry} />
 			</JSONUIProvider>
 		);
 	}

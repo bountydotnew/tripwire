@@ -5,6 +5,7 @@ import { ChatThread } from "#/components/ask/chat-thread";
 import { usePersistedChat } from "#/lib/ai/use-persisted-chat";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
+import type { UIMessage } from "#/types/chat";
 
 export const Route = createFileRoute("/_app/chat/$chatId")({
 	component: ChatPage,
@@ -29,7 +30,7 @@ function ChatPage() {
 
 	const chat = usePersistedChat({
 		chatId,
-		initialMessages: convQuery.data?.messages as any[] | undefined,
+		initialMessages: convQuery.data?.messages as UIMessage[] | undefined,
 		repoId: repo?.id,
 	});
 
