@@ -8,12 +8,19 @@
  * so we never give away free AI when we're still paying the provider.
  */
 
-import { createTokenlens } from "tokenlens";
+// lazy-import tokenlens to avoid tiktoken's __dirname crash in ESM serverless
+let _tokenlens: { getModelData: (args: { modelId: string }) => Promise<Record<string, unknown> | undefined> } | null = null;
 
-const tokenlens = createTokenlens({ catalog: "openrouter" });
+async function getTokenlens() {
+	if (!_tokenlens) {
+		const { createTokenlens } = await import("tokenlens");
+		_tokenlens = createTokenlens({ catalog: "openrouter" });
+	}
+	return _tokenlens;
+}
 
-// pre-warm the catalog cache on import so the first request doesn't cold-start
-tokenlens.getModelData({ modelId: "openai/gpt-5.4-mini" }).catch(() => {});
+// pre-warm on first import
+getTokenlens().then((tl) => tl.getModelData({ modelId: "openai/gpt-5.4-mini" }).catch(() => {})).catch(() => {});
 
 /** 1.25x = 25% margin on top of provider cost */
 export const MARKUP = 1.25;
@@ -58,7 +65,8 @@ export async function computeCostCents(
 ): Promise<number> {
 	// try live pricing first
 	try {
-		const model = await tokenlens.getModelData({ modelId });
+		const tl = await getTokenlens();
+		const model = await tl.getModelData({ modelId });
 		if (model?.cost) {
 			const inputRate = Number(model.cost.prompt ?? model.cost.input ?? 0);
 			const outputRate = Number(model.cost.completion ?? model.cost.output ?? 0);
