@@ -108,21 +108,18 @@ export function RuleCardGrid({
 				</div>
 			)}
 
-			{/* Toggle */}
-			<div
-				data-card-toggle
-				role="switch"
-				aria-checked={enabled}
-				className={`absolute right-3.5 top-3.5 w-10 h-[22px] rounded-[11px] transition-colors pointer-events-none ${
-					enabled ? "bg-tw-accent" : "bg-[#FFFFFF14]"
+			{/* Install button */}
+			<button
+				type="button"
+				onClick={(e) => { e.stopPropagation(); onToggle(!enabled); }}
+				className={`absolute right-3 top-3 h-6 px-2.5 rounded-md text-[11px] font-medium transition-colors ${
+					enabled
+						? "bg-tw-accent/15 text-tw-accent hover:bg-tw-accent/25"
+						: "bg-[#ffffff14] text-white hover:bg-[#ffffff22]"
 				}`}
 			>
-				<div
-					className={`w-[18px] h-[18px] absolute top-0.5 rounded-[9px] transition-all ${
-						enabled ? "right-0.5 bg-white" : "left-0.5 bg-[#FFFFFF59]"
-					}`}
-				/>
-			</div>
+				{enabled ? "Installed \u2713" : "Install"}
+			</button>
 		</div>
 	);
 }

@@ -16,7 +16,7 @@ import {
 } from "../../components/rules/rule-card-grid";
 import { RuleDropdown } from "../../components/rules/rule-dropdown";
 import { RulesSaveBar } from "../../components/rules/rules-save-bar";
-import { UserList } from "../../components/rules/user-list";
+import { PeopleTab } from "../../components/rules/people-tab";
 import { EmptyState } from "../../components/layout/empty-state";
 import { Button } from "#/components/ui/button";
 import {
@@ -577,42 +577,36 @@ function RulesPage() {
 						)
 					)}
 
-					{/* People tab: whitelist + blacklist */}
+					{/* People tab: always block + always allow */}
 					{tab === "people" && (
-						<div className="flex flex-col gap-6">
-							<UserList
-								title="Whitelist"
-								description="Allow specific users to interact with your repositories without being affected by the rules"
-								users={whitelistUsers}
-								onAdd={async (username) => {
-									if (repoId) {
-										await addWhitelist.mutateAsync({ repoId, githubUsername: username });
-									}
-								}}
-								onRemove={(username) => {
-									if (repoId) {
-										removeWhitelist.mutate({ repoId, githubUsername: username });
-									}
-								}}
-								isAdding={addWhitelist.isPending}
-							/>
-							<UserList
-								title="Blacklist"
-								description="Prevent any user on GitHub from interacting with your repositories"
-								users={blacklistUsers}
-								onAdd={async (username) => {
-									if (repoId) {
-										await addBlacklist.mutateAsync({ repoId, githubUsername: username });
-									}
-								}}
-								onRemove={(username) => {
-									if (repoId) {
-										removeBlacklist.mutate({ repoId, githubUsername: username });
-									}
-								}}
-								isAdding={addBlacklist.isPending}
-							/>
-						</div>
+						<PeopleTab
+							blacklistUsers={blacklistUsers.map((u) => ({
+								...u,
+								reason: null,
+								addedBy: null,
+								addedAt: null,
+							}))}
+							whitelistUsers={whitelistUsers.map((u) => ({
+								...u,
+								reason: null,
+								addedBy: null,
+								addedAt: null,
+							}))}
+							onAddBlacklist={async (username) => {
+								if (repoId) await addBlacklist.mutateAsync({ repoId, githubUsername: username });
+							}}
+							onRemoveBlacklist={(username) => {
+								if (repoId) removeBlacklist.mutate({ repoId, githubUsername: username });
+							}}
+							onAddWhitelist={async (username) => {
+								if (repoId) await addWhitelist.mutateAsync({ repoId, githubUsername: username });
+							}}
+							onRemoveWhitelist={(username) => {
+								if (repoId) removeWhitelist.mutate({ repoId, githubUsername: username });
+							}}
+							isAddingBlacklist={addBlacklist.isPending}
+							isAddingWhitelist={addWhitelist.isPending}
+						/>
 					)}
 				</div>
 			</div>
