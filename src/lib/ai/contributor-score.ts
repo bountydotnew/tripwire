@@ -3,7 +3,7 @@
  * Tripwire event history, and community standing.
  *
  * Four categories:
- * - globalReputation (0-40): account age, followers, merged PRs, achievements, repos
+ * - globalReputation (0-40): account age, followers, merged PRs, closed PR merge ratio, non-fork public repos (capped), context-repo PRs, achievements
  * - communitySignals (0-30): orgs, sponsors, badges, social accounts, 2FA, bio
  * - repoHistory (0-20): tripwire events (allowed/blocked/near-miss ratio)
  * - redFlags (0 to -10): high blocked ratio, suspicious patterns
@@ -15,7 +15,14 @@ export interface ScoreInput {
 	accountAgeDays: number;
 	followers: number;
 	following: number;
+	/** GitHub profile public_repo count (incl. forks); used for floors / display parity */
 	publicRepos: number;
+	/** Public non-fork repos (search); primary repo substance signal */
+	publicNonForkRepoCount: number;
+	/** Public fork repos (search); ratio / transparency */
+	publicForkRepoCount: number;
+	/** PRs authored on the Tripwire-connected repo */
+	contextRepoPrCount: number;
 	publicGists: number;
 	bio: string | null;
 	company: string | null;
@@ -27,6 +34,10 @@ export interface ScoreInput {
 	graphql: GitHubUserGraphQL | null;
 	achievements: GitHubAchievement[];
 	mergedPrCount: number;
+	/** Total closed PRs authored (includes merged and closed-unmerged) */
+	closedPrCount: number;
+	/** Closed PRs that were not merged (subset of closedPrCount) */
+	closedUnmergedPrCount: number;
 	blockedCount: number;
 	allowedCount: number;
 	nearMissCount: number;
@@ -94,15 +105,31 @@ function scoreGlobalReputation(input: ScoreInput): number {
 	const prs = input.mergedPrCount;
 	s += prs >= 500 ? 12 : prs >= 200 ? 10 : prs >= 50 ? 8 : prs >= 10 ? 5 : prs >= 1 ? 2 : 0;
 
-	// public repos: 50+=5, 20-50=4, 5-20=2, 1-5=1, 0=0
-	const repos = input.publicRepos;
-	s += repos >= 50 ? 5 : repos >= 20 ? 4 : repos >= 5 ? 2 : repos >= 1 ? 1 : 0;
+	// public non-fork repos (max 4 pts so repo hoarding cannot dominate PR signals)
+	const repos = input.publicNonForkRepoCount;
+	s += repos >= 50 ? 4 : repos >= 20 ? 3 : repos >= 5 ? 2 : repos >= 1 ? 1 : 0;
+
+	// authored PRs on this Tripwire repo (bounded)
+	if (input.contextRepoPrCount >= 5) s += 2;
+	else if (input.contextRepoPrCount >= 1) s += 1;
 
 	// following (shows engagement): 50+=2, 10-50=1
 	s += input.following >= 50 ? 2 : input.following >= 10 ? 1 : 0;
 
 	// public gists: 5+=2, 1-5=1
 	s += input.publicGists >= 5 ? 2 : input.publicGists >= 1 ? 1 : 0;
+
+	// merge quality among closed PRs (bounded; needs enough history)
+	const closed = input.closedPrCount;
+	if (closed >= 10) {
+		const mergedRatio = input.mergedPrCount / closed;
+		if (mergedRatio >= 0.7) s += 3;
+		else if (mergedRatio >= 0.55) s += 2;
+		else if (mergedRatio >= 0.4) s += 1;
+		else if (mergedRatio < 0.15) s -= 3;
+		else if (mergedRatio < 0.25) s -= 2;
+		else if (mergedRatio < 0.35) s -= 1;
+	}
 
 	return clamp(s, 0, 40);
 }
@@ -192,6 +219,18 @@ function scoreRedFlags(input: ScoreInput): number {
 	// zero followers + zero following (potential throwaway)
 	if (input.followers === 0 && input.following === 0 && input.accountAgeDays < 365) {
 		penalty -= 2;
+	}
+
+	// many closed PRs but almost none merged (extra nudge beyond global rep cap)
+	if (input.closedPrCount >= 30) {
+		const mergedRatio = input.mergedPrCount / input.closedPrCount;
+		if (mergedRatio < 0.08) penalty -= 3;
+		else if (mergedRatio < 0.12) penalty -= 2;
+	}
+
+	// fork-heavy public profile with almost no non-fork repos (tiny nudge)
+	if (input.publicForkRepoCount >= 50 && input.publicNonForkRepoCount <= 2) {
+		penalty -= 1;
 	}
 
 	return clamp(penalty, -10, 0);

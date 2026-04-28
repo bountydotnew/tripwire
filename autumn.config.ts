@@ -2,7 +2,7 @@ import { feature, item, plan } from "atmn";
 
 // ─── Features ───────────────────────────────────────────────
 
-// Tracks AI spend in cents. With 1.5x markup on gpt-4o-mini:
+// Tracks AI spend in cents. With 1.25x markup on gpt-4o-mini:
 
 //   Short chat ≈ 1¢, multi-tool investigation ≈ 1-2¢
 export const ai_credits = feature({
@@ -16,7 +16,7 @@ export const ai_credits = feature({
 
 // Free: 100¢ = $1.00 of AI spend/month
 
-// Pro: $9/mo, 5000¢ = $50.00 of AI spend/month
+// Pro: $9/mo, 2000¢ = $20.00 of AI spend/month
 export const free = plan({
 	id: 'free',
 	name: 'Free',

@@ -27,18 +27,24 @@ export function createCreditMiddleware({
 		onUsage(_ctx, usage) {
 			totalPromptTokens += usage.promptTokens;
 			totalCompletionTokens += usage.completionTokens;
+			console.log(
+				`[billing:iter] +${usage.promptTokens} in / +${usage.completionTokens} out (total: ${totalPromptTokens} in / ${totalCompletionTokens} out)`,
+			);
 		},
 
 		async onFinish(ctx) {
-			if (totalPromptTokens === 0 && totalCompletionTokens === 0) return;
+			if (totalPromptTokens === 0 && totalCompletionTokens === 0) {
+				console.log("[billing] no tokens recorded, skipping");
+				return;
+			}
 
 			const cents = await computeCostCents(modelId, totalPromptTokens, totalCompletionTokens);
 
-			if (process.env.NODE_ENV !== "production") {
-				console.log(
-					`[billing] ${totalPromptTokens} in + ${totalCompletionTokens} out = ${cents}c [${modelId}]`,
-				);
-			}
+			console.log(
+				`[billing] ${modelId} | ${totalPromptTokens} input + ${totalCompletionTokens} output = ${cents}c charged`,
+			);
+
+			if (cents === 0) return;
 
 			ctx.defer(
 				autumn.track({

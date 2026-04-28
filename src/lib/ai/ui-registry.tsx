@@ -38,10 +38,6 @@ export const { registry } = defineRegistry(catalog, {
 						? `${Math.floor(ageDays / 30)}mo`
 						: `${ageDays}d`;
 
-			const achievementText = props.achievements.length > 0
-				? props.achievements.map((a) => `${a.type}${a.tier > 1 ? ` x${a.tier}` : ""}`).join(", ")
-				: null;
-
 			return (
 				<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2.5">
 					{/* Header: avatar, name, score */}
@@ -76,8 +72,18 @@ export const { registry } = defineRegistry(catalog, {
 					{/* Stats grid */}
 					<div className="grid grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
 						<div><span className="text-tw-text-muted">Account age </span><span className="text-tw-text-secondary">{ageText}</span></div>
-						<div><span className="text-tw-text-muted">Repos </span><span className="text-tw-text-secondary">{props.publicRepos}</span></div>
+						<div><span className="text-tw-text-muted">Public repos </span><span className="text-tw-text-secondary">{props.publicRepos}</span></div>
 						<div><span className="text-tw-text-muted">Followers </span><span className="text-tw-text-secondary">{props.followers}</span></div>
+						<div className="col-span-3">
+							<span className="text-tw-text-muted">Breakdown </span>
+							<span className="text-tw-text-secondary">
+								Non-fork public: {props.publicNonForkRepos}
+								<span className="text-tw-text-muted"> · </span>
+								Forks: {props.publicForkRepos}
+								<span className="text-tw-text-muted"> · </span>
+								PRs here: {props.prsToThisRepo}
+							</span>
+						</div>
 						<div className="col-span-3">
 							<span className="text-tw-text-muted">PRs </span>
 							<span className="text-tw-text-secondary">

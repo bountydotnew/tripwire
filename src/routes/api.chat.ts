@@ -145,7 +145,7 @@ export const Route = createFileRoute("/api/chat")({
 					});
 
 					// Model selection (configurable via env)
-					const aiModel = process.env.TRIPWIRE_AI_MODEL || "openai/gpt-4o-mini";
+					const aiModel = process.env.TRIPWIRE_AI_MODEL || "openai/gpt-5.4";
 
 					// Create tools with context
 					const tools = createTripwireTools({
@@ -243,37 +243,37 @@ async function executeApprovedTools(messages: any[], tools: any[]) {
 		}
 	}
 
-	// Find the last assistant message
-	let lastAssistant: any = null;
-	for (let i = messages.length - 1; i >= 0; i--) {
-		if (messages[i].role === "assistant") {
-			lastAssistant = messages[i];
-			break;
-		}
-	}
-	if (!lastAssistant?.parts) return;
+	// Scan ALL assistant messages for approved tool-calls without results
+	const pendingCalls: Array<{ call: any; message: any }> = [];
 
-	// Collect approved tool-calls without matching results
-	const resultIds = new Set<string>();
-	for (const part of lastAssistant.parts) {
-		if (part.type === "tool-result") {
+	for (const msg of messages) {
+		if (msg.role !== "assistant" || !msg.parts) continue;
+
+		const msgResultIds = new Set<string>();
+		for (const part of msg.parts) {
+			if (part.type === "tool-result") {
+				const id = part.toolCallId || part.id;
+				if (id) msgResultIds.add(id);
+			}
+		}
+
+		for (const part of msg.parts) {
+			if (part.type !== "tool-call") continue;
+			if (part.state !== "approval-responded") continue;
+			if (!part.approval?.approved) continue;
 			const id = part.toolCallId || part.id;
-			if (id) resultIds.add(id);
+			if (id && !msgResultIds.has(id)) {
+				pendingCalls.push({ call: part, message: msg });
+			}
 		}
 	}
-
-	const pendingCalls = lastAssistant.parts.filter((part: any) => {
-		if (part.type !== "tool-call") return false;
-		if (part.state !== "approval-responded") return false;
-		if (!part.approval?.approved) return false;
-		const id = part.toolCallId || part.id;
-		return id && !resultIds.has(id);
-	});
 
 	if (pendingCalls.length === 0) return;
 
-	// Execute each approved tool and append results
-	for (const call of pendingCalls) {
+	console.log(`[executeApproved] executing ${pendingCalls.length} approved tools: ${pendingCalls.map((p) => p.call.name).join(", ")}`);
+
+	// Execute each approved tool and append results to the correct message
+	for (const { call, message } of pendingCalls) {
 		const execute = toolMap.get(call.name);
 		if (!execute) continue;
 
@@ -287,10 +287,8 @@ async function executeApprovedTools(messages: any[], tools: any[]) {
 
 		try {
 			const output = await execute(args);
-			// Mark the call as complete
 			call.state = "input-complete";
-			// Append the result
-			lastAssistant.parts.push({
+			message.parts.push({
 				type: "tool-result",
 				toolCallId: id,
 				content: typeof output === "string" ? output : JSON.stringify(output),
@@ -298,7 +296,7 @@ async function executeApprovedTools(messages: any[], tools: any[]) {
 			});
 		} catch (err: any) {
 			call.state = "input-complete";
-			lastAssistant.parts.push({
+			message.parts.push({
 				type: "tool-result",
 				toolCallId: id,
 				content: JSON.stringify({ error: err?.message ?? "Tool execution failed" }),

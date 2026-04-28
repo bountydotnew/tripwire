@@ -19,6 +19,9 @@ import { logEvent } from "#/lib/events";
 import {
 	getMergedPrCount,
 	getClosedPrCount,
+	getPublicNonForkRepoCount,
+	getPublicForkRepoCount,
+	getContextRepoPrCount,
 	hasProfileReadme,
 	fetchUserGraphQL,
 	fetchUserAchievements,
@@ -333,14 +336,39 @@ export function createTripwireTools(ctx: ToolContext) {
 			// Get installation token for authenticated API calls
 			const token = await getTokenForRepo(repoId);
 
+			const [repoRow] = await db
+				.select({ fullName: repositories.fullName })
+				.from(repositories)
+				.where(eq(repositories.id, repoId))
+				.limit(1);
+			const contextRepoFullName = repoRow?.fullName ?? "";
+
 			// Fetch all data in parallel
-			const [ghUser, whitelist, blacklist, allEvents, mergedPrs, closedPrs, profileReadme, graphqlData, achievements] = await Promise.all([
+			const [
+				ghUser,
+				whitelist,
+				blacklist,
+				allEvents,
+				mergedPrs,
+				closedPrs,
+				publicNonForkRepos,
+				publicForkRepos,
+				prsToThisRepo,
+				profileReadme,
+				graphqlData,
+				achievements,
+			] = await Promise.all([
 				fetchGitHubUser(username, token ?? undefined),
 				db.select().from(whitelistEntries).where(and(eq(whitelistEntries.repoId, repoId), usernameEq(whitelistEntries.githubUsername, username))).limit(1),
 				db.select().from(blacklistEntries).where(and(eq(blacklistEntries.repoId, repoId), usernameEq(blacklistEntries.githubUsername, username))).limit(1),
 				db.select().from(events).where(and(eq(events.repoId, repoId), usernameEq(events.targetGithubUsername, username))),
 				token ? getMergedPrCount(token, username).catch(() => 0) : Promise.resolve(0),
 				token ? getClosedPrCount(token, username).catch(() => 0) : Promise.resolve(0),
+				token ? getPublicNonForkRepoCount(token, username).catch(() => 0) : Promise.resolve(0),
+				token ? getPublicForkRepoCount(token, username).catch(() => 0) : Promise.resolve(0),
+				token && contextRepoFullName
+					? getContextRepoPrCount(token, username, contextRepoFullName).catch(() => 0)
+					: Promise.resolve(0),
 				token ? hasProfileReadme(token, username).catch(() => false) : Promise.resolve(false),
 				token ? fetchUserGraphQL(token, username).catch(() => null) : Promise.resolve(null),
 				fetchUserAchievements(username).catch(() => []),
@@ -363,6 +391,9 @@ export function createTripwireTools(ctx: ToolContext) {
 				followers: ghUser.followers ?? 0,
 				following: ghUser.following ?? 0,
 				publicRepos: ghUser.public_repos ?? 0,
+				publicNonForkRepoCount: publicNonForkRepos,
+				publicForkRepoCount: publicForkRepos,
+				contextRepoPrCount: prsToThisRepo,
 				publicGists: ghUser.public_gists ?? 0,
 				bio: ghUser.bio ?? null,
 				company: ghUser.company ?? null,
@@ -399,6 +430,9 @@ export function createTripwireTools(ctx: ToolContext) {
 				company: ghUser.company ?? null,
 				location: ghUser.location ?? null,
 				publicRepos: ghUser.public_repos ?? 0,
+				publicNonForkRepos: publicNonForkRepos,
+				publicForkRepos: publicForkRepos,
+				prsToThisRepo,
 				followers: ghUser.followers ?? 0,
 				following: ghUser.following ?? 0,
 				accountAgeDays,

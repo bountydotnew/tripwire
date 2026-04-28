@@ -349,7 +349,6 @@ function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererP
 		case "text":
 			return <MarkdownText content={part.content} />;
 
-		case "reasoning":
 		case "thinking":
 			return <ReasoningBlock content={(part as { content?: string; text?: string }).content ?? (part as { text?: string }).text ?? ""} />;
 
@@ -625,7 +624,7 @@ function ToolResultDisplay({ result }: { result: unknown }) {
 	if ("root" in r && "elements" in r && typeof r.root === "string") {
 		return (
 			<JSONUIProvider registry={registry}>
-				<Renderer spec={r as RenderSpec} registry={registry} />
+				<Renderer spec={r as unknown as RenderSpec} registry={registry} />
 			</JSONUIProvider>
 		);
 	}

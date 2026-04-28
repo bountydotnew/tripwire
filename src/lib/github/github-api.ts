@@ -251,6 +251,49 @@ export async function getMergedPrCount(
 	return result.total_count;
 }
 
+/** Search a user's closed PR count (merged + closed without merge) */
+export async function getClosedPrCount(
+	token: string,
+	username: string,
+): Promise<number> {
+	const result = await githubApi(
+		`/search/issues?q=author:${username}+type:pr+is:closed&per_page=1`,
+		token,
+	);
+	return result.total_count;
+}
+
+/** Public non-fork repos owned by user (repository search) */
+export async function getPublicNonForkRepoCount(
+	token: string,
+	username: string,
+): Promise<number> {
+	const q = encodeURIComponent(`user:${username} fork:false is:public`);
+	const result = await githubApi(`/search/repositories?q=${q}&per_page=1`, token);
+	return (result as { total_count: number }).total_count;
+}
+
+/** Public fork repos owned by user (repository search) */
+export async function getPublicForkRepoCount(
+	token: string,
+	username: string,
+): Promise<number> {
+	const q = encodeURIComponent(`user:${username} fork:true is:public`);
+	const result = await githubApi(`/search/repositories?q=${q}&per_page=1`, token);
+	return (result as { total_count: number }).total_count;
+}
+
+/** All PRs (open + closed) authored by user on a specific repo */
+export async function getContextRepoPrCount(
+	token: string,
+	username: string,
+	repoFullName: string,
+): Promise<number> {
+	const q = encodeURIComponent(`author:${username} type:pr repo:${repoFullName}`);
+	const result = await githubApi(`/search/issues?q=${q}&per_page=1`, token);
+	return (result as { total_count: number }).total_count;
+}
+
 /** Count PRs opened by a user today in a specific repo */
 export async function countUserPrsToday(
 	token: string,
@@ -272,13 +315,6 @@ export async function getPrFilesCount(
 	repo: string,
 	prNumber: number,
 ): Promise<number> {
-	const result = await githubApi(
-		`/repos/${owner}/${repo}/pulls/${prNumber}/files?per_page=1`,
-		token,
-	);
-	// The API returns an array of files, but we need the total count
-	// For efficiency, we can check the response headers, but simplest approach
-	// is to use the PR endpoint which has changed_files count
 	const pr = await githubApi(`/repos/${owner}/${repo}/pulls/${prNumber}`, token);
 	return pr.changed_files;
 }
