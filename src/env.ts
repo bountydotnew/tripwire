@@ -14,7 +14,7 @@ export const env = createEnv({
     UNKEY_ROOT_KEY: z.string().min(1).optional(),
     OPENROUTER_API_KEY: z.string().min(1).optional(),
     AUTUMN_SECRET_KEY: z.string().min(1).optional(),
-    BETTER_AUTH_DASHBOARD_API_KEY: z.string().min(1).optional(),
+    BETTER_AUTH_API_KEY: z.string().min(1).optional(),
   },
 
   /**
@@ -32,7 +32,10 @@ export const env = createEnv({
    * What object holds the environment variables at runtime. This is usually
    * `process.env` or `import.meta.env`.
    */
-  runtimeEnv: import.meta.env,
+  runtimeEnv: {
+    ...import.meta.env,
+    BETTER_AUTH_API_KEY: process.env.BETTER_AUTH_API_KEY!,
+  },
 
   /**
    * By default, this library will feed the environment variables directly to
