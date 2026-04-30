@@ -155,8 +155,6 @@ export const auth = betterAuth({
 		}),
 		//@ts-ignore
 		dash({
-			apiUrl: process.env.BETTER_AUTH_API_URL,
-			kvUrl: process.env.BETTER_AUTH_KV_URL,
 			apiKey: process.env.BETTER_AUTH_API_KEY,
 		}),
 	],
