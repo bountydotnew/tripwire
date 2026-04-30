@@ -152,6 +152,7 @@ export const auth = betterAuth({
 		autumnPlugin({
 			customerScope: "user",
 		}),
+		dash(),
 	],
 	databaseHooks: {
 		user: {
