@@ -14,6 +14,7 @@ import { useAuth } from "#/lib/auth-context";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
 import { authClient } from "#/lib/auth-client";
+import { useCustomer } from "autumn-js/react";
 
 interface NavItem {
 	key: string;
@@ -40,6 +41,8 @@ interface TopNavProps {
 export function TopNav({ askOpen, onToggleAsk }: TopNavProps) {
 	const { user } = useAuth();
 	const { repo } = useWorkspace();
+	const { data: customer } = useCustomer();
+	const isPro = customer?.subscriptions?.some((s: { planId: string; status: string }) => s.planId === "pro" && s.status === "active");
 	const trpc = useTRPC();
 	const routerState = useRouterState();
 	const currentPath = routerState.location.pathname;
@@ -129,8 +132,9 @@ export function TopNav({ askOpen, onToggleAsk }: TopNavProps) {
 								}}
 							/>
 							<div className="flex flex-col">
-								<span className="text-[14px] font-medium text-tw-text-primary leading-tight">
+								<span className="flex items-center gap-1.5 text-[14px] font-medium text-tw-text-primary leading-tight">
 									{user?.name ?? "User"}
+									{isPro && <span className="text-[10px] font-semibold uppercase tracking-wider bg-[#FAFAFA12] text-tw-text-muted px-1.5 py-px rounded">Pro</span>}
 								</span>
 								<span className="text-[12px] text-tw-text-muted leading-tight">
 									{user?.email ?? ""}
