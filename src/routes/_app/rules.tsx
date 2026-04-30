@@ -9,8 +9,7 @@ import {
 	MaxFilesChangedViz,
 	MaxPrsPerDayViz,
 	MergedPrsViz,
-	ProfilePictureViz,
-	ProfileReadmeViz,
+ProfileReadmeViz,
 	RepoActivityViz,
 	RuleCardGrid,
 } from "../../components/rules/rule-card-grid";
@@ -251,7 +250,6 @@ function RulesPage() {
 
 	const activeCount = [
 		activeConfig.aiSlopDetection.enabled,
-		activeConfig.requireProfilePicture.enabled,
 		activeConfig.languageRequirement.enabled,
 		activeConfig.minMergedPrs.enabled,
 		activeConfig.accountAge.enabled,
@@ -303,8 +301,7 @@ function RulesPage() {
 	// Build rule list for filtering
 	const allRules = [
 		{ key: "aiSlopDetection" as const, title: "AI slop detection", searchable: "ai slop detection automated" },
-		{ key: "requireProfilePicture" as const, title: "Require profile picture", searchable: "require profile picture avatar" },
-		{ key: "languageRequirement" as const, title: "Language requirement", searchable: "language requirement english" },
+{ key: "languageRequirement" as const, title: "Language requirement", searchable: "language requirement english" },
 		{ key: "minMergedPrs" as const, title: "Minimum merged PRs", searchable: "minimum merged prs pull requests" },
 		{ key: "accountAge" as const, title: "Account age", searchable: "account age days old new" },
 		{ key: "maxPrsPerDay" as const, title: "Max PRs per day", searchable: "max prs per day rate limit" },
@@ -387,15 +384,6 @@ function RulesPage() {
 					onToggle={(value) => toggleRule("aiSlopDetection", value)}
 					onActionChange={(action) => updateRuleValue("aiSlopDetection", { action })}
 					visualization={<AiSlopViz />}
-				/>
-				<RuleCardGrid
-					title="Require profile picture"
-					description="Require a custom profile picture instead of GitHub's fallback"
-					enabled={activeConfig.requireProfilePicture.enabled}
-					action={activeConfig.requireProfilePicture.action}
-					onToggle={(value) => toggleRule("requireProfilePicture", value)}
-					onActionChange={(action) => updateRuleValue("requireProfilePicture", { action })}
-					visualization={<ProfilePictureViz />}
 				/>
 				<RuleCardGrid
 					title={(
@@ -546,31 +534,28 @@ function RulesPage() {
 								{activeConfig.aiSlopDetection.enabled && matchesSearch(allRules[0]) && (
 									<RuleCardGrid title="AI slop detection" description="Use known detection patterns to minimize automated activity" enabled={true} action={activeConfig.aiSlopDetection.action} onToggle={(v) => toggleRule("aiSlopDetection", v)} onActionChange={(a) => updateRuleValue("aiSlopDetection", { action: a })} visualization={<AiSlopViz />} />
 								)}
-								{activeConfig.requireProfilePicture.enabled && matchesSearch(allRules[1]) && (
-									<RuleCardGrid title="Require profile picture" description="Require a custom profile picture instead of GitHub's fallback" enabled={true} action={activeConfig.requireProfilePicture.action} onToggle={(v) => toggleRule("requireProfilePicture", v)} onActionChange={(a) => updateRuleValue("requireProfilePicture", { action: a })} visualization={<ProfilePictureViz />} />
-								)}
-								{activeConfig.languageRequirement.enabled && matchesSearch(allRules[2]) && (
+								{activeConfig.languageRequirement.enabled && matchesSearch(allRules[1]) && (
 									<RuleCardGrid title={<>Require all contributions in{" "}<RuleDropdown value={activeConfig.languageRequirement.language} options={LANGUAGE_OPTIONS} onChange={(language) => updateRuleValue("languageRequirement", { language })} /></>} description="Contributions in a disallowed language will be declined" enabled={true} action={activeConfig.languageRequirement.action} onToggle={(v) => toggleRule("languageRequirement", v)} onActionChange={(a) => updateRuleValue("languageRequirement", { action: a })} visualization={<LanguageViz />} />
 								)}
-								{activeConfig.minMergedPrs.enabled && matchesSearch(allRules[3]) && (
+								{activeConfig.minMergedPrs.enabled && matchesSearch(allRules[2]) && (
 									<RuleCardGrid title={<>At least{" "}<RuleDropdown value={String(activeConfig.minMergedPrs.count)} options={PR_COUNT_OPTIONS} onChange={(v) => updateRuleValue("minMergedPrs", { count: Number(v) })} />{" "}merged PRs</>} description="Minimum merged pull requests before they can contribute" enabled={true} action={activeConfig.minMergedPrs.action} onToggle={(v) => toggleRule("minMergedPrs", v)} onActionChange={(a) => updateRuleValue("minMergedPrs", { action: a })} visualization={<MergedPrsViz />} />
 								)}
-								{activeConfig.accountAge.enabled && matchesSearch(allRules[4]) && (
+								{activeConfig.accountAge.enabled && matchesSearch(allRules[3]) && (
 									<RuleCardGrid title={<>Account older than{" "}<RuleDropdown value={`${activeConfig.accountAge.days} days`} options={ACCOUNT_AGE_OPTIONS} onChange={(v) => updateRuleValue("accountAge", { days: Number.parseInt(v, 10) })} /></>} description="Block accounts created too recently from contributing" enabled={true} action={activeConfig.accountAge.action} onToggle={(v) => toggleRule("accountAge", v)} onActionChange={(a) => updateRuleValue("accountAge", { action: a })} visualization={<AccountAgeViz />} />
 								)}
-								{activeConfig.maxPrsPerDay.enabled && matchesSearch(allRules[5]) && (
+								{activeConfig.maxPrsPerDay.enabled && matchesSearch(allRules[4]) && (
 									<RuleCardGrid title={<>Max{" "}<RuleDropdown value={String(activeConfig.maxPrsPerDay.limit)} options={MAX_PRS_PER_DAY_OPTIONS} onChange={(v) => updateRuleValue("maxPrsPerDay", { limit: Number(v) })} />{" "}PRs per day</>} description="Rate limit how many PRs or issues a single user can open per day" enabled={true} action={activeConfig.maxPrsPerDay.action} onToggle={(v) => toggleRule("maxPrsPerDay", v)} onActionChange={(a) => updateRuleValue("maxPrsPerDay", { action: a })} visualization={<MaxPrsPerDayViz />} />
 								)}
-								{activeConfig.maxFilesChanged.enabled && matchesSearch(allRules[6]) && (
+								{activeConfig.maxFilesChanged.enabled && matchesSearch(allRules[5]) && (
 									<RuleCardGrid title={<>Max{" "}<RuleDropdown value={String(activeConfig.maxFilesChanged.limit)} options={MAX_FILES_CHANGED_OPTIONS} onChange={(v) => updateRuleValue("maxFilesChanged", { limit: Number(v) })} />{" "}files changed</>} description="Block pull requests that touch too many files in a single submission" enabled={true} action={activeConfig.maxFilesChanged.action} onToggle={(v) => toggleRule("maxFilesChanged", v)} onActionChange={(a) => updateRuleValue("maxFilesChanged", { action: a })} visualization={<MaxFilesChangedViz />} />
 								)}
-								{activeConfig.repoActivityMinimum.enabled && matchesSearch(allRules[7]) && (
+								{activeConfig.repoActivityMinimum.enabled && matchesSearch(allRules[6]) && (
 									<RuleCardGrid title={<>At least{" "}<RuleDropdown value={String(activeConfig.repoActivityMinimum.minRepos)} options={REPO_ACTIVITY_OPTIONS} onChange={(v) => updateRuleValue("repoActivityMinimum", { minRepos: Number(v) })} />{" "}public repos</>} description="Contributor must have meaningful activity across other public repos" enabled={true} action={activeConfig.repoActivityMinimum.action} onToggle={(v) => toggleRule("repoActivityMinimum", v)} onActionChange={(a) => updateRuleValue("repoActivityMinimum", { action: a })} visualization={<RepoActivityViz />} />
 								)}
-								{activeConfig.requireProfileReadme.enabled && matchesSearch(allRules[8]) && (
+								{activeConfig.requireProfileReadme.enabled && matchesSearch(allRules[7]) && (
 									<RuleCardGrid title="Require profile README" description="Contributors must have a profile README on their GitHub account" enabled={true} action={activeConfig.requireProfileReadme.action} onToggle={(v) => toggleRule("requireProfileReadme", v)} onActionChange={(a) => updateRuleValue("requireProfileReadme", { action: a })} visualization={<ProfileReadmeViz />} />
 								)}
-								{activeConfig.cryptoAddressDetection.enabled && matchesSearch(allRules[9]) && (
+								{activeConfig.cryptoAddressDetection.enabled && matchesSearch(allRules[8]) && (
 									<RuleCardGrid title="Crypto address detection" description="Block content containing cryptocurrency wallet addresses (BTC, ETH, SOL, XMR, DASH)" enabled={true} action={activeConfig.cryptoAddressDetection.action} onToggle={(v) => toggleRule("cryptoAddressDetection", v)} onActionChange={(a) => updateRuleValue("cryptoAddressDetection", { action: a })} visualization={<CryptoViz />} />
 								)}
 							</div>

@@ -174,7 +174,6 @@ type RuleBase = {
 
 export type RuleConfig = {
 	aiSlopDetection: RuleBase;
-	requireProfilePicture: RuleBase;
 	languageRequirement: RuleBase & { language: string };
 	minMergedPrs: RuleBase & { count: number };
 	accountAge: RuleBase & { days: number };
@@ -187,7 +186,6 @@ export type RuleConfig = {
 
 export const DEFAULT_RULE_CONFIG: RuleConfig = {
 	aiSlopDetection: { enabled: false, action: "block" },
-	requireProfilePicture: { enabled: false, action: "block" },
 	languageRequirement: { enabled: false, action: "block", language: "English" },
 	minMergedPrs: { enabled: false, action: "block", count: 15 },
 	accountAge: { enabled: false, action: "block", days: 30 },

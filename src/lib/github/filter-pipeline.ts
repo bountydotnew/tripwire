@@ -264,7 +264,6 @@ export async function runFilterPipeline(
 	const rawConfig = configRow?.config;
 	const config: RuleConfig = {
 		aiSlopDetection: { ...DEFAULT_RULE_CONFIG.aiSlopDetection, ...rawConfig?.aiSlopDetection },
-		requireProfilePicture: { ...DEFAULT_RULE_CONFIG.requireProfilePicture, ...rawConfig?.requireProfilePicture },
 		languageRequirement: { ...DEFAULT_RULE_CONFIG.languageRequirement, ...rawConfig?.languageRequirement },
 		minMergedPrs: { ...DEFAULT_RULE_CONFIG.minMergedPrs, ...rawConfig?.minMergedPrs },
 		accountAge: { ...DEFAULT_RULE_CONFIG.accountAge, ...rawConfig?.accountAge },
@@ -280,7 +279,6 @@ export async function runFilterPipeline(
 	// Fetch user once for rules that need it
 	let ghUser: Record<string, unknown> | null = null;
 	const needsUser =
-		config.requireProfilePicture.enabled ||
 		config.accountAge.enabled;
 	if (needsUser) {
 		try {
@@ -293,27 +291,6 @@ export async function runFilterPipeline(
 	// Helper: if a rule fails, we still continue checking remaining rules
 	// for near-miss detection, but we track the first failure.
 	let firstBlock: { rule: string; reason: string; action: RuleAction } | null = null;
-
-	// ─── requireProfilePicture ─────────────────────────────────
-	if (config.requireProfilePicture.enabled && ghUser) {
-		rulesChecked++;
-		const avatarUrl = ghUser.avatar_url as string | undefined;
-		const isDefaultAvatar = !avatarUrl || /\/u\/\d+\?/.test(avatarUrl);
-
-		const eval_: RuleEvaluation = {
-			rule: "requireProfilePicture",
-			passed: !isDefaultAvatar,
-			nearMiss: false,
-			reason: isDefaultAvatar
-				? `@${ctx.senderLogin} does not have a custom profile picture.`
-				: undefined,
-		};
-		evaluations.push(eval_);
-
-		if (isDefaultAvatar && !firstBlock) {
-			firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.requireProfilePicture.action };
-		}
-	}
 
 	// ─── accountAge ────────────────────────────────────────────
 	if (config.accountAge.enabled && ghUser) {

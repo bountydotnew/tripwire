@@ -203,8 +203,7 @@ export const moveToBlacklistDef = toolDefinition({
 
 const RULE_NAMES: Record<string, string> = {
 	aiSlopDetection: "AI Slop Detection",
-	requireProfilePicture: "Require Profile Picture",
-	languageRequirement: "Language Requirement",
+languageRequirement: "Language Requirement",
 	minMergedPrs: "Minimum Merged PRs",
 	accountAge: "Account Age",
 	maxPrsPerDay: "Max PRs Per Day",
@@ -235,7 +234,7 @@ export const getRuleConfigDef = toolDefinition({
 export const toggleRuleDef = toolDefinition({
 	name: "toggle_rule",
 	description:
-		"Enable or disable a specific rule. Valid ruleIds: aiSlopDetection, requireProfilePicture, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
+		"Enable or disable a specific rule. Valid ruleIds: aiSlopDetection, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
 	inputSchema: z.object({
 		ruleId: z.string(),
 		enabled: z.boolean(),
@@ -247,7 +246,7 @@ export const toggleRuleDef = toolDefinition({
 export const updateRuleActionDef = toolDefinition({
 	name: "update_rule_action",
 	description:
-		"Change a rule's action level. Actions: 'block' (close PR/issue), 'warn' (leave comment), 'log' (record silently), 'threshold' (ignore until N violations then block). Valid ruleIds: aiSlopDetection, requireProfilePicture, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
+		"Change a rule's action level. Actions: 'block' (close PR/issue), 'warn' (leave comment), 'log' (record silently), 'threshold' (ignore until N violations then block). Valid ruleIds: aiSlopDetection, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
 	inputSchema: z.object({
 		ruleId: z.string(),
 		action: z.enum(["block", "warn", "log", "threshold"]),
@@ -260,7 +259,7 @@ export const updateRuleActionDef = toolDefinition({
 export const updateRuleValueDef = toolDefinition({
 	name: "update_rule_value",
 	description:
-		"Set a rule's numeric or string parameter. Valid fields per rule: minMergedPrs.count, accountAge.days, maxPrsPerDay.limit, maxFilesChanged.limit, repoActivityMinimum.minRepos, languageRequirement.language. Valid ruleIds: aiSlopDetection, requireProfilePicture, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
+		"Set a rule's numeric or string parameter. Valid fields per rule: minMergedPrs.count, accountAge.days, maxPrsPerDay.limit, maxFilesChanged.limit, repoActivityMinimum.minRepos, languageRequirement.language. Valid ruleIds: aiSlopDetection, languageRequirement, minMergedPrs, accountAge, maxPrsPerDay, maxFilesChanged, repoActivityMinimum, requireProfileReadme, cryptoAddressDetection.",
 	inputSchema: z.object({
 		ruleId: z.string().meta({ description: "The rule ID (e.g. 'minMergedPrs', 'accountAge')" }),
 		field: z.string().meta({ description: "The field to update (e.g. 'count', 'days', 'limit', 'minRepos', 'language')" }),

@@ -21,8 +21,7 @@ const RULE_ORDER = Object.keys(DEFAULT_RULE_CONFIG) as RuleKey[];
 
 const RULE_LABELS: Record<RuleKey, string> = {
 	aiSlopDetection: "AI slop detection",
-	requireProfilePicture: "Require profile picture",
-	languageRequirement: "Language requirement",
+languageRequirement: "Language requirement",
 	minMergedPrs: "Minimum merged PRs",
 	accountAge: "Account age",
 	maxPrsPerDay: "Max PRs per day",
@@ -41,8 +40,7 @@ const ACTION_LABELS: Record<RuleAction, string> = {
 
 const FIELD_ORDER: Record<RuleKey, string[]> = {
 	aiSlopDetection: ["enabled", "action", "thresholdCount"],
-	requireProfilePicture: ["enabled", "action", "thresholdCount"],
-	languageRequirement: ["enabled", "action", "language", "thresholdCount"],
+languageRequirement: ["enabled", "action", "language", "thresholdCount"],
 	minMergedPrs: ["enabled", "action", "count", "thresholdCount"],
 	accountAge: ["enabled", "action", "days", "thresholdCount"],
 	maxPrsPerDay: ["enabled", "action", "limit", "thresholdCount"],
@@ -184,8 +182,7 @@ function buildChange(ruleKey: RuleKey, field: string, previousValue: unknown, ne
 export function normalizeRuleConfig(raw?: Partial<RuleConfig>): RuleConfig {
 	return {
 		aiSlopDetection: { ...DEFAULT_RULE_CONFIG.aiSlopDetection, ...raw?.aiSlopDetection },
-		requireProfilePicture: { ...DEFAULT_RULE_CONFIG.requireProfilePicture, ...raw?.requireProfilePicture },
-		languageRequirement: { ...DEFAULT_RULE_CONFIG.languageRequirement, ...raw?.languageRequirement },
+languageRequirement: { ...DEFAULT_RULE_CONFIG.languageRequirement, ...raw?.languageRequirement },
 		minMergedPrs: { ...DEFAULT_RULE_CONFIG.minMergedPrs, ...raw?.minMergedPrs },
 		accountAge: { ...DEFAULT_RULE_CONFIG.accountAge, ...raw?.accountAge },
 		maxPrsPerDay: { ...DEFAULT_RULE_CONFIG.maxPrsPerDay, ...raw?.maxPrsPerDay },
