@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { dash } from "@better-auth/infra";
 import { APIError } from "better-auth/api";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -152,7 +153,7 @@ export const auth = betterAuth({
 		autumnPlugin({
 			customerScope: "user",
 		}),
-		dash(),
+		dash({ apiKey: process.env.BETTER_AUTH_API_KEY! }),
 	],
 	databaseHooks: {
 		user: {
