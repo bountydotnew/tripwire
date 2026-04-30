@@ -155,7 +155,9 @@ export const auth = betterAuth({
 		}),
 		//@ts-ignore
 		dash({
-			adminEmail: process.env.BETTER_AUTH_ADMIN_EMAIL,
+			apiUrl: process.env.BETTER_AUTH_API_URL,
+			kvUrl: process.env.BETTER_AUTH_KV_URL,
+			apiKey: process.env.BETTER_AUTH_API_KEY,
 		}),
 	],
 	databaseHooks: {
