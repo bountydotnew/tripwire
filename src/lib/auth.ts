@@ -153,7 +153,8 @@ export const auth = betterAuth({
 		autumnPlugin({
 			customerScope: "user",
 		}),
-		dash({ apiKey: process.env.BETTER_AUTH_API_KEY! }),
+		//@ts-ignore
+		dash(),
 	],
 	databaseHooks: {
 		user: {
