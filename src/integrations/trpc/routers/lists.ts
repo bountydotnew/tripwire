@@ -3,8 +3,9 @@ import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { authedProcedure } from "../init";
 import { db } from "#/db";
-import { whitelistEntries, blacklistEntries } from "#/db/schema";
+import { whitelistEntries, blacklistEntries, repositories, organizations } from "#/db/schema";
 import { logEvent } from "#/lib/events";
+import { getInstallationToken, getRepoContributors } from "#/lib/github/github-api";
 
 import type { TRPCRouterRecord } from "@trpc/server";
 
@@ -147,6 +148,37 @@ export const whitelistRouter = {
 			});
 
 			return { success: true };
+		}),
+
+	suggestedContributors: authedProcedure
+		.input(z.object({ repoId: z.string().uuid() }))
+		.query(async ({ input }) => {
+			// Look up repo → org → installation token
+			const [repo] = await db.select({ orgId: repositories.orgId, fullName: repositories.fullName }).from(repositories).where(eq(repositories.id, input.repoId)).limit(1);
+			if (!repo) return [];
+
+			const [org] = await db.select({ installationId: organizations.githubInstallationId }).from(organizations).where(eq(organizations.id, repo.orgId)).limit(1);
+			if (!org) return [];
+
+			let token: string;
+			try {
+				token = await getInstallationToken(org.installationId);
+			} catch {
+				return [];
+			}
+
+			// Get contributors from GitHub
+			const contributors = await getRepoContributors(token, repo.fullName);
+			if (contributors.length === 0) return [];
+
+			// Get existing whitelist
+			const existing = await db.select({ username: whitelistEntries.githubUsername }).from(whitelistEntries).where(eq(whitelistEntries.repoId, input.repoId));
+			const whitelisted = new Set(existing.map((e) => e.username.toLowerCase()));
+
+			// Filter out already whitelisted
+			return contributors
+				.filter((c) => !whitelisted.has(c.login.toLowerCase()))
+				.map((c) => ({ username: c.login, avatarUrl: c.avatarUrl, contributions: c.contributions }));
 		}),
 } satisfies TRPCRouterRecord;
 

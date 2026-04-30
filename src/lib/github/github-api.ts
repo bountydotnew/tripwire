@@ -345,6 +345,29 @@ export async function getCollaboratorPermission(
 	}
 }
 
+/** Get repo contributors (users with commits) */
+export async function getRepoContributors(
+	token: string,
+	repoFullName: string,
+): Promise<Array<{ login: string; avatarUrl: string; contributions: number }>> {
+	try {
+		const result = await githubApi(
+			`/repos/${repoFullName}/contributors?per_page=50`,
+			token,
+		);
+		if (!Array.isArray(result)) return [];
+		return result
+			.filter((c: Record<string, unknown>) => c.type === "User" && c.contributions)
+			.map((c: Record<string, unknown>) => ({
+				login: c.login as string,
+				avatarUrl: (c.avatar_url as string) ?? "",
+				contributions: c.contributions as number,
+			}));
+	} catch {
+		return [];
+	}
+}
+
 /** Check if user has a profile README (username/username repo with README) */
 export async function hasProfileReadme(
 	token: string,

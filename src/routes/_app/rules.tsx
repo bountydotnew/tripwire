@@ -245,6 +245,12 @@ function RulesPage() {
 		}),
 	);
 
+	const suggestedQuery = useQuery({
+		...trpc.whitelist.suggestedContributors.queryOptions({ repoId: repoId! }),
+		enabled: !!repoId,
+		staleTime: 5 * 60 * 1000,
+	});
+
 	const [tab, setTab] = useState<"marketplace" | "installed" | "people">("marketplace");
 	const [searchQuery, setSearchQuery] = useState("");
 
@@ -565,6 +571,7 @@ function RulesPage() {
 					{/* People tab: always block + always allow */}
 					{tab === "people" && (
 						<PeopleTab
+							suggestedContributors={suggestedQuery.data ?? undefined}
 							blacklistUsers={blacklistUsers.map((u) => ({
 								...u,
 								reason: null,

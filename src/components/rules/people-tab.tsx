@@ -9,9 +9,16 @@ interface PeopleUser {
 	addedAt?: string | null;
 }
 
+interface SuggestedContributor {
+	username: string;
+	avatarUrl: string;
+	contributions: number;
+}
+
 interface PeopleTabProps {
 	blacklistUsers: PeopleUser[];
 	whitelistUsers: PeopleUser[];
+	suggestedContributors?: SuggestedContributor[];
 	onAddBlacklist: (username: string, reason?: string) => Promise<void>;
 	onRemoveBlacklist: (username: string) => void;
 	onAddWhitelist: (username: string, reason?: string) => Promise<void>;
@@ -23,6 +30,7 @@ interface PeopleTabProps {
 export function PeopleTab({
 	blacklistUsers,
 	whitelistUsers,
+	suggestedContributors,
 	onAddBlacklist,
 	onRemoveBlacklist,
 	onAddWhitelist,
@@ -31,6 +39,8 @@ export function PeopleTab({
 	isAddingWhitelist,
 }: PeopleTabProps) {
 	const [subtab, setSubtab] = useState<"block" | "allow">("block");
+	const [dismissed, setDismissed] = useState(false);
+	const [addingAll, setAddingAll] = useState(false);
 	const [search, setSearch] = useState("");
 	const [username, setUsername] = useState("");
 	const [reason, setReason] = useState("");
@@ -161,6 +171,53 @@ export function PeopleTab({
 					</button>
 				</div>
 			</div>
+
+			{/* Suggestion banner — only on allow tab */}
+			{subtab === "allow" && !dismissed && suggestedContributors && suggestedContributors.length > 0 && (
+				<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
+					<div className="flex items-center gap-2">
+						<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="#9F9FA9" strokeWidth="1.2"/><path d="M4 7L6 9L10 5" stroke="#9F9FA9" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+						<span className="text-[13px] text-tw-text-primary">
+							We found {suggestedContributors.length} contributor{suggestedContributors.length !== 1 ? "s" : ""} with merged commits to this repo
+						</span>
+					</div>
+					<div className="flex items-center gap-1 pl-[22px]">
+						{suggestedContributors.slice(0, 5).map((c) => (
+							<img key={c.username} src={c.avatarUrl} alt={c.username} title={`@${c.username} (${c.contributions} commits)`} className="size-6 rounded-full" />
+						))}
+						{suggestedContributors.length > 5 && (
+							<span className="text-[11px] text-tw-text-muted ml-1">+{suggestedContributors.length - 5} more</span>
+						)}
+					</div>
+					<div className="flex items-center gap-2 pl-[22px]">
+						<button
+							type="button"
+							disabled={addingAll}
+							onClick={async () => {
+								setAddingAll(true);
+								try {
+									for (const c of suggestedContributors) {
+										await onAddWhitelist(c.username, "Existing contributor").catch(() => {});
+									}
+									setDismissed(true);
+								} finally {
+									setAddingAll(false);
+								}
+							}}
+							className="h-7 px-3 rounded-lg bg-tw-text-primary text-[#0D0D0F] text-[12px] font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+						>
+							{addingAll ? "Adding..." : "Add all to allowlist"}
+						</button>
+						<button
+							type="button"
+							onClick={() => setDismissed(true)}
+							className="h-7 px-3 rounded-lg bg-tw-hover text-tw-text-secondary text-[12px] font-medium hover:text-tw-text-primary transition-colors"
+						>
+							Dismiss
+						</button>
+					</div>
+				</div>
+			)}
 
 			{/* Helper text */}
 			<div className="flex items-center gap-2 -mt-1.5 px-1">
