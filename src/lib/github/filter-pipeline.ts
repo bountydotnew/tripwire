@@ -22,6 +22,7 @@ import {
 	getPrFilesCount,
 	getUserPublicRepoCount,
 	hasProfileReadme,
+	getCollaboratorPermission,
 } from "./github-api";
 import { logEvent, logEvents } from "#/lib/events";
 
@@ -191,13 +192,42 @@ export async function runFilterPipeline(
 		};
 	}
 
-	// 2. Check whitelist
+	// 2. Auto-bypass: repo owner, admins, and collaborators with push access
+	const [repoOwner] = ctx.repoFullName.split("/");
+	if (repoOwner.toLowerCase() === ctx.senderLogin.toLowerCase()) {
+		return {
+			allowed: true,
+			outcome: "whitelist_bypass",
+			evaluations,
+			rulesChecked,
+			repoId: repo.id,
+		};
+	}
+
+	// Check if sender has push/admin/maintain access (collaborator)
+	try {
+		const earlyToken = await getInstallationToken(ctx.installationId);
+		const permResult = await getCollaboratorPermission(earlyToken, ctx.repoFullName, ctx.senderLogin);
+		if (permResult === "admin" || permResult === "write" || permResult === "maintain") {
+			return {
+				allowed: true,
+				outcome: "whitelist_bypass",
+				evaluations,
+				rulesChecked,
+				repoId: repo.id,
+			};
+		}
+	} catch {
+		// permission check failed, continue to whitelist/blacklist checks
+	}
+
+	// 3. Check whitelist
 	const whitelistAll = await db
 		.select()
 		.from(whitelistEntries)
 		.where(eq(whitelistEntries.repoId, repo.id));
 
-	if (whitelistAll.some((w) => w.githubUsername === ctx.senderLogin)) {
+	if (whitelistAll.some((w) => w.githubUsername.toLowerCase() === ctx.senderLogin.toLowerCase())) {
 		return {
 			allowed: true,
 			outcome: "whitelist_bypass",

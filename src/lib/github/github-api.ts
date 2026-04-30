@@ -328,6 +328,23 @@ export async function getUserPublicRepoCount(
 	return user.public_repos;
 }
 
+/** Get a collaborator's permission level on a repo */
+export async function getCollaboratorPermission(
+	token: string,
+	repoFullName: string,
+	username: string,
+): Promise<string> {
+	try {
+		const result = await githubApi(
+			`/repos/${repoFullName}/collaborators/${username}/permission`,
+			token,
+		);
+		return result?.permission ?? "none";
+	} catch {
+		return "none";
+	}
+}
+
 /** Check if user has a profile README (username/username repo with README) */
 export async function hasProfileReadme(
 	token: string,

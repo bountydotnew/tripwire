@@ -154,7 +154,9 @@ export const auth = betterAuth({
 			customerScope: "user",
 		}),
 		//@ts-ignore
-		dash(),
+		dash({
+			adminEmail: process.env.BETTER_AUTH_ADMIN_EMAIL,
+		}),
 	],
 	databaseHooks: {
 		user: {
