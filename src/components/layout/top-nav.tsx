@@ -134,7 +134,7 @@ export function TopNav({ askOpen, onToggleAsk }: TopNavProps) {
 							<div className="flex flex-col">
 								<span className="flex items-center gap-1.5 text-[14px] font-medium text-tw-text-primary leading-tight">
 									{user?.name ?? "User"}
-									{isPro && <span className="text-[10px] font-semibold uppercase tracking-wider bg-[#FAFAFA12] text-tw-text-muted px-1.5 py-px rounded">Pro</span>}
+									{isPro && <span className="text-[10px] font-semibold uppercase tracking-wider bg-tw-inner text-tw-text-muted px-1.5 py-px rounded">Pro</span>}
 								</span>
 								<span className="text-[12px] text-tw-text-muted leading-tight">
 									{user?.email ?? ""}
