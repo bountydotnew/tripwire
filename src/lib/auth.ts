@@ -3,7 +3,7 @@ import { dash } from "@better-auth/infra";
 import { APIError } from "better-auth/api";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { organization } from "better-auth/plugins";
+import { organization, admin } from "better-auth/plugins";
 import { autumn as autumnPlugin } from "autumn-js/better-auth";
 import { autumn as autumnClient } from "#/lib/autumn";
 import { db } from "#/db";
@@ -153,6 +153,7 @@ export const auth = betterAuth({
 		autumnPlugin({
 			customerScope: "user",
 		}),
+		admin(),
 		//@ts-ignore
 		dash({
 			apiKey: process.env.BETTER_AUTH_API_KEY,
