@@ -51,6 +51,7 @@
     "clsx": "^2.1.1",
     "drizzle-kit": "^0.31.9",
     "drizzle-orm": "^0.45.1",
+    "evlog": "^2.17.0",
     "framer-motion": "^12.38.0",
     "geist": "^1.7.0",
     "jose": "5.9.6",

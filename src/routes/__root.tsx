@@ -1,4 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
+import { createMiddleware } from "@tanstack/react-start";
+import { evlogErrorHandler } from "evlog/nitro/v3";
 import RootProvider from "#/integrations/tanstack-query/root-provider";
 import { AutumnProvider } from "autumn-js/react";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
@@ -6,6 +8,9 @@ import { ToastProvider, AnchoredToastProvider } from "#/components/ui/toast";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
+	server: {
+		middleware: [createMiddleware().server(evlogErrorHandler)],
+	},
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },
