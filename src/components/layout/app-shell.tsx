@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type KeyboardEvent } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import { TopNav } from "./top-nav";
 import { WorkspaceProvider } from "#/lib/workspace-context";
 import { AuthProvider } from "#/lib/auth-context";
 import { ChatProvider, useAIChat } from "#/lib/ai/chat-context";
+import { ChatComposer } from "#/components/ask/chat-composer";
 import { ChatThread } from "../ask/chat-thread";
 import { useTRPC } from "#/integrations/trpc/react";
 import { UnicodeSpinner } from "#/components/ui/unicode-spinner";
@@ -26,28 +27,11 @@ export function AppShell() {
 
 function AppShellInner() {
 	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted, newChat } = useAIChat();
-	const [inputValue, setInputValue] = useState("");
-	const inputRef = useRef<HTMLInputElement>(null);
-
 	const routerState = useRouterState();
 	const currentPath = routerState.location.pathname;
 	const isHomePage = currentPath === "/home" || currentPath === "/";
 	const isChatRoute = currentPath.startsWith("/chat/");
-
 	const showSidePanel = !isHomePage && !isChatRoute && isOpen;
-
-	const handleSubmit = () => {
-		if (!inputValue.trim() || isLoading || isQuotaExhausted) return;
-		sendMessage(inputValue);
-		setInputValue("");
-	};
-
-	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			handleSubmit();
-		}
-	};
 
 	return (
 		<div className="h-screen flex flex-col overflow-hidden bg-tw-bg tw-root antialiased">
@@ -138,67 +122,12 @@ function AppShellInner() {
 							<SidebarRecentChats />
 
 							<div className="px-2 pb-2 shrink-0">
-								<div className="flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5">
-									<div className="flex items-center w-full gap-1.5">
-										<input
-											ref={inputRef}
-											type="text"
-											placeholder={isQuotaExhausted ? "Out of credits" : "Ask anything..."}
-											value={inputValue}
-											onChange={(e) => setInputValue(e.target.value)}
-											onKeyDown={handleKeyDown}
-											disabled={isLoading || isQuotaExhausted}
-											className="flex-1 h-9 bg-tw-inner rounded-[10px] px-2.5 text-[14px] text-tw-text-primary placeholder:text-tw-text-tertiary outline-none disabled:opacity-50"
-										/>
-										<button
-											type="button"
-											className="flex items-center justify-center size-9 rounded-[10px] text-tw-text-tertiary hover:text-tw-text-secondary transition-colors"
-										>
-											<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-												<path d="M8 1a2 2 0 0 0-2 2v4a2 2 0 1 0 4 0V3a2 2 0 0 0-2-2Z" />
-												<path d="M4.5 7A.75.75 0 0 0 3 7a5.001 5.001 0 0 0 4.25 4.944V13.5h-1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-1.5v-1.556A5.001 5.001 0 0 0 13 7a.75.75 0 0 0-1.5 0 3.5 3.5 0 1 1-7 0Z" />
-											</svg>
-										</button>
-									</div>
-									<div className="flex items-center justify-between w-full pt-1.5">
-										<div className="flex items-center gap-1">
-											<button
-												type="button"
-												className="flex items-center gap-1 h-7 px-2 rounded-lg text-tw-text-tertiary hover:text-tw-text-secondary hover:bg-tw-hover transition-colors"
-											>
-												<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-													<path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
-												</svg>
-												<span className="text-[12px]">Add files</span>
-											</button>
-											<button
-												type="button"
-												className="flex items-center gap-1 h-7 px-2 rounded-lg text-tw-text-tertiary hover:text-tw-text-secondary hover:bg-tw-hover transition-colors"
-											>
-												<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-													<path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
-												</svg>
-												<span className="text-[12px]">Add context</span>
-											</button>
-										</div>
-										<button
-											type="button"
-											onClick={handleSubmit}
-											disabled={!inputValue.trim() || isLoading || isQuotaExhausted}
-											className="flex items-center self-stretch px-1.5 rounded-[10px] justify-center gap-1 bg-[#363639] hover:bg-[#404044] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											<span className="text-[14px] leading-none text-center text-tw-text-primary px-0.5">
-												{isLoading ? "..." : "Go"}
-											</span>
-											<span
-												className="flex items-center h-4 rounded-sm justify-center pt-[3px] pb-0 bg-[#222222] px-1"
-												style={{ boxShadow: "#0000001A 0px 1px 1px" }}
-											>
-												<span className="text-[11px] text-center text-tw-text-tertiary leading-none">↵</span>
-											</span>
-										</button>
-									</div>
-								</div>
+								<ChatComposer
+									disabled={isLoading || isQuotaExhausted}
+									isLoading={isLoading}
+									placeholder={isQuotaExhausted ? "Out of credits" : "Ask anything..."}
+									onSend={sendMessage}
+								/>
 							</div>
 						</div>
 					)}
@@ -333,10 +262,16 @@ function SidebarRecentChats() {
 						<motion.div
 							key={chat.id}
 							layout
-							exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0, overflow: "hidden" }}
+							exit={{
+								opacity: 0,
+								height: 0,
+								marginTop: 0,
+								marginBottom: 0,
+								overflow: "hidden",
+								transition: { duration: 0.2, ease: [0.25, 1, 0.5, 1] },
+							}}
 							transition={{
 								layout: { duration: 0.25, ease: [0.25, 1, 0.5, 1] },
-								exit: { duration: 0.2, ease: [0.25, 1, 0.5, 1] },
 							}}
 							className={`group flex items-center gap-2 w-full px-1.5 py-1.5 rounded-lg text-left ${
 								isLoading
