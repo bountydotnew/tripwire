@@ -4,8 +4,9 @@ import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace } from "#/lib/workspace-context";
 import { EmptyState } from "#/components/layout/empty-state";
 import { env } from "#/env";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { EventAction } from "#/db/schema";
+import { markEventsViewed } from "#/lib/use-events-unread";
 
 export const Route = createFileRoute("/_app/events/")({
 	component: EventsPage,
@@ -72,6 +73,7 @@ const RULE_NAMES: Record<string, string> = {
 	repoActivityMinimum: "Repo Activity",
 	requireProfileReadme: "Profile README",
 	vouchedUsersOnly: "Vouched Users Only",
+	aiHoneypot: "AI Honeypot",
 	blacklist: "Blacklist",
 };
 
@@ -297,6 +299,10 @@ function EventsPage() {
 	const repoId = repo?.id;
 	const trpc = useTRPC();
 	const githubAppSlug = env.VITE_GITHUB_APP_SLUG ?? "tripwire-app";
+
+	useEffect(() => {
+		markEventsViewed(repoId);
+	}, [repoId]);
 
 	const [filters, setFilters] = useState<FilterState>({
 		action: null,

@@ -10,6 +10,7 @@ import { ChatThread } from "../ask/chat-thread";
 import { useTRPC } from "#/integrations/trpc/react";
 import { UnicodeSpinner } from "#/components/ui/unicode-spinner";
 import { useCustomer } from "autumn-js/react";
+import { useRequestNotifications } from "#/lib/use-request-notifications";
 import type { UIMessage } from "#/types/chat";
 
 export function AppShell() {
@@ -25,6 +26,8 @@ export function AppShell() {
 }
 
 function AppShellInner() {
+	useRequestNotifications();
+
 	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted, newChat } = useAIChat();
 	const [inputValue, setInputValue] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);

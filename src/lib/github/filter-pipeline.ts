@@ -28,24 +28,34 @@ import { logEvent, logEvents } from "#/lib/events";
 
 const APP_BASE_URL = process.env.BETTER_AUTH_URL ?? "";
 
-function buildRequestUrl(repoFullName: string, kind?: "unblock" | "access"): string {
+function buildRequestUrl(
+	repoFullName: string,
+	opts: { kind?: "unblock" | "access"; username?: string } = {},
+): string {
 	const base = APP_BASE_URL.replace(/\/$/, "");
-	const path = `/request/${repoFullName}${kind ? `?kind=${kind}` : ""}`;
+	const params = new URLSearchParams();
+	if (opts.kind) params.set("kind", opts.kind);
+	if (opts.username) params.set("u", opts.username);
+	const qs = params.toString();
+	const path = `/request/${repoFullName}${qs ? `?${qs}` : ""}`;
 	return base ? `${base}${path}` : path;
 }
 
-function appealFooter(repoFullName: string, outcome: PipelineResult["outcome"]): string {
+function appealFooter(
+	repoFullName: string,
+	outcome: PipelineResult["outcome"],
+	username: string,
+): string {
+	const url = buildRequestUrl(repoFullName, { kind: "unblock", username });
 	if (outcome === "blacklist_blocked") {
-		const url = buildRequestUrl(repoFullName, "unblock");
-		return `> **Blacklisted from this repository.** [Appeal this block](${url}) if you think it was a mistake.`;
+		return `> **Blacklisted from this repository.** [Appeal this block as @${username}](${url}) if you think it was a mistake.`;
 	}
-	const url = buildRequestUrl(repoFullName, "unblock");
-	return `> Think this was a mistake? [Request a review](${url}).`;
+	return `> Think this was a mistake? [Request a review as @${username}](${url}).`;
 }
 
-function warnFooter(repoFullName: string): string {
-	const url = buildRequestUrl(repoFullName, "access");
-	return `> Want to skip these checks in the future? [Request vouched access](${url}).`;
+function warnFooter(repoFullName: string, username: string): string {
+	const url = buildRequestUrl(repoFullName, { kind: "access", username });
+	return `> Want to skip these checks in the future? [Request vouched access as @${username}](${url}).`;
 }
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -195,6 +205,7 @@ function detectCryptoAddress(text: string): { crypto: string; address: string } 
 export async function runFilterPipeline(
 	ctx: WebhookContext,
 	contentText?: string,
+	contentType?: EventContentType,
 ): Promise<PipelineResult> {
 	const evaluations: RuleEvaluation[] = [];
 	let rulesChecked = 0;
@@ -283,6 +294,19 @@ export async function runFilterPipeline(
 		.from(ruleConfigs)
 		.where(eq(ruleConfigs.repoId, repo.id));
 
+	// 4a. Honor content-scope toggles ("watching" checkboxes on Rules page).
+	// If this content type isn't being watched, treat as allowed and skip everything.
+	const scope = { ...DEFAULT_RULE_CONFIG.contentScope, ...configRow?.config?.contentScope };
+	if (contentType === "pull_request" && !scope.pullRequests) {
+		return { allowed: true, outcome: "allowed", evaluations, rulesChecked, repoId: repo.id };
+	}
+	if (contentType === "issue" && !scope.issues) {
+		return { allowed: true, outcome: "allowed", evaluations, rulesChecked, repoId: repo.id };
+	}
+	if (contentType === "comment" && !scope.comments) {
+		return { allowed: true, outcome: "allowed", evaluations, rulesChecked, repoId: repo.id };
+	}
+
 	const rawConfig = configRow?.config;
 	const config: RuleConfig = {
 		aiSlopDetection: { ...DEFAULT_RULE_CONFIG.aiSlopDetection, ...rawConfig?.aiSlopDetection },
@@ -295,7 +319,17 @@ export async function runFilterPipeline(
 		requireProfileReadme: { ...DEFAULT_RULE_CONFIG.requireProfileReadme, ...rawConfig?.requireProfileReadme },
 		cryptoAddressDetection: { ...DEFAULT_RULE_CONFIG.cryptoAddressDetection, ...rawConfig?.cryptoAddressDetection },
 		vouchedUsersOnly: { ...DEFAULT_RULE_CONFIG.vouchedUsersOnly, ...rawConfig?.vouchedUsersOnly },
+		aiHoneypot: { ...DEFAULT_RULE_CONFIG.aiHoneypot, ...rawConfig?.aiHoneypot },
+		contentScope: scope,
+		repoFiles: {
+			rulesMd: { ...DEFAULT_RULE_CONFIG.repoFiles.rulesMd, ...rawConfig?.repoFiles?.rulesMd },
+			prTemplate: {
+				...DEFAULT_RULE_CONFIG.repoFiles.prTemplate,
+				...rawConfig?.repoFiles?.prTemplate,
+			},
+		},
 	};
+	const honeypotPhrases = config.repoFiles.prTemplate.honeypotPhrases;
 
 	// ─── vouchedUsersOnly ──────────────────────────────────────
 	// Non-vouched (not-whitelisted) users are rejected before any
@@ -552,6 +586,30 @@ export async function runFilterPipeline(
 		}
 	}
 
+	// ─── aiHoneypot ────────────────────────────────────────────
+	// Detect content containing any of the per-repo honeypot phrases
+	// injected into the PR template. Real humans won't write them; AI
+	// agents reading the template often will.
+	if (config.aiHoneypot.enabled && contentText && honeypotPhrases.length > 0) {
+		rulesChecked++;
+		const haystack = contentText.toLowerCase();
+		const hit = honeypotPhrases.find((p) => haystack.includes(p.phrase.toLowerCase()));
+		const tripped = !!hit;
+		const eval_: RuleEvaluation = {
+			rule: "aiHoneypot",
+			passed: !tripped,
+			nearMiss: false,
+			action: config.aiHoneypot.action,
+			reason: tripped
+				? `Content from @${ctx.senderLogin} contains the honeypot phrase (likely AI-generated).`
+				: undefined,
+		};
+		evaluations.push(eval_);
+		if (tripped && !firstBlock) {
+			firstBlock = { rule: eval_.rule, reason: eval_.reason!, action: config.aiHoneypot.action };
+		}
+	}
+
 	// ─── cryptoAddressDetection ────────────────────────────────
 	if (config.cryptoAddressDetection.enabled && contentText) {
 		rulesChecked++;
@@ -777,7 +835,7 @@ export async function handlePullRequest(
 	prBody?: string,
 ) {
 	const prCtx = { ...ctx, prNumber };
-	const result = await runFilterPipeline(prCtx, prBody ?? prTitle);
+	const result = await runFilterPipeline(prCtx, prBody ?? prTitle, "pull_request");
 
 	const githubRef = `#${prNumber}`;
 	const extraMeta = { title: prTitle };
@@ -791,7 +849,7 @@ export async function handlePullRequest(
 	const token = await getInstallationToken(ctx.installationId);
 
 	if (action === "block" || action === "threshold") {
-		const comment = `> **Tripwire** — This PR was automatically closed.\n>\n> Reason: ${result.blockReason}\n>\n${appealFooter(ctx.repoFullName, result.outcome)}`;
+		const comment = `> **Tripwire** — This PR was automatically closed.\n>\n> Reason: ${result.blockReason}\n>\n${appealFooter(ctx.repoFullName, result.outcome, ctx.senderLogin)}`;
 		await closePullRequest(token, owner, repo, prNumber, comment);
 
 		if (result.repoId) {
@@ -809,7 +867,7 @@ export async function handlePullRequest(
 			});
 		}
 	} else if (action === "warn") {
-		const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._\n>\n${warnFooter(ctx.repoFullName)}`;
+		const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._\n>\n${warnFooter(ctx.repoFullName, ctx.senderLogin)}`;
 		await addComment(token, owner, repo, prNumber, comment);
 
 		if (result.repoId) {
@@ -836,7 +894,7 @@ export async function handleIssue(
 	issueTitle: string,
 	issueBody?: string,
 ) {
-	const result = await runFilterPipeline(ctx, issueBody ?? issueTitle);
+	const result = await runFilterPipeline(ctx, issueBody ?? issueTitle, "issue");
 
 	const githubRef = `#${issueNumber}`;
 	const extraMeta = { title: issueTitle };
@@ -850,7 +908,7 @@ export async function handleIssue(
 	const token = await getInstallationToken(ctx.installationId);
 
 	if (action === "block" || action === "threshold") {
-		const comment = `> **Tripwire** — This issue was automatically closed.\n>\n> Reason: ${result.blockReason}\n>\n${appealFooter(ctx.repoFullName, result.outcome)}`;
+		const comment = `> **Tripwire** — This issue was automatically closed.\n>\n> Reason: ${result.blockReason}\n>\n${appealFooter(ctx.repoFullName, result.outcome, ctx.senderLogin)}`;
 		await closeIssue(token, owner, repo, issueNumber, comment);
 
 		if (result.repoId) {
@@ -868,7 +926,7 @@ export async function handleIssue(
 			});
 		}
 	} else if (action === "warn") {
-		const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._\n>\n${warnFooter(ctx.repoFullName)}`;
+		const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._\n>\n${warnFooter(ctx.repoFullName, ctx.senderLogin)}`;
 		await addComment(token, owner, repo, issueNumber, comment);
 
 		if (result.repoId) {
@@ -894,7 +952,7 @@ export async function handleComment(
 	issueNumber: number,
 	commentBody?: string,
 ) {
-	const result = await runFilterPipeline(ctx, commentBody);
+	const result = await runFilterPipeline(ctx, commentBody, "comment");
 
 	const githubRef = `#${issueNumber}/comment/${commentId}`;
 
@@ -924,7 +982,7 @@ export async function handleComment(
 			});
 		}
 	} else if (action === "warn") {
-		const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._\n>\n${warnFooter(ctx.repoFullName)}`;
+		const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._\n>\n${warnFooter(ctx.repoFullName, ctx.senderLogin)}`;
 		await addComment(token, owner, repo, issueNumber, comment);
 
 		if (result.repoId) {

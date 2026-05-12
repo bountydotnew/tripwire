@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute, useBlocker } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { parseAsBoolean, parseAsString, parseAsStringEnum, useQueryState, useQueryStates } from "nuqs";
 import {
 	AccountAgeViz,
 	AiSlopViz,
@@ -18,6 +19,9 @@ import { RulesSaveBar } from "../../components/rules/rules-save-bar";
 import { PeopleTab } from "../../components/rules/people-tab";
 import { EmptyState } from "../../components/layout/empty-state";
 import { Button } from "#/components/ui/button";
+import { Checkbox } from "#/components/ui/checkbox";
+import { File01Icon } from "#/components/icons/file-01-icon";
+import { FileContentEditor } from "#/components/rules/file-content-editor";
 import {
 	Dialog,
 	DialogContent,
@@ -36,12 +40,31 @@ import {
 	normalizeRuleConfig,
 	revertRuleConfigChange,
 } from "#/lib/rules/config-draft";
+import {
+	generateHoneypotPhraseOfKind,
+	generatePrTemplate,
+	generateRulesMd,
+} from "#/lib/github/repo-files";
 import { useWorkspace } from "#/lib/workspace-context";
 
 export const Route = createFileRoute("/_app/rules")({
 	component: RulesPage,
 	pendingComponent: RulesPageSkeleton,
 });
+
+const HONEYPOT_KIND_LABEL: Record<"codeword" | "marker" | "natural" | "tag", string> = {
+	codeword: "Codeword",
+	marker: "Marker",
+	natural: "Natural",
+	tag: "Tag",
+};
+
+const HONEYPOT_KIND_HINT: Record<"codeword" | "marker" | "natural" | "tag", string> = {
+	codeword: "Random adjective-noun-number, e.g. velvet-lantern-742",
+	marker: "CI-style compliance token, e.g. TW-ACK-9F2C",
+	natural: "Human-readable confirmation, e.g. \"Rules reviewed and applied to this submission.\"",
+	tag: "Bracketed slug, e.g. [reviewed-rules]",
+};
 
 function RulesPageSkeleton() {
 	return (
@@ -81,7 +104,10 @@ function RulesPage() {
 		),
 	);
 
-	const serverConfig = normalizeRuleConfig(configQuery.data);
+	const serverConfig = useMemo(
+		() => normalizeRuleConfig(configQuery.data),
+		[configQuery.data],
+	);
 	const activeConfig = draftConfig ?? serverConfig;
 	const changes = getRuleConfigChanges(serverConfig, activeConfig);
 	const dirty = changes.length > 0;
@@ -156,6 +182,38 @@ function RulesPage() {
 			return normalizeRuleConfig({
 				...baseConfig,
 				[key]: { ...baseConfig[key], ...patch },
+			});
+		});
+	}, [serverConfig, updateConfig.isPending]);
+
+	const updateRepoFileContent = useCallback(
+		(kind: "rules-md" | "pr-template", content: string) => {
+			if (updateConfig.isPending) return;
+			setDraftConfig((currentDraft) => {
+				const baseConfig = currentDraft ?? serverConfig;
+				const repoFiles =
+					kind === "rules-md"
+						? {
+								...baseConfig.repoFiles,
+								rulesMd: { ...baseConfig.repoFiles.rulesMd, customContent: content },
+							}
+						: {
+								...baseConfig.repoFiles,
+								prTemplate: { ...baseConfig.repoFiles.prTemplate, customContent: content },
+							};
+				return normalizeRuleConfig({ ...baseConfig, repoFiles });
+			});
+		},
+		[serverConfig, updateConfig.isPending],
+	);
+
+	const toggleScope = useCallback((field: "pullRequests" | "issues" | "comments", value: boolean) => {
+		if (updateConfig.isPending) return;
+		setDraftConfig((currentDraft) => {
+			const baseConfig = currentDraft ?? serverConfig;
+			return normalizeRuleConfig({
+				...baseConfig,
+				contentScope: { ...baseConfig.contentScope, [field]: value },
 			});
 		});
 	}, [serverConfig, updateConfig.isPending]);
@@ -251,8 +309,31 @@ function RulesPage() {
 		staleTime: 5 * 60 * 1000,
 	});
 
-	const [tab, setTab] = useState<"marketplace" | "installed" | "people" | "requests">("marketplace");
+	const [tab, setTab] = useQueryState(
+		"tab",
+		parseAsStringEnum([
+			"marketplace",
+			"installed",
+			"people",
+			"requests",
+			"files",
+		] as const).withDefault("marketplace"),
+	);
 	const [searchQuery, setSearchQuery] = useState("");
+
+	const [{ rule: configureRule, configure: configureFlag }, setConfigureParams] = useQueryStates({
+		rule: parseAsString,
+		configure: parseAsBoolean.withDefault(false),
+	});
+
+	const ruleConfigureProps = useCallback(
+		(key: keyof RuleConfig) => ({
+			configureOpen: configureFlag && configureRule === key,
+			onConfigureOpenChange: (open: boolean) =>
+				setConfigureParams(open ? { rule: key, configure: true } : { rule: null, configure: false }),
+		}),
+		[configureFlag, configureRule, setConfigureParams],
+	);
 
 	const requestsQuery = useQuery(
 		trpc.requests.list.queryOptions(
@@ -261,6 +342,73 @@ function RulesPage() {
 		),
 	);
 	const pendingRequestCount = requestsQuery.data?.length ?? 0;
+
+	const addHoneypotPhrase = useCallback(
+		(kind: "codeword" | "marker" | "natural" | "tag") => {
+			if (updateConfig.isPending) return;
+			const newPhrase = generateHoneypotPhraseOfKind(kind);
+			setDraftConfig((currentDraft) => {
+				const baseConfig = currentDraft ?? serverConfig;
+				return normalizeRuleConfig({
+					...baseConfig,
+					repoFiles: {
+						...baseConfig.repoFiles,
+						prTemplate: {
+							...baseConfig.repoFiles.prTemplate,
+							honeypotPhrases: [
+								...baseConfig.repoFiles.prTemplate.honeypotPhrases,
+								newPhrase,
+							],
+							// Clear any stale custom override so the new phrase is visible in the preview.
+							// User edits to the textarea after this will re-populate customContent.
+							customContent: "",
+						},
+					},
+				});
+			});
+		},
+		[serverConfig, updateConfig.isPending],
+	);
+
+	const removeHoneypotPhrase = useCallback(
+		(index: number) => {
+			if (updateConfig.isPending) return;
+			setDraftConfig((currentDraft) => {
+				const baseConfig = currentDraft ?? serverConfig;
+				return normalizeRuleConfig({
+					...baseConfig,
+					repoFiles: {
+						...baseConfig.repoFiles,
+						prTemplate: {
+							...baseConfig.repoFiles.prTemplate,
+							honeypotPhrases: baseConfig.repoFiles.prTemplate.honeypotPhrases.filter(
+								(_, i) => i !== index,
+							),
+						},
+					},
+				});
+			});
+		},
+		[serverConfig, updateConfig.isPending],
+	);
+
+	const toggleRepoFile = useCallback(
+		(path: "rulesMd.autoSync" | "prTemplate.autoSync" | "prTemplate.honeypotEnabled", value: boolean) => {
+			if (updateConfig.isPending) return;
+			setDraftConfig((currentDraft) => {
+				const baseConfig = currentDraft ?? serverConfig;
+				const repoFiles = baseConfig.repoFiles;
+				const nextRepoFiles =
+					path === "rulesMd.autoSync"
+						? { ...repoFiles, rulesMd: { ...repoFiles.rulesMd, autoSync: value } }
+						: path === "prTemplate.autoSync"
+							? { ...repoFiles, prTemplate: { ...repoFiles.prTemplate, autoSync: value } }
+							: { ...repoFiles, prTemplate: { ...repoFiles.prTemplate, honeypotEnabled: value } };
+				return normalizeRuleConfig({ ...baseConfig, repoFiles: nextRepoFiles });
+			});
+		},
+		[serverConfig, updateConfig.isPending],
+	);
 
 	const decideRequest = useMutation(
 		trpc.requests.decide.mutationOptions({
@@ -296,6 +444,7 @@ function RulesPage() {
 		activeConfig.requireProfileReadme.enabled,
 		activeConfig.cryptoAddressDetection.enabled,
 		activeConfig.vouchedUsersOnly.enabled,
+		activeConfig.aiHoneypot.enabled,
 	].filter(Boolean).length;
 
 	if (!isLoading && repos.length === 0) {
@@ -329,6 +478,7 @@ function RulesPage() {
 		{ key: "requireProfileReadme" as const, title: "Require profile README", searchable: "require profile readme" },
 		{ key: "cryptoAddressDetection" as const, title: "Crypto address detection", searchable: "crypto address detection bitcoin ethereum" },
 		{ key: "vouchedUsersOnly" as const, title: "Vouched users only", searchable: "vouched users whitelist allowlist trusted contributors" },
+		{ key: "aiHoneypot" as const, title: "AI honeypot", searchable: "ai honeypot agent llm detection bot" },
 	];
 
 	const q = searchQuery.toLowerCase();
@@ -339,13 +489,46 @@ function RulesPage() {
 
 	return (
 		<div className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-4 py-8 md:px-[50px] md:py-10">
-			<div className="grid grid-cols-[180px_1fr] gap-6">
+			<div className="grid grid-cols-[180px_1fr] gap-6 items-start">
 				{/* Side column */}
-				<div className="flex flex-col gap-4 pt-1">
+				<div className="flex flex-col gap-4 pt-1 sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-y-auto">
 					<div>
 						<h1 className="m-0 text-[22px] leading-[28px] font-semibold tracking-[-0.02em] text-white">Rules</h1>
 						<p className="m-0 text-[13px] text-[#FFFFFF73] mt-0.5">{activeCount} active</p>
 					</div>
+
+					<div className="flex flex-col gap-1.5">
+						<div className="text-[11px] uppercase tracking-wide text-[#FFFFFF59]">Watching</div>
+						{(
+							[
+								{ key: "pullRequests" as const, label: "Pull requests" },
+								{ key: "issues" as const, label: "Issues" },
+								{ key: "comments" as const, label: "Comments" },
+							]
+						).map(({ key, label }) => {
+							const checked = activeConfig.contentScope[key];
+							return (
+								<label
+									key={key}
+									className="flex items-center gap-2 text-[13px] text-[#FFFFFFCC] cursor-pointer select-none -mx-1 px-1 py-0.5 rounded hover:bg-[#ffffff08]"
+								>
+									<Checkbox
+										checked={checked}
+										onCheckedChange={(value) => toggleScope(key, value === true)}
+									/>
+									{label}
+								</label>
+							);
+						})}
+						{!activeConfig.contentScope.pullRequests &&
+						!activeConfig.contentScope.issues &&
+						!activeConfig.contentScope.comments ? (
+							<p className="m-0 mt-1 text-[11px] text-amber-300/80 leading-snug">
+								Tripwire isn't watching anything — rules won't run.
+							</p>
+						) : null}
+					</div>
+
 					<nav className="flex flex-col gap-0.5 -mx-1.5">
 						<button
 							type="button"
@@ -387,6 +570,14 @@ function RulesPage() {
 								<span className="text-[11px] text-tw-accent tabular-nums">{pendingRequestCount}</span>
 							)}
 						</button>
+						<button
+							type="button"
+							onClick={() => setTab("files")}
+							className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${tab === "files" ? "bg-tw-card text-white" : "text-[#FFFFFF99] hover:bg-[#ffffff08]"}`}
+						>
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1.5h5l3 3v8h-8v-11Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M8 1.5v3h3" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
+							Files
+						</button>
 					</nav>
 				</div>
 
@@ -418,6 +609,7 @@ function RulesPage() {
 					onActionChange={(action) => updateRuleValue("aiSlopDetection", { action })}
 					visualization={<AiSlopViz />}
 					comingSoon
+					{...ruleConfigureProps("aiSlopDetection")}
 				/>
 				<RuleCardGrid
 					title={`Require contributions in ${activeConfig.languageRequirement.language}`}
@@ -428,6 +620,7 @@ function RulesPage() {
 					onToggle={(value) => toggleRule("languageRequirement", value)}
 					onActionChange={(action) => updateRuleValue("languageRequirement", { action })}
 					visualization={<LanguageViz />}
+					{...ruleConfigureProps("languageRequirement")}
 				/>
 				<RuleCardGrid
 					title={`At least ${activeConfig.minMergedPrs.count} merged PRs`}
@@ -443,6 +636,7 @@ function RulesPage() {
 						label: "Minimum merged PRs",
 						onChange: (count) => updateRuleValue("minMergedPrs", { count }),
 					}}
+					{...ruleConfigureProps("minMergedPrs")}
 				/>
 				<RuleCardGrid
 					title={`Account older than ${activeConfig.accountAge.days} days`}
@@ -458,6 +652,7 @@ function RulesPage() {
 						label: "Minimum account age (days)",
 						onChange: (days) => updateRuleValue("accountAge", { days }),
 					}}
+					{...ruleConfigureProps("accountAge")}
 				/>
 				<RuleCardGrid
 					title={`Max ${activeConfig.maxPrsPerDay.limit} PRs per day`}
@@ -473,6 +668,7 @@ function RulesPage() {
 						label: "Maximum PRs per day",
 						onChange: (limit) => updateRuleValue("maxPrsPerDay", { limit }),
 					}}
+					{...ruleConfigureProps("maxPrsPerDay")}
 				/>
 				<RuleCardGrid
 					title={`Max ${activeConfig.maxFilesChanged.limit} files changed`}
@@ -488,6 +684,7 @@ function RulesPage() {
 						label: "Maximum files changed",
 						onChange: (limit) => updateRuleValue("maxFilesChanged", { limit }),
 					}}
+					{...ruleConfigureProps("maxFilesChanged")}
 				/>
 				<RuleCardGrid
 					title={`At least ${activeConfig.repoActivityMinimum.minRepos} public repos`}
@@ -503,6 +700,7 @@ function RulesPage() {
 						label: "Minimum public repos",
 						onChange: (minRepos) => updateRuleValue("repoActivityMinimum", { minRepos }),
 					}}
+					{...ruleConfigureProps("repoActivityMinimum")}
 				/>
 				<RuleCardGrid
 					title="Require profile README"
@@ -513,6 +711,7 @@ function RulesPage() {
 					onToggle={(value) => toggleRule("requireProfileReadme", value)}
 					onActionChange={(action) => updateRuleValue("requireProfileReadme", { action })}
 					visualization={<ProfileReadmeViz />}
+					{...ruleConfigureProps("requireProfileReadme")}
 				/>
 				<RuleCardGrid
 					title="Crypto address detection"
@@ -523,6 +722,7 @@ function RulesPage() {
 					onToggle={(value) => toggleRule("cryptoAddressDetection", value)}
 					onActionChange={(action) => updateRuleValue("cryptoAddressDetection", { action })}
 					visualization={<CryptoViz />}
+					{...ruleConfigureProps("cryptoAddressDetection")}
 				/>
 				<RuleCardGrid
 					title="Vouched users only"
@@ -533,6 +733,34 @@ function RulesPage() {
 					onToggle={(value) => toggleRule("vouchedUsersOnly", value)}
 					onActionChange={(action) => updateRuleValue("vouchedUsersOnly", { action })}
 					visualization={<VouchedUsersViz />}
+					{...ruleConfigureProps("vouchedUsersOnly")}
+				/>
+				<RuleCardGrid
+					title="AI honeypot"
+					modalTitle="AI honeypot"
+					description="Flag PRs that mention the hidden phrase injected into your PR template (Files tab)"
+					enabled={activeConfig.aiHoneypot.enabled}
+					action={activeConfig.aiHoneypot.action}
+					onToggle={(value) => toggleRule("aiHoneypot", value)}
+					onActionChange={(action) => updateRuleValue("aiHoneypot", { action })}
+					visualization={<AiSlopViz />}
+					configureHint={({ close }) => (
+						<>
+							Honeypot phrases and the hidden line injected into your PR template live in the{" "}
+							<button
+								type="button"
+								onClick={() => {
+									setTab("files");
+									close();
+								}}
+								className="text-tw-accent hover:underline underline-offset-2 cursor-pointer"
+							>
+								Files tab
+							</button>
+							. This dialog only changes how Tripwire reacts when the phrase is detected.
+						</>
+					)}
+					{...ruleConfigureProps("aiHoneypot")}
 				/>
 						</div>
 					)}
@@ -548,34 +776,63 @@ function RulesPage() {
 						) : (
 							<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 								{activeConfig.aiSlopDetection.enabled && matchesSearch(allRules[0]) && (
-									<RuleCardGrid title="AI slop detection" modalTitle="AI slop detection" description="Use known detection patterns to minimize automated activity" enabled={true} action={activeConfig.aiSlopDetection.action} onToggle={(v) => toggleRule("aiSlopDetection", v)} onActionChange={(a) => updateRuleValue("aiSlopDetection", { action: a })} visualization={<AiSlopViz />} comingSoon />
+									<RuleCardGrid title="AI slop detection" modalTitle="AI slop detection" description="Use known detection patterns to minimize automated activity" enabled={true} action={activeConfig.aiSlopDetection.action} onToggle={(v) => toggleRule("aiSlopDetection", v)} onActionChange={(a) => updateRuleValue("aiSlopDetection", { action: a })} visualization={<AiSlopViz />} comingSoon {...ruleConfigureProps("aiSlopDetection")} />
 								)}
 								{activeConfig.languageRequirement.enabled && matchesSearch(allRules[1]) && (
-									<RuleCardGrid title={`Require contributions in ${activeConfig.languageRequirement.language}`} modalTitle="Language requirement" description="Contributions in a disallowed language will be declined" enabled={true} action={activeConfig.languageRequirement.action} onToggle={(v) => toggleRule("languageRequirement", v)} onActionChange={(a) => updateRuleValue("languageRequirement", { action: a })} visualization={<LanguageViz />} />
+									<RuleCardGrid title={`Require contributions in ${activeConfig.languageRequirement.language}`} modalTitle="Language requirement" description="Contributions in a disallowed language will be declined" enabled={true} action={activeConfig.languageRequirement.action} onToggle={(v) => toggleRule("languageRequirement", v)} onActionChange={(a) => updateRuleValue("languageRequirement", { action: a })} visualization={<LanguageViz />} {...ruleConfigureProps("languageRequirement")} />
 								)}
 								{activeConfig.minMergedPrs.enabled && matchesSearch(allRules[2]) && (
-									<RuleCardGrid title={`At least ${activeConfig.minMergedPrs.count} merged PRs`} modalTitle="Minimum merged PRs" description="Minimum merged pull requests before they can contribute" enabled={true} action={activeConfig.minMergedPrs.action} onToggle={(v) => toggleRule("minMergedPrs", v)} onActionChange={(a) => updateRuleValue("minMergedPrs", { action: a })} visualization={<MergedPrsViz />} numericConfig={{ value: activeConfig.minMergedPrs.count, label: "Minimum merged PRs", onChange: (count) => updateRuleValue("minMergedPrs", { count }) }} />
+									<RuleCardGrid title={`At least ${activeConfig.minMergedPrs.count} merged PRs`} modalTitle="Minimum merged PRs" description="Minimum merged pull requests before they can contribute" enabled={true} action={activeConfig.minMergedPrs.action} onToggle={(v) => toggleRule("minMergedPrs", v)} onActionChange={(a) => updateRuleValue("minMergedPrs", { action: a })} visualization={<MergedPrsViz />} numericConfig={{ value: activeConfig.minMergedPrs.count, label: "Minimum merged PRs", onChange: (count) => updateRuleValue("minMergedPrs", { count }) }} {...ruleConfigureProps("minMergedPrs")} />
 								)}
 								{activeConfig.accountAge.enabled && matchesSearch(allRules[3]) && (
-									<RuleCardGrid title={`Account older than ${activeConfig.accountAge.days} days`} modalTitle="Account age requirement" description="Block accounts created too recently from contributing" enabled={true} action={activeConfig.accountAge.action} onToggle={(v) => toggleRule("accountAge", v)} onActionChange={(a) => updateRuleValue("accountAge", { action: a })} visualization={<AccountAgeViz />} numericConfig={{ value: activeConfig.accountAge.days, label: "Minimum account age (days)", onChange: (days) => updateRuleValue("accountAge", { days }) }} />
+									<RuleCardGrid title={`Account older than ${activeConfig.accountAge.days} days`} modalTitle="Account age requirement" description="Block accounts created too recently from contributing" enabled={true} action={activeConfig.accountAge.action} onToggle={(v) => toggleRule("accountAge", v)} onActionChange={(a) => updateRuleValue("accountAge", { action: a })} visualization={<AccountAgeViz />} numericConfig={{ value: activeConfig.accountAge.days, label: "Minimum account age (days)", onChange: (days) => updateRuleValue("accountAge", { days }) }} {...ruleConfigureProps("accountAge")} />
 								)}
 								{activeConfig.maxPrsPerDay.enabled && matchesSearch(allRules[4]) && (
-									<RuleCardGrid title={`Max ${activeConfig.maxPrsPerDay.limit} PRs per day`} modalTitle="Max PRs per day" description="Rate limit how many PRs or issues a single user can open per day" enabled={true} action={activeConfig.maxPrsPerDay.action} onToggle={(v) => toggleRule("maxPrsPerDay", v)} onActionChange={(a) => updateRuleValue("maxPrsPerDay", { action: a })} visualization={<MaxPrsPerDayViz />} numericConfig={{ value: activeConfig.maxPrsPerDay.limit, label: "Maximum PRs per day", onChange: (limit) => updateRuleValue("maxPrsPerDay", { limit }) }} />
+									<RuleCardGrid title={`Max ${activeConfig.maxPrsPerDay.limit} PRs per day`} modalTitle="Max PRs per day" description="Rate limit how many PRs or issues a single user can open per day" enabled={true} action={activeConfig.maxPrsPerDay.action} onToggle={(v) => toggleRule("maxPrsPerDay", v)} onActionChange={(a) => updateRuleValue("maxPrsPerDay", { action: a })} visualization={<MaxPrsPerDayViz />} numericConfig={{ value: activeConfig.maxPrsPerDay.limit, label: "Maximum PRs per day", onChange: (limit) => updateRuleValue("maxPrsPerDay", { limit }) }} {...ruleConfigureProps("maxPrsPerDay")} />
 								)}
 								{activeConfig.maxFilesChanged.enabled && matchesSearch(allRules[5]) && (
-									<RuleCardGrid title={`Max ${activeConfig.maxFilesChanged.limit} files changed`} modalTitle="Max files changed" description="Block pull requests that touch too many files in a single submission" enabled={true} action={activeConfig.maxFilesChanged.action} onToggle={(v) => toggleRule("maxFilesChanged", v)} onActionChange={(a) => updateRuleValue("maxFilesChanged", { action: a })} visualization={<MaxFilesChangedViz />} numericConfig={{ value: activeConfig.maxFilesChanged.limit, label: "Maximum files changed", onChange: (limit) => updateRuleValue("maxFilesChanged", { limit }) }} />
+									<RuleCardGrid title={`Max ${activeConfig.maxFilesChanged.limit} files changed`} modalTitle="Max files changed" description="Block pull requests that touch too many files in a single submission" enabled={true} action={activeConfig.maxFilesChanged.action} onToggle={(v) => toggleRule("maxFilesChanged", v)} onActionChange={(a) => updateRuleValue("maxFilesChanged", { action: a })} visualization={<MaxFilesChangedViz />} numericConfig={{ value: activeConfig.maxFilesChanged.limit, label: "Maximum files changed", onChange: (limit) => updateRuleValue("maxFilesChanged", { limit }) }} {...ruleConfigureProps("maxFilesChanged")} />
 								)}
 								{activeConfig.repoActivityMinimum.enabled && matchesSearch(allRules[6]) && (
-									<RuleCardGrid title={`At least ${activeConfig.repoActivityMinimum.minRepos} public repos`} modalTitle="Repo activity minimum" description="Contributor must have meaningful activity across other public repos" enabled={true} action={activeConfig.repoActivityMinimum.action} onToggle={(v) => toggleRule("repoActivityMinimum", v)} onActionChange={(a) => updateRuleValue("repoActivityMinimum", { action: a })} visualization={<RepoActivityViz />} numericConfig={{ value: activeConfig.repoActivityMinimum.minRepos, label: "Minimum public repos", onChange: (minRepos) => updateRuleValue("repoActivityMinimum", { minRepos }) }} />
+									<RuleCardGrid title={`At least ${activeConfig.repoActivityMinimum.minRepos} public repos`} modalTitle="Repo activity minimum" description="Contributor must have meaningful activity across other public repos" enabled={true} action={activeConfig.repoActivityMinimum.action} onToggle={(v) => toggleRule("repoActivityMinimum", v)} onActionChange={(a) => updateRuleValue("repoActivityMinimum", { action: a })} visualization={<RepoActivityViz />} numericConfig={{ value: activeConfig.repoActivityMinimum.minRepos, label: "Minimum public repos", onChange: (minRepos) => updateRuleValue("repoActivityMinimum", { minRepos }) }} {...ruleConfigureProps("repoActivityMinimum")} />
 								)}
 								{activeConfig.requireProfileReadme.enabled && matchesSearch(allRules[7]) && (
-									<RuleCardGrid title="Require profile README" modalTitle="Require profile README" description="Contributors must have a profile README on their GitHub account" enabled={true} action={activeConfig.requireProfileReadme.action} onToggle={(v) => toggleRule("requireProfileReadme", v)} onActionChange={(a) => updateRuleValue("requireProfileReadme", { action: a })} visualization={<ProfileReadmeViz />} />
+									<RuleCardGrid title="Require profile README" modalTitle="Require profile README" description="Contributors must have a profile README on their GitHub account" enabled={true} action={activeConfig.requireProfileReadme.action} onToggle={(v) => toggleRule("requireProfileReadme", v)} onActionChange={(a) => updateRuleValue("requireProfileReadme", { action: a })} visualization={<ProfileReadmeViz />} {...ruleConfigureProps("requireProfileReadme")} />
 								)}
 								{activeConfig.cryptoAddressDetection.enabled && matchesSearch(allRules[8]) && (
-									<RuleCardGrid title="Crypto address detection" modalTitle="Crypto address detection" description="Block content containing cryptocurrency wallet addresses (BTC, ETH, SOL, XMR, DASH)" enabled={true} action={activeConfig.cryptoAddressDetection.action} onToggle={(v) => toggleRule("cryptoAddressDetection", v)} onActionChange={(a) => updateRuleValue("cryptoAddressDetection", { action: a })} visualization={<CryptoViz />} />
+									<RuleCardGrid title="Crypto address detection" modalTitle="Crypto address detection" description="Block content containing cryptocurrency wallet addresses (BTC, ETH, SOL, XMR, DASH)" enabled={true} action={activeConfig.cryptoAddressDetection.action} onToggle={(v) => toggleRule("cryptoAddressDetection", v)} onActionChange={(a) => updateRuleValue("cryptoAddressDetection", { action: a })} visualization={<CryptoViz />} {...ruleConfigureProps("cryptoAddressDetection")} />
 								)}
 								{activeConfig.vouchedUsersOnly.enabled && matchesSearch(allRules[9]) && (
-									<RuleCardGrid title="Vouched users only" modalTitle="Vouched users only" description="Allow contributions only from users on the whitelist (People tab)" enabled={true} action={activeConfig.vouchedUsersOnly.action} onToggle={(v) => toggleRule("vouchedUsersOnly", v)} onActionChange={(a) => updateRuleValue("vouchedUsersOnly", { action: a })} visualization={<VouchedUsersViz />} />
+									<RuleCardGrid title="Vouched users only" modalTitle="Vouched users only" description="Allow contributions only from users on the whitelist (People tab)" enabled={true} action={activeConfig.vouchedUsersOnly.action} onToggle={(v) => toggleRule("vouchedUsersOnly", v)} onActionChange={(a) => updateRuleValue("vouchedUsersOnly", { action: a })} visualization={<VouchedUsersViz />} {...ruleConfigureProps("vouchedUsersOnly")} />
+								)}
+								{activeConfig.aiHoneypot.enabled && matchesSearch(allRules[10]) && (
+									<RuleCardGrid
+										title="AI honeypot"
+										modalTitle="AI honeypot"
+										description="Flag PRs that mention the hidden phrase injected into your PR template (Files tab)"
+										enabled={true}
+										action={activeConfig.aiHoneypot.action}
+										onToggle={(v) => toggleRule("aiHoneypot", v)}
+										onActionChange={(a) => updateRuleValue("aiHoneypot", { action: a })}
+										visualization={<AiSlopViz />}
+										configureHint={({ close }) => (
+											<>
+												Honeypot phrases and the hidden line injected into your PR template live in the{" "}
+												<button
+													type="button"
+													onClick={() => {
+														setTab("files");
+														close();
+													}}
+													className="text-tw-accent hover:underline underline-offset-2 cursor-pointer"
+												>
+													Files tab
+												</button>
+												. This dialog only changes how Tripwire reacts when the phrase is detected.
+											</>
+										)}
+										{...ruleConfigureProps("aiHoneypot")}
+									/>
 								)}
 							</div>
 						)
@@ -671,6 +928,174 @@ function RulesPage() {
 									</div>
 								))
 							)}
+						</div>
+					)}
+
+					{tab === "files" && (
+						<div className="flex flex-col gap-3">
+							<p className="text-[12px] text-[#FFFFFF73] m-0">
+								Tripwire can commit files to your repo so contributors and AI agents see your rules upfront.
+							</p>
+
+							{/* RULES.md card */}
+							{(() => {
+								const generated = generateRulesMd(activeConfig, repo?.fullName ?? "owner/repo");
+								const custom = activeConfig.repoFiles.rulesMd.customContent;
+								const value = custom.length > 0 ? custom : generated;
+								return (
+									<div className="rounded-xl bg-tw-card border border-tw-border-card p-4 flex flex-col gap-3">
+										<div className="flex flex-col gap-0.5">
+											<div className="flex items-center gap-2">
+												<File01Icon size={14} className="text-tw-text-secondary" />
+												<span className="text-[14px] font-medium text-white">RULES.md</span>
+											</div>
+											<p className="text-[12px] text-[#FFFFFF99] m-0">
+												A human-readable summary of your enabled rules, committed to the repo root.
+											</p>
+										</div>
+										<label className="flex items-center gap-2 text-[13px] text-[#FFFFFFCC] cursor-pointer select-none">
+											<Checkbox
+												checked={activeConfig.repoFiles.rulesMd.autoSync}
+												onCheckedChange={(checked) =>
+													toggleRepoFile("rulesMd.autoSync", checked === true)
+												}
+											/>
+											Auto-sync to GitHub on save
+										</label>
+										<FileContentEditor
+											value={value}
+											onChange={(next) => updateRepoFileContent("rules-md", next === generated ? "" : next)}
+											targetPath="RULES.md"
+											autoSync={activeConfig.repoFiles.rulesMd.autoSync}
+											rows={10}
+										/>
+									</div>
+								);
+							})()}
+
+							{/* PR template card */}
+							<div className="rounded-xl bg-tw-card border border-tw-border-card p-4 flex flex-col gap-3">
+								<div className="flex flex-col gap-0.5">
+									<div className="flex items-center gap-2">
+										<File01Icon size={14} className="text-tw-text-secondary" />
+										<span className="text-[14px] font-medium text-white">PULL_REQUEST_TEMPLATE.md</span>
+									</div>
+									<p className="text-[12px] text-[#FFFFFF99] m-0">
+										Pre-fills every PR description with a checklist tied to your rules.
+									</p>
+								</div>
+								<label className="flex items-center gap-2 text-[13px] text-[#FFFFFFCC] cursor-pointer select-none">
+									<Checkbox
+										checked={activeConfig.repoFiles.prTemplate.autoSync}
+										onCheckedChange={(checked) =>
+											toggleRepoFile("prTemplate.autoSync", checked === true)
+										}
+									/>
+									Auto-sync to GitHub on save
+								</label>
+
+								{/* Honeypot sub-section */}
+								<div className="mt-1 pt-3 border-t border-white/[0.06] flex flex-col gap-2">
+									<label htmlFor="honeypot-toggle" className="flex items-start gap-2 cursor-pointer select-none">
+										<Checkbox
+											id="honeypot-toggle"
+											checked={activeConfig.repoFiles.prTemplate.honeypotEnabled}
+											onCheckedChange={(checked) =>
+												toggleRepoFile("prTemplate.honeypotEnabled", checked === true)
+											}
+											className="mt-0.5"
+										/>
+										<span className="flex flex-col gap-0.5">
+											<span className="text-[13px] text-[#FFFFFFCC]">Embed AI honeypot</span>
+											<span className="text-[11px] text-[#FFFFFF73] leading-snug">
+												Hidden instruction in the template that AI agents tend to follow. Pair with the <span className="text-tw-accent">AI honeypot</span> rule to flag PRs that include the phrase.
+											</span>
+										</span>
+									</label>
+									{activeConfig.repoFiles.prTemplate.honeypotEnabled ? (
+										<div className="ml-5 flex flex-col gap-1.5">
+											<div className="text-[11px] text-[#FFFFFF59]">
+												{activeConfig.repoFiles.prTemplate.honeypotPhrases.length === 0
+													? "No phrases yet. Add one to start trapping."
+													: `${activeConfig.repoFiles.prTemplate.honeypotPhrases.length} phrase${activeConfig.repoFiles.prTemplate.honeypotPhrases.length === 1 ? "" : "s"} — one is picked at random on each sync.`}
+											</div>
+											{activeConfig.repoFiles.prTemplate.honeypotPhrases.length > 0 ? (
+												<div className="flex flex-col gap-1">
+													{activeConfig.repoFiles.prTemplate.honeypotPhrases.map((p, i) => (
+														<div key={`${p.kind}-${i}`} className="flex items-center gap-2 group">
+															<span className="text-[10px] uppercase tracking-wide text-[#FFFFFF59] w-[88px] shrink-0">
+																{HONEYPOT_KIND_LABEL[p.kind]}
+															</span>
+															<code className="flex-1 min-w-0 truncate text-[11px] font-mono text-tw-accent bg-tw-inner px-1.5 py-0.5 rounded">
+																{p.phrase}
+															</code>
+															<Button
+																size="xs"
+																variant="ghost"
+																disabled={updateConfig.isPending}
+																onClick={() => removeHoneypotPhrase(i)}
+																className="opacity-0 group-hover:opacity-100 transition-opacity text-[11px] text-tw-text-tertiary hover:text-red-400"
+																title="Remove this phrase"
+															>
+																✕
+															</Button>
+														</div>
+													))}
+												</div>
+											) : null}
+											<div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+												<span className="text-[11px] text-[#FFFFFF73] mr-1">Add a phrase:</span>
+												{(["codeword", "marker", "natural", "tag"] as const).map((kind) => (
+													<Button
+														key={kind}
+														size="xs"
+														variant="ghost"
+														disabled={updateConfig.isPending}
+														onClick={() => addHoneypotPhrase(kind)}
+														className="inline-flex items-center gap-1 text-[11px] text-tw-text-tertiary hover:text-tw-text-secondary bg-transparent hover:bg-tw-hover border-none px-2 py-0.5"
+														title={HONEYPOT_KIND_HINT[kind]}
+													>
+														<svg width="7" height="7" viewBox="0 0 10 10" fill="none" aria-hidden="true" className="opacity-70">
+															<path d="M5 1.5v7M1.5 5h7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+														</svg>
+														{HONEYPOT_KIND_LABEL[kind]}
+													</Button>
+												))}
+											</div>
+										</div>
+									) : null}
+								</div>
+
+								{(() => {
+									const showHoneypotInPreview =
+										activeConfig.repoFiles.prTemplate.honeypotEnabled &&
+										activeConfig.repoFiles.prTemplate.honeypotPhrases.length > 0;
+									const previewPhrase = showHoneypotInPreview
+										? activeConfig.repoFiles.prTemplate.honeypotPhrases[0].phrase
+										: undefined;
+									const generated = generatePrTemplate(activeConfig, previewPhrase);
+									const custom = activeConfig.repoFiles.prTemplate.customContent;
+									const value = custom.length > 0 ? custom : generated;
+									const phraseCount = activeConfig.repoFiles.prTemplate.honeypotPhrases.length;
+									const footerNote = showHoneypotInPreview
+										? phraseCount > 1
+											? `Preview shows the first phrase — sync rotates among your ${phraseCount} phrases.`
+											: "The honeypot phrase is committed inside this template."
+										: undefined;
+									return (
+										<FileContentEditor
+											value={value}
+											onChange={(next) =>
+												updateRepoFileContent("pr-template", next === generated ? "" : next)
+											}
+											targetPath=".github/PULL_REQUEST_TEMPLATE.md"
+											autoSync={activeConfig.repoFiles.prTemplate.autoSync}
+											footerNote={footerNote}
+											rows={14}
+										/>
+									);
+								})()}
+							</div>
 						</div>
 					)}
 				</div>

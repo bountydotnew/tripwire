@@ -118,7 +118,7 @@ export function RulesSaveBar({
 		dirty && !saving ? "w-full max-w-[560px]" : "w-auto max-w-full";
 
 	return (
-		<div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+		<div className="pointer-events-none fixed inset-x-0 bottom-6 z-[60] flex justify-center px-4">
 			<AnimatePresence initial={false}>
 				{isVisible ? (
 					<motion.div

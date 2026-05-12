@@ -1,4 +1,11 @@
-import { DEFAULT_RULE_CONFIG, type RuleAction, type RuleConfig } from "#/db/schema";
+import {
+	DEFAULT_RULE_CONFIG,
+	RULE_KEYS,
+	type ContentScope,
+	type RuleAction,
+	type RuleConfig,
+	type RuleKey,
+} from "#/db/schema";
 
 export type RuleConfigChangeTone = "neutral" | "muted" | "accent" | "success" | "warning" | "danger";
 
@@ -14,10 +21,17 @@ export interface RuleConfigChange {
 	afterTone?: RuleConfigChangeTone;
 }
 
-type RuleKey = keyof RuleConfig;
 type RuleField = keyof RuleConfig[RuleKey];
 
-const RULE_ORDER = Object.keys(DEFAULT_RULE_CONFIG) as RuleKey[];
+const RULE_ORDER: readonly RuleKey[] = RULE_KEYS;
+
+const SCOPE_LABELS: Record<keyof ContentScope, string> = {
+	pullRequests: "Pull requests",
+	issues: "Issues",
+	comments: "Comments",
+};
+
+const SCOPE_FIELD_ORDER: (keyof ContentScope)[] = ["pullRequests", "issues", "comments"];
 
 const RULE_LABELS: Record<RuleKey, string> = {
 	aiSlopDetection: "AI slop detection",
@@ -30,6 +44,7 @@ languageRequirement: "Language requirement",
 	requireProfileReadme: "Require profile README",
 	cryptoAddressDetection: "Crypto address detection",
 	vouchedUsersOnly: "Vouched users only",
+	aiHoneypot: "AI honeypot",
 };
 
 const ACTION_LABELS: Record<RuleAction, string> = {
@@ -50,6 +65,7 @@ languageRequirement: ["enabled", "action", "language", "thresholdCount"],
 	requireProfileReadme: ["enabled", "action", "thresholdCount"],
 	cryptoAddressDetection: ["enabled", "action", "thresholdCount"],
 	vouchedUsersOnly: ["enabled", "action", "thresholdCount"],
+	aiHoneypot: ["enabled", "action", "thresholdCount"],
 };
 
 function formatScalar(value: unknown): string {
@@ -193,6 +209,40 @@ languageRequirement: { ...DEFAULT_RULE_CONFIG.languageRequirement, ...raw?.langu
 		requireProfileReadme: { ...DEFAULT_RULE_CONFIG.requireProfileReadme, ...raw?.requireProfileReadme },
 		cryptoAddressDetection: { ...DEFAULT_RULE_CONFIG.cryptoAddressDetection, ...raw?.cryptoAddressDetection },
 		vouchedUsersOnly: { ...DEFAULT_RULE_CONFIG.vouchedUsersOnly, ...raw?.vouchedUsersOnly },
+		aiHoneypot: { ...DEFAULT_RULE_CONFIG.aiHoneypot, ...raw?.aiHoneypot },
+		contentScope: { ...DEFAULT_RULE_CONFIG.contentScope, ...raw?.contentScope },
+		repoFiles: {
+			rulesMd: {
+				...DEFAULT_RULE_CONFIG.repoFiles.rulesMd,
+				...raw?.repoFiles?.rulesMd,
+				customContent:
+					typeof raw?.repoFiles?.rulesMd?.customContent === "string"
+						? raw.repoFiles.rulesMd.customContent
+						: "",
+			},
+			prTemplate: normalizePrTemplate(raw?.repoFiles?.prTemplate),
+		},
+	};
+}
+
+function normalizePrTemplate(
+	raw: Partial<RuleConfig["repoFiles"]["prTemplate"]> | undefined,
+): RuleConfig["repoFiles"]["prTemplate"] {
+	const base = DEFAULT_RULE_CONFIG.repoFiles.prTemplate;
+	const phrases: RuleConfig["repoFiles"]["prTemplate"]["honeypotPhrases"] = Array.isArray(
+		raw?.honeypotPhrases,
+	)
+		? raw.honeypotPhrases.filter((p) => p && typeof p.phrase === "string" && p.phrase.length > 0)
+		: typeof (raw as { honeypotPhrase?: unknown })?.honeypotPhrase === "string" &&
+			  (raw as { honeypotPhrase: string }).honeypotPhrase.length > 0
+			? [{ kind: "codeword" as const, phrase: (raw as { honeypotPhrase: string }).honeypotPhrase }]
+			: [];
+
+	return {
+		autoSync: raw?.autoSync ?? base.autoSync,
+		honeypotEnabled: raw?.honeypotEnabled ?? base.honeypotEnabled,
+		honeypotPhrases: phrases,
+		customContent: typeof raw?.customContent === "string" ? raw.customContent : "",
 	};
 }
 
@@ -216,7 +266,122 @@ export function getRuleConfigChanges(base: RuleConfig, draft: RuleConfig): RuleC
 		}
 	}
 
+	for (const field of SCOPE_FIELD_ORDER) {
+		const before = normalizedBase.contentScope[field];
+		const after = normalizedDraft.contentScope[field];
+		if (before === after) continue;
+		const label = SCOPE_LABELS[field];
+		changes.push({
+			id: `contentScope.${field}`,
+			ruleKey: "contentScope",
+			field,
+			title: `Watch ${label.toLowerCase()}`,
+			before: before ? "On" : "Off",
+			after: after ? "On" : "Off",
+			beforeTone: before ? "success" : "muted",
+			afterTone: after ? "success" : "muted",
+			label: `Watch ${label.toLowerCase()}: ${before ? "On" : "Off"} -> ${after ? "On" : "Off"}`,
+		});
+	}
+
+	// repoFiles boolean toggles
+	const repoFileToggles: { id: string; title: string; before: boolean; after: boolean }[] = [
+		{
+			id: "repoFiles.rulesMd.autoSync",
+			title: "Auto-sync RULES.md",
+			before: normalizedBase.repoFiles.rulesMd.autoSync,
+			after: normalizedDraft.repoFiles.rulesMd.autoSync,
+		},
+		{
+			id: "repoFiles.prTemplate.autoSync",
+			title: "Auto-sync PR template",
+			before: normalizedBase.repoFiles.prTemplate.autoSync,
+			after: normalizedDraft.repoFiles.prTemplate.autoSync,
+		},
+		{
+			id: "repoFiles.prTemplate.honeypotEnabled",
+			title: "AI honeypot embed",
+			before: normalizedBase.repoFiles.prTemplate.honeypotEnabled,
+			after: normalizedDraft.repoFiles.prTemplate.honeypotEnabled,
+		},
+	];
+	for (const t of repoFileToggles) {
+		if (t.before === t.after) continue;
+		changes.push({
+			id: t.id,
+			ruleKey: "repoFiles",
+			field: t.id,
+			title: t.title,
+			before: t.before ? "On" : "Off",
+			after: t.after ? "On" : "Off",
+			beforeTone: t.before ? "success" : "muted",
+			afterTone: t.after ? "success" : "muted",
+			label: `${t.title}: ${t.before ? "On" : "Off"} -> ${t.after ? "On" : "Off"}`,
+		});
+	}
+
+	const beforePhrases = normalizedBase.repoFiles.prTemplate.honeypotPhrases;
+	const afterPhrases = normalizedDraft.repoFiles.prTemplate.honeypotPhrases;
+	if (!honeypotPhrasesEqual(beforePhrases, afterPhrases)) {
+		changes.push({
+			id: "repoFiles.prTemplate.honeypotPhrases",
+			ruleKey: "repoFiles",
+			field: "honeypotPhrases",
+			title: "AI honeypot phrases",
+			before: `${beforePhrases.length}`,
+			after: `${afterPhrases.length}`,
+			beforeTone: "muted",
+			afterTone: afterPhrases.length > beforePhrases.length ? "accent" : "muted",
+			label: `AI honeypot phrases: ${beforePhrases.length} -> ${afterPhrases.length}`,
+		});
+	}
+
+	if (
+		normalizedBase.repoFiles.rulesMd.customContent !==
+		normalizedDraft.repoFiles.rulesMd.customContent
+	) {
+		changes.push({
+			id: "repoFiles.rulesMd.customContent",
+			ruleKey: "repoFiles",
+			field: "customContent",
+			title: "RULES.md content",
+			before: "previous",
+			after: "edited",
+			beforeTone: "muted",
+			afterTone: "accent",
+			label: "RULES.md content edited",
+		});
+	}
+
+	if (
+		normalizedBase.repoFiles.prTemplate.customContent !==
+		normalizedDraft.repoFiles.prTemplate.customContent
+	) {
+		changes.push({
+			id: "repoFiles.prTemplate.customContent",
+			ruleKey: "repoFiles",
+			field: "customContent",
+			title: "PR template content",
+			before: "previous",
+			after: "edited",
+			beforeTone: "muted",
+			afterTone: "accent",
+			label: "PR template content edited",
+		});
+	}
+
 	return changes;
+}
+
+function honeypotPhrasesEqual(
+	a: RuleConfig["repoFiles"]["prTemplate"]["honeypotPhrases"],
+	b: RuleConfig["repoFiles"]["prTemplate"]["honeypotPhrases"],
+): boolean {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		if (a[i].kind !== b[i].kind || a[i].phrase !== b[i].phrase) return false;
+	}
+	return true;
 }
 
 export function areRuleConfigsEqual(a: RuleConfig, b: RuleConfig): boolean {
@@ -224,14 +389,64 @@ export function areRuleConfigsEqual(a: RuleConfig, b: RuleConfig): boolean {
 }
 
 export function revertRuleConfigChange(base: RuleConfig, draft: RuleConfig, changeId: string): RuleConfig {
-	const [ruleKey, field] = changeId.split(".", 2) as [RuleKey | undefined, string | undefined];
+	const [headRaw, field] = changeId.split(".", 2) as [string | undefined, string | undefined];
 
-	if (!ruleKey || !field || !RULE_ORDER.includes(ruleKey)) {
-		return normalizeRuleConfig(draft);
-	}
+	if (!headRaw || !field) return normalizeRuleConfig(draft);
 
 	const normalizedBase = normalizeRuleConfig(base);
 	const normalizedDraft = normalizeRuleConfig(draft);
+
+	if (headRaw === "contentScope" && (field === "pullRequests" || field === "issues" || field === "comments")) {
+		const nextDraft: RuleConfig = {
+			...normalizedDraft,
+			contentScope: {
+				...normalizedDraft.contentScope,
+				[field]: normalizedBase.contentScope[field],
+			},
+		};
+		return normalizeRuleConfig(nextDraft);
+	}
+
+	if (headRaw === "repoFiles") {
+		if (changeId === "repoFiles.rulesMd.autoSync") {
+			return normalizeRuleConfig({
+				...normalizedDraft,
+				repoFiles: {
+					...normalizedDraft.repoFiles,
+					rulesMd: { ...normalizedDraft.repoFiles.rulesMd, autoSync: normalizedBase.repoFiles.rulesMd.autoSync },
+				},
+			});
+		}
+		if (changeId === "repoFiles.prTemplate.autoSync") {
+			return normalizeRuleConfig({
+				...normalizedDraft,
+				repoFiles: {
+					...normalizedDraft.repoFiles,
+					prTemplate: {
+						...normalizedDraft.repoFiles.prTemplate,
+						autoSync: normalizedBase.repoFiles.prTemplate.autoSync,
+					},
+				},
+			});
+		}
+		if (changeId === "repoFiles.prTemplate.honeypotEnabled") {
+			return normalizeRuleConfig({
+				...normalizedDraft,
+				repoFiles: {
+					...normalizedDraft.repoFiles,
+					prTemplate: {
+						...normalizedDraft.repoFiles.prTemplate,
+						honeypotEnabled: normalizedBase.repoFiles.prTemplate.honeypotEnabled,
+					},
+				},
+			});
+		}
+		return normalizeRuleConfig(draft);
+	}
+
+	const ruleKey = headRaw as RuleKey;
+	if (!RULE_ORDER.includes(ruleKey)) return normalizeRuleConfig(draft);
+
 	const nextDraft: RuleConfig = {
 		...normalizedDraft,
 		[ruleKey]: { ...normalizedDraft[ruleKey] },

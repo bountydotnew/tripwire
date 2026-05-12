@@ -23,11 +23,14 @@ function HomePage() {
 	const digestQuery = useQuery({
 		...trpc.events.digest.queryOptions({
 			repoId: repo?.id ?? "",
-			limit: 10,
+			limit: 48,
 			hours: 48,
 		}),
 		enabled: !!repo?.id,
 	});
+
+	const DIGEST_PAGE_SIZE = 8;
+	const [visibleCount, setVisibleCount] = useState(DIGEST_PAGE_SIZE);
 
 	// Transform API response to TripwireEvent format for display
 	const apiEvents: (TripwireEvent & { _eventId: string })[] =
@@ -108,14 +111,37 @@ function HomePage() {
 				{/* Event groups */}
 				{!digestQuery.isPending && (
 					<div className="w-full flex flex-col items-start gap-3 mt-1">
-						{groups.map((g) => (
-							<EventGroupCard
+						{groups.slice(0, visibleCount).map((g, i) => (
+							<motion.div
 								key={g.key}
-								group={g}
-								onOpenEvent={handleOpenEvent}
-							/>
+								initial={{ opacity: 0, y: 4 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{
+									duration: 0.25,
+									delay: i >= visibleCount - DIGEST_PAGE_SIZE
+										? Math.min((i % DIGEST_PAGE_SIZE) * 0.025, 0.18)
+										: 0,
+									ease: [0.19, 1, 0.22, 1],
+								}}
+								className="w-full"
+							>
+								<EventGroupCard
+									group={g}
+									onOpenEvent={handleOpenEvent}
+								/>
+							</motion.div>
 						))}
 					</div>
+				)}
+
+				{!digestQuery.isPending && groups.length > visibleCount && (
+					<button
+						type="button"
+						onClick={() => setVisibleCount((c) => c + DIGEST_PAGE_SIZE)}
+						className="mt-2 mx-auto text-center text-[12px] text-tw-text-tertiary hover:text-tw-text-secondary transition-colors self-center"
+					>
+						Show {Math.min(DIGEST_PAGE_SIZE, groups.length - visibleCount)} more
+					</button>
 				)}
 
 				{/* Empty state */}

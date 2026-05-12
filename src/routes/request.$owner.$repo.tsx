@@ -1,31 +1,43 @@
 import { useCallback, useMemo, useState } from "react";
-import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
-import { z } from "zod";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { parseAsString, parseAsStringEnum, useQueryStates } from "nuqs";
 import { authClient } from "#/lib/auth-client";
 import { useTRPC } from "#/integrations/trpc/react";
 import { Button } from "#/components/ui/button";
 import { toastManager } from "#/components/ui/toast";
 
-const searchSchema = z.object({
-	kind: z.enum(["unblock", "access"]).catch("unblock"),
-});
-
 export const Route = createFileRoute("/request/$owner/$repo")({
-	validateSearch: searchSchema,
 	component: RequestPage,
 });
 
 function RequestPage() {
 	const { owner, repo } = Route.useParams();
-	const search = useSearch({ from: "/request/$owner/$repo" });
+	const [{ kind, u: intendedUser }, setSearch] = useQueryStates({
+		kind: parseAsStringEnum(["unblock", "access"] as const).withDefault("unblock"),
+		u: parseAsString,
+	});
 	const trpc = useTRPC();
 	const { data: session, isPending } = authClient.useSession();
 
 	const repoFullName = `${owner}/${repo}`;
-	const [kind, setKind] = useState<"unblock" | "access">(search.kind);
+	const setKind = useCallback(
+		(next: "unblock" | "access") => setSearch({ kind: next }),
+		[setSearch],
+	);
 	const [reason, setReason] = useState("");
 	const [submitted, setSubmitted] = useState(false);
+
+	const whoamiQuery = useQuery({
+		...trpc.requests.whoami.queryOptions(),
+		enabled: !!session,
+		staleTime: 60 * 1000,
+	});
+	const currentGhLogin = whoamiQuery.data?.githubLogin ?? null;
+	const mismatch =
+		!!intendedUser &&
+		!!currentGhLogin &&
+		currentGhLogin.toLowerCase() !== intendedUser.toLowerCase();
 
 	const submit = useMutation(
 		trpc.requests.submit.mutationOptions({
@@ -45,6 +57,12 @@ function RequestPage() {
 			provider: "github",
 			callbackURL: typeof window !== "undefined" ? window.location.href : "/",
 		});
+	}, []);
+
+	const handleSwitchAccount = useCallback(async () => {
+		const returnUrl = typeof window !== "undefined" ? window.location.href : "/";
+		await authClient.signOut();
+		await authClient.signIn.social({ provider: "github", callbackURL: returnUrl });
 	}, []);
 
 	const handleSubmit = useCallback(
@@ -69,6 +87,7 @@ function RequestPage() {
 					</h1>
 					<p className="text-[13px] text-[#FFFFFF99] m-0">
 						{repoFullName}
+						{intendedUser ? <> · on behalf of <span className="text-white">@{intendedUser}</span></> : null}
 					</p>
 				</header>
 
@@ -87,11 +106,25 @@ function RequestPage() {
 				) : !session ? (
 					<div className="rounded-xl bg-tw-card border border-tw-border-card p-5 flex flex-col gap-3">
 						<p className="text-[13px] text-[#FFFFFF99] m-0">
-							Sign in with GitHub so the maintainers can verify your identity.
+							Sign in with GitHub{intendedUser ? ` as @${intendedUser}` : ""} so the maintainers can verify your identity.
 						</p>
 						<Button onClick={handleLogin} className="self-start">
 							Sign in with GitHub
 						</Button>
+					</div>
+				) : mismatch ? (
+					<div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-5 flex flex-col gap-3">
+						<div className="text-[14px] font-medium text-amber-200">
+							Wrong account
+						</div>
+						<p className="text-[13px] text-[#FFFFFFCC] m-0">
+							This appeal is for <span className="text-white font-medium">@{intendedUser}</span>, but you're signed in as <span className="text-white font-medium">@{currentGhLogin}</span>. Switch to the right account to continue.
+						</p>
+						<div className="flex items-center gap-2">
+							<Button onClick={handleSwitchAccount}>
+								Sign in as @{intendedUser}
+							</Button>
+						</div>
 					</div>
 				) : (
 					<form onSubmit={handleSubmit} className="flex flex-col gap-4">

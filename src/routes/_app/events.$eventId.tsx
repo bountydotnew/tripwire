@@ -166,13 +166,56 @@ function EventDetailPage() {
 							`Tripwire flagged activity from @${username}`}
 					</p>
 					<div className="flex items-center flex-wrap gap-3 mt-1 text-[13px] text-tw-text-tertiary">
-						<span className="flex items-center gap-1.5">
-							<IssueCircle color={sevColor} />
-							{displayEvent?.repo?.fullName || "unknown/repo"}{" "}
-							<span className="font-mono text-tw-text-secondary">
-								{displayEvent?.githubRef || "#???"}
-							</span>
-						</span>
+						{(() => {
+							const fullName = displayEvent?.repo?.fullName;
+							const ref = displayEvent?.githubRef;
+							const ghUrl = buildGitHubRefUrl(fullName, ref, displayEvent?.contentType);
+							const body = (
+								<>
+									<IssueCircle color={sevColor} />
+									{fullName || "unknown/repo"}{" "}
+									<span className="font-mono text-tw-text-secondary">
+										{ref || "#???"}
+									</span>
+									{ghUrl ? (
+										<svg
+											className="ml-0.5 opacity-60 group-hover:opacity-100 transition-opacity"
+											width="11"
+											height="11"
+											viewBox="0 0 12 12"
+											fill="none"
+											aria-hidden="true"
+										>
+											<path
+												d="M4.5 2.5h-2A1.5 1.5 0 0 0 1 4v5.5A1.5 1.5 0 0 0 2.5 11H8a1.5 1.5 0 0 0 1.5-1.5v-2"
+												stroke="currentColor"
+												strokeWidth="1.2"
+												strokeLinecap="round"
+											/>
+											<path
+												d="M7 1h4v4M11 1 5.5 6.5"
+												stroke="currentColor"
+												strokeWidth="1.2"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											/>
+										</svg>
+									) : null}
+								</>
+							);
+							return ghUrl ? (
+								<a
+									href={ghUrl}
+									target="_blank"
+									rel="noreferrer noopener"
+									className="group flex items-center gap-1.5 hover:text-tw-text-secondary transition-colors"
+								>
+									{body}
+								</a>
+							) : (
+								<span className="flex items-center gap-1.5">{body}</span>
+							);
+						})()}
 						<span className="text-[#363639]">·</span>
 						<span>{formatRelativeTime(displayEvent?.createdAt)}</span>
 					</div>
@@ -762,6 +805,7 @@ function formatRuleName(ruleName: string): string {
 		requireProfileReadme: "Profile README",
 		aiSlopDetection: "AI slop detection",
 		vouchedUsersOnly: "Vouched users only",
+		aiHoneypot: "AI honeypot",
 	};
 	return names[ruleName] || ruleName;
 }
@@ -779,5 +823,22 @@ function formatRelativeTime(date: Date | undefined | null): string {
 	if (hours < 24) return `${hours}h ago`;
 	if (days === 1) return "yesterday";
 	return `${days}d ago`;
+}
+
+function buildGitHubRefUrl(
+	fullName: string | null | undefined,
+	ref: string | null | undefined,
+	contentType: string | null | undefined,
+): string | null {
+	if (!fullName) return null;
+	const base = `https://github.com/${fullName}`;
+	if (!ref) return base;
+	const match = ref.match(/^#(\d+)(?:\/comment\/(\d+))?/);
+	if (!match) return base;
+	const num = match[1];
+	const commentId = match[2];
+	const path = contentType === "pull_request" ? "pull" : "issues";
+	if (commentId) return `${base}/${path}/${num}#issuecomment-${commentId}`;
+	return `${base}/${path}/${num}`;
 }
 

@@ -13,6 +13,7 @@ import { Menu, MenuTrigger, MenuPopup, MenuItem, MenuSeparator } from "#/compone
 import { useAuth } from "#/lib/auth-context";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
+import { useEventsUnread } from "#/lib/use-events-unread";
 import { authClient } from "#/lib/auth-client";
 import { useCustomer } from "autumn-js/react";
 
@@ -20,7 +21,7 @@ interface NavItem {
 	key: string;
 	path: string;
 	label: string;
-	Icon: React.ComponentType<{ active?: boolean }>;
+	Icon: React.ComponentType<{ active?: boolean; showDot?: boolean }>;
 	badgeKey?: "events" | "rules" | "insights";
 }
 
@@ -80,6 +81,8 @@ export function TopNav({ askOpen, onToggleAsk }: TopNavProps) {
 	const eventsBadge = countsQuery.data
 		? (countsQuery.data.pipeline_blocked || 0) + (countsQuery.data.rule_near_miss || 0)
 		: undefined;
+
+	const eventsUnread = useEventsUnread(repo?.id);
 
 	const getBadge = (item: NavItem): number | undefined => {
 		if (item.badgeKey === "events") return eventsBadge;
@@ -165,7 +168,10 @@ export function TopNav({ askOpen, onToggleAsk }: TopNavProps) {
 									isActive ? "bg-tw-card" : "hover:bg-tw-hover"
 								}`}
 							>
-								<item.Icon active={isActive} />
+								<item.Icon
+									active={isActive}
+									showDot={item.key === "events" ? eventsUnread && !isActive : false}
+								/>
 								<span
 									className={`text-[13px] leading-none font-medium ${
 										isActive

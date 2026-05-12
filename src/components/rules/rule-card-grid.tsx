@@ -55,6 +55,16 @@ interface RuleCardGridProps {
 	numericConfig?: NumericConfig;
 	/** Mark as coming soon - disables interaction */
 	comingSoon?: boolean;
+	/**
+	 * Render-prop hint shown inside the Configure dialog. Receives a `close`
+	 * callback so the hint's action (e.g. "jump to Files tab") can dismiss
+	 * the modal after firing.
+	 */
+	configureHint?: (props: { close: () => void }) => ReactNode;
+	/** Controlled open state for the Configure dialog. Omit for uncontrolled. */
+	configureOpen?: boolean;
+	/** Called when the controlled Configure dialog wants to open/close. */
+	onConfigureOpenChange?: (open: boolean) => void;
 }
 
 export function RuleCardGrid({
@@ -68,8 +78,19 @@ export function RuleCardGrid({
 	visualization,
 	numericConfig,
 	comingSoon,
+	configureHint,
+	configureOpen: configureOpenProp,
+	onConfigureOpenChange,
 }: RuleCardGridProps) {
-	const [configureOpen, setConfigureOpen] = useState(false);
+	const [internalConfigureOpen, setInternalConfigureOpen] = useState(false);
+	const configureOpen = configureOpenProp ?? internalConfigureOpen;
+	const setConfigureOpen = (open: boolean) => {
+		if (configureOpenProp !== undefined) {
+			onConfigureOpenChange?.(open);
+		} else {
+			setInternalConfigureOpen(open);
+		}
+	};
 	const [actionEditing, setActionEditing] = useState(false);
 	const [numericEditing, setNumericEditing] = useState(false);
 	const [numericDraft, setNumericDraft] = useState(numericConfig?.value ?? 0);
@@ -264,6 +285,28 @@ export function RuleCardGrid({
 					</DialogHeader>
 
 					<div className="px-5 pb-5 flex flex-col gap-5">
+						{configureHint ? (
+							<div className="flex items-start gap-2 rounded-lg bg-tw-inner border border-tw-border px-3 py-2.5 text-[12px] text-tw-text-secondary leading-snug">
+								<svg
+									width="13"
+									height="13"
+									viewBox="0 0 14 14"
+									fill="none"
+									aria-hidden="true"
+									className="mt-0.5 shrink-0 text-tw-accent"
+								>
+									<circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2" />
+									<path
+										d="M7 6v3.5M7 4.25v.25"
+										stroke="currentColor"
+										strokeWidth="1.2"
+										strokeLinecap="round"
+									/>
+								</svg>
+								<div className="flex-1 min-w-0">{configureHint({ close: () => setConfigureOpen(false) })}</div>
+							</div>
+						) : null}
+
 						{/* Action level selector */}
 						{onActionChange && (
 							<div className="flex flex-col gap-2">

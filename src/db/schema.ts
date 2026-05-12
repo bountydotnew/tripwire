@@ -172,6 +172,25 @@ type RuleBase = {
 	thresholdCount?: number;
 };
 
+export type ContentScope = {
+	pullRequests: boolean;
+	issues: boolean;
+	comments: boolean;
+};
+
+export type HoneypotPhraseKind = "codeword" | "marker" | "natural" | "tag";
+export type HoneypotPhrase = { kind: HoneypotPhraseKind; phrase: string };
+
+export type RepoFilesConfig = {
+	rulesMd: { autoSync: boolean; customContent: string };
+	prTemplate: {
+		autoSync: boolean;
+		honeypotEnabled: boolean;
+		honeypotPhrases: HoneypotPhrase[];
+		customContent: string;
+	};
+};
+
 export type RuleConfig = {
 	aiSlopDetection: RuleBase;
 	languageRequirement: RuleBase & { language: string };
@@ -183,7 +202,26 @@ export type RuleConfig = {
 	requireProfileReadme: RuleBase;
 	cryptoAddressDetection: RuleBase;
 	vouchedUsersOnly: RuleBase;
+	aiHoneypot: RuleBase;
+	contentScope: ContentScope;
+	repoFiles: RepoFilesConfig;
 };
+
+/** Keys of RuleConfig that represent actual rules (i.e. have RuleBase shape). */
+export const RULE_KEYS = [
+	"aiSlopDetection",
+	"languageRequirement",
+	"minMergedPrs",
+	"accountAge",
+	"maxPrsPerDay",
+	"maxFilesChanged",
+	"repoActivityMinimum",
+	"requireProfileReadme",
+	"cryptoAddressDetection",
+	"vouchedUsersOnly",
+	"aiHoneypot",
+] as const;
+export type RuleKey = (typeof RULE_KEYS)[number];
 
 export const DEFAULT_RULE_CONFIG: RuleConfig = {
 	aiSlopDetection: { enabled: false, action: "block" },
@@ -196,6 +234,12 @@ export const DEFAULT_RULE_CONFIG: RuleConfig = {
 	requireProfileReadme: { enabled: false, action: "block" },
 	cryptoAddressDetection: { enabled: false, action: "block" },
 	vouchedUsersOnly: { enabled: false, action: "block" },
+	aiHoneypot: { enabled: false, action: "block" },
+	contentScope: { pullRequests: true, issues: true, comments: true },
+	repoFiles: {
+		rulesMd: { autoSync: false, customContent: "" },
+		prTemplate: { autoSync: false, honeypotEnabled: false, honeypotPhrases: [], customContent: "" },
+	},
 };
 
 export const ruleConfigs = pgTable("rule_configs", {

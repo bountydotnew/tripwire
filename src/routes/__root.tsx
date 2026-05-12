@@ -1,6 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import RootProvider from "#/integrations/tanstack-query/root-provider";
 import { AutumnProvider } from "autumn-js/react";
+import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { ToastProvider, AnchoredToastProvider } from "#/components/ui/toast";
 import appCss from "../styles.css?url";
 
@@ -39,13 +40,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</head>
 			<body>
 				<RootProvider>
-					<AutumnProvider useBetterAuth>
-						<ToastProvider>
-							<AnchoredToastProvider>
-								{children}
-							</AnchoredToastProvider>
-						</ToastProvider>
-					</AutumnProvider>
+					<NuqsAdapter>
+						<AutumnProvider useBetterAuth>
+							<ToastProvider>
+								<AnchoredToastProvider>
+									{children}
+								</AnchoredToastProvider>
+							</ToastProvider>
+						</AutumnProvider>
+					</NuqsAdapter>
 				</RootProvider>
 				<Scripts />
 			</body>

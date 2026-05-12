@@ -54,6 +54,16 @@ async function resolveSessionGithubUser(userId: string): Promise<{
 }
 
 export const requestsRouter = {
+	whoami: publicProcedure.query(async ({ ctx }) => {
+		if (!ctx.user) return null;
+		try {
+			const gh = await resolveSessionGithubUser(ctx.user.id);
+			return { githubLogin: gh.login, avatarUrl: gh.avatar_url };
+		} catch {
+			return null;
+		}
+	}),
+
 	submit: publicProcedure
 		.input(
 			z.object({
@@ -88,6 +98,7 @@ export const requestsRouter = {
 					and(
 						eq(contributorRequests.repoId, repo.id),
 						eq(contributorRequests.githubUsername, ghUser.login),
+						eq(contributorRequests.kind, input.kind),
 						eq(contributorRequests.status, "pending"),
 					),
 				)
@@ -96,7 +107,10 @@ export const requestsRouter = {
 			if (existing) {
 				throw new TRPCError({
 					code: "CONFLICT",
-					message: "You already have a pending request for this repository.",
+					message:
+						input.kind === "unblock"
+							? "You already have a pending appeal for this repository."
+							: "You already have a pending access request for this repository.",
 				});
 			}
 

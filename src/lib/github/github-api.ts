@@ -319,6 +319,64 @@ export async function getPrFilesCount(
 	return pr.changed_files;
 }
 
+/**
+ * Create or update a file in a repo via the contents API.
+ * Reads the current sha (if file exists) so the PUT is an update, not a clobber.
+ */
+export async function putRepoFile(
+	token: string,
+	owner: string,
+	repo: string,
+	path: string,
+	content: string,
+	message: string,
+	branch?: string,
+): Promise<void> {
+	const refQuery = branch ? `?ref=${branch}` : "";
+	const contentsUrl = `/repos/${owner}/${repo}/contents/${path}`;
+	const base64 = Buffer.from(content, "utf8").toString("base64");
+
+	const readSha = async (): Promise<string | undefined> => {
+		try {
+			const existing = await githubApi(`${contentsUrl}${refQuery}`, token);
+			if (existing && typeof existing === "object" && "sha" in existing) {
+				return (existing as { sha: string }).sha;
+			}
+			return undefined;
+		} catch (err) {
+			// 404 means the file doesn't exist yet — that's fine.
+			if (err instanceof Error && err.message.startsWith("GitHub API 404")) {
+				return undefined;
+			}
+			throw err;
+		}
+	};
+
+	const attempt = async (sha: string | undefined): Promise<void> => {
+		const body: Record<string, unknown> = { message, content: base64 };
+		if (sha) body.sha = sha;
+		if (branch) body.branch = branch;
+		await githubApi(contentsUrl, token, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+	};
+
+	let sha = await readSha();
+	try {
+		await attempt(sha);
+	} catch (err) {
+		// 409 = our sha was stale (concurrent write). Re-read and retry once.
+		if (err instanceof Error && err.message.startsWith("GitHub API 409")) {
+			sha = await readSha();
+			await attempt(sha);
+			return;
+		}
+		throw err;
+	}
+}
+
 /** Get a user's public repo count */
 export async function getUserPublicRepoCount(
 	token: string,

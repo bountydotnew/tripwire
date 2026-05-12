@@ -211,6 +211,7 @@ languageRequirement: "Language Requirement",
 	requireProfileReadme: "Require Profile README",
 	cryptoAddressDetection: "Crypto Address Detection",
 	vouchedUsersOnly: "Vouched Users Only",
+	aiHoneypot: "AI Honeypot",
 };
 
 function getRuleDetail(ruleId: string, config: Record<string, unknown>): string | undefined {
@@ -223,7 +224,10 @@ function getRuleDetail(ruleId: string, config: Record<string, unknown>): string 
 	return undefined;
 }
 
-const VALID_RULE_IDS = Object.keys(DEFAULT_RULE_CONFIG).join(", ");
+// contentScope is structural (not a rule), exclude it from AI tool surface.
+const VALID_RULE_IDS = Object.keys(DEFAULT_RULE_CONFIG)
+	.filter((k) => k !== "contentScope")
+	.join(", ");
 
 export const getRuleConfigDef = toolDefinition({
 	name: "get_rule_config",

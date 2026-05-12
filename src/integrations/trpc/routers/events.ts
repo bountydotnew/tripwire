@@ -65,7 +65,7 @@ export const eventsRouter = {
 		.input(
 			z.object({
 				repoId: z.string().uuid(),
-				limit: z.number().int().min(1).max(20).default(10),
+				limit: z.number().int().min(1).max(48).default(10),
 				hours: z.number().int().min(1).max(168).default(24), // up to 7 days
 			}),
 		)
