@@ -10,31 +10,9 @@ import {
 } from "#/db/schema";
 import { logEvent } from "#/lib/events";
 import { describeRuleConfigChanges, normalizeRuleConfig } from "#/lib/rules/config-draft";
+import { ruleConfigSchema } from "#/lib/rules/config-schema";
 
 import type { TRPCRouterRecord } from "@trpc/server";
-
-const ruleActionSchema = z.enum(["block", "warn", "log", "threshold"]);
-
-const ruleBaseSchema = z.object({
-	enabled: z.boolean(),
-	action: ruleActionSchema.default("block"),
-	thresholdCount: z.number().int().min(1).optional(),
-});
-
-const ruleConfigSchema = z.object({
-	aiSlopDetection: ruleBaseSchema,
-	requireProfilePicture: ruleBaseSchema,
-	languageRequirement: ruleBaseSchema.extend({
-		language: z.string(),
-	}),
-	minMergedPrs: ruleBaseSchema.extend({ count: z.number().int().min(0) }),
-	accountAge: ruleBaseSchema.extend({ days: z.number().int().min(0) }),
-	maxPrsPerDay: ruleBaseSchema.extend({ limit: z.number().int().min(1) }),
-	maxFilesChanged: ruleBaseSchema.extend({ limit: z.number().int().min(1) }),
-	repoActivityMinimum: ruleBaseSchema.extend({ minRepos: z.number().int().min(1) }),
-	requireProfileReadme: ruleBaseSchema,
-	cryptoAddressDetection: ruleBaseSchema,
-});
 
 export const rulesRouter = {
 	/** Get rule config for a repo */

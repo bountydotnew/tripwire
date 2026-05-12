@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, type Transition } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "#/components/icons/chevron-down";
 import { CloseIcon } from "#/components/icons/close-icon";
@@ -19,7 +19,7 @@ const ENTER_EXIT_TRANSITION = {
 	ease: [0.19, 1, 0.22, 1] as const,
 };
 
-const SHELL_TRANSITION = {
+const SHELL_TRANSITION: Transition = {
 	type: "spring",
 	stiffness: 360,
 	damping: 30,
