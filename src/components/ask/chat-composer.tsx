@@ -1,8 +1,16 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+	useId,
+	useMemo,
+	useRef,
+	useState,
+	type KeyboardEvent,
+	type ReactNode,
+} from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CloseIcon } from "#/components/icons/close-icon";
 import { MicIcon, PlusIcon } from "#/components/icons/nav-icons";
 import { useTRPC } from "#/integrations/trpc/react";
+import { cn } from "#/lib/utils";
 import { useWorkspace } from "#/lib/workspace-context";
 import {
 	buildListedUserSuggestions,
@@ -13,6 +21,8 @@ import {
 } from "#/lib/chat/mentions";
 
 interface ChatComposerProps {
+	className?: string;
+	contextActionAdornment?: ReactNode;
 	disabled?: boolean;
 	isLoading?: boolean;
 	placeholder?: string;
@@ -21,8 +31,8 @@ interface ChatComposerProps {
 
 function statusClasses(status: ListedUserMention["status"]) {
 	return status === "blacklisted"
-		? "bg-red-500/10 text-red-300 border-red-500/15"
-		: "bg-emerald-500/10 text-emerald-300 border-emerald-500/15";
+		? "border-[#F56D5D26] bg-[#F56D5D14] text-[#F2A39A]"
+		: "border-[#67E19F26] bg-[#67E19F14] text-[#A7E9C3]";
 }
 
 function MentionAvatar({ user, size = "size-5" }: { user: ListedUserMention; size?: string }) {
@@ -47,6 +57,8 @@ function MentionAvatar({ user, size = "size-5" }: { user: ListedUserMention; siz
 }
 
 export function ChatComposer({
+	className,
+	contextActionAdornment,
 	disabled = false,
 	isLoading = false,
 	placeholder = "Ask anything...",
@@ -54,6 +66,7 @@ export function ChatComposer({
 }: ChatComposerProps) {
 	const { repo } = useWorkspace();
 	const trpc = useTRPC();
+	const suggestionListId = `${useId()}-mention-suggestions`;
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [text, setText] = useState("");
 	const [cursorPosition, setCursorPosition] = useState(0);
@@ -102,6 +115,10 @@ export function ChatComposer({
 	const showSuggestions =
 		!disabled && !!trigger && triggerKey !== dismissedTriggerKey && suggestions.length > 0;
 	const composedMessage = composeMentionMessage(mentions, text);
+	const activeSuggestion = showSuggestions ? suggestions[highlightedIndex] : undefined;
+	const activeSuggestionId = activeSuggestion
+		? `${suggestionListId}-${activeSuggestion.status}-${activeSuggestion.username.toLowerCase()}`
+		: undefined;
 
 	function updateCursor(element: HTMLInputElement) {
 		setCursorPosition(element.selectionStart ?? element.value.length);
@@ -179,32 +196,49 @@ export function ChatComposer({
 	}
 
 	return (
-		<div className="relative flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5">
+		<div
+			className={cn(
+				"relative flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5",
+				className,
+			)}
+		>
 			{showSuggestions ? (
-				<div className="absolute bottom-full left-1.5 right-1.5 z-20 mb-1.5 overflow-hidden rounded-2xl bg-tw-card p-1.5 shadow-[0_8px_24px_#00000040,0_1px_2px_#0000001a]">
-					{suggestions.map((user, index) => (
-						<button
-							type="button"
-							key={`${user.status}-${user.username}`}
-							onMouseDown={(event) => {
-								event.preventDefault();
-								selectMention(user);
-							}}
-							className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition-colors ${
-								index === highlightedIndex ? "bg-tw-hover" : "hover:bg-tw-hover"
-							}`}
-						>
-							<MentionAvatar user={user} />
-							<span className="min-w-0 flex-1 truncate text-[13px] text-tw-text-primary">
-								@{user.username}
-							</span>
-							<span
-								className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium capitalize ${statusClasses(user.status)}`}
+				<div
+					id={suggestionListId}
+					role="listbox"
+					className="absolute bottom-full left-1.5 right-1.5 z-20 mb-1.5 overflow-hidden rounded-2xl bg-tw-card p-1.5 shadow-[0_8px_24px_#00000040,0_1px_2px_#0000001a]"
+				>
+					{suggestions.map((user, index) => {
+						const optionId =
+							`${suggestionListId}-${user.status}-${user.username.toLowerCase()}`;
+
+						return (
+							<button
+								type="button"
+								id={optionId}
+								role="option"
+								aria-selected={index === highlightedIndex}
+								key={optionId}
+								onMouseDown={(event) => {
+									event.preventDefault();
+									selectMention(user);
+								}}
+								className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition-colors ${
+									index === highlightedIndex ? "bg-tw-hover" : "hover:bg-tw-hover"
+								}`}
 							>
-								{user.status}
-							</span>
-						</button>
-					))}
+								<MentionAvatar user={user} />
+								<span className="min-w-0 flex-1 truncate text-[13px] text-tw-text-primary">
+									@{user.username}
+								</span>
+								<span
+									className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium capitalize ${statusClasses(user.status)}`}
+								>
+									{user.status}
+								</span>
+							</button>
+						);
+					})}
 				</div>
 			) : null}
 
@@ -242,6 +276,11 @@ export function ChatComposer({
 					onKeyUp={(event) => updateCursor(event.currentTarget)}
 					onKeyDown={handleKeyDown}
 					disabled={disabled}
+					role="combobox"
+					aria-autocomplete="list"
+					aria-controls={suggestionListId}
+					aria-expanded={showSuggestions}
+					aria-activedescendant={activeSuggestionId}
 					className="h-9 min-w-[120px] flex-1 rounded-[10px] bg-tw-inner px-2.5 text-[14px] text-tw-text-primary outline-none placeholder:text-tw-text-tertiary disabled:opacity-50"
 				/>
 				<button
@@ -266,6 +305,7 @@ export function ChatComposer({
 					>
 						<PlusIcon />
 						<span className="text-[12px]">Add context</span>
+						{contextActionAdornment}
 					</button>
 				</div>
 				<button
