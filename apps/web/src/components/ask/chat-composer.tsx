@@ -167,6 +167,10 @@ export function ChatComposer({
 	}
 
 	function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+		if (event.nativeEvent.isComposing) {
+			return;
+		}
+
 		if (showSuggestions && event.key === "ArrowDown") {
 			event.preventDefault();
 			setHighlightedIndex((current) => (current + 1) % suggestions.length);
