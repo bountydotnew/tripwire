@@ -34,6 +34,12 @@ function RequestPage() {
 		staleTime: 60 * 1000,
 	});
 	const currentGhLogin = whoamiQuery.data?.githubLogin ?? null;
+
+	const vouchQuery = useQuery({
+		...trpc.vouches.check.queryOptions({ username: currentGhLogin ?? "" }),
+		enabled: !!currentGhLogin,
+		staleTime: 60 * 1000,
+	});
 	const mismatch =
 		!!intendedUser &&
 		!!currentGhLogin &&
@@ -121,6 +127,15 @@ function RequestPage() {
 						</div>
 					</div>
 				) : (
+					{vouchQuery.data?.isVouched && (
+						<div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-4 flex items-center gap-3">
+							<span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+							<div className="text-[13px] text-emerald-200">
+								<span className="font-medium text-emerald-100">Globally vouched</span>
+								{" "}— you have {vouchQuery.data.vouchCount} vouch{vouchQuery.data.vouchCount !== 1 ? "es" : ""} from Tripwire maintainers. Some repositories may auto-approve your contributions.
+							</div>
+						</div>
+					)}
 					<form onSubmit={handleSubmit} className="flex flex-col gap-4">
 						<div className="flex flex-col gap-2">
 							<label className="text-[12px] font-medium text-tw-text-secondary">

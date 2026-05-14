@@ -43,6 +43,15 @@ function EventDetailPage() {
 	// Fetch real GitHub user data
 	const githubUser = useGitHubUserFormatted(targetUsername ?? undefined);
 
+	// Fetch contributor score
+	const scoreQuery = useQuery({
+		...trpc.reputation.getScore.queryOptions({
+			repoId: repoId || "",
+			username: targetUsername || "",
+		}),
+		enabled: !!repoId && !!targetUsername,
+	});
+
 	// Blacklist mutation
 	const blacklistMutation = useMutation({
 		...trpc.blacklist.add.mutationOptions(),
@@ -389,6 +398,19 @@ function EventDetailPage() {
 								View profile →
 							</a>
 						</div>
+
+						{/* Contributor score */}
+						{scoreQuery.data?.score && (
+							<div className="flex flex-col gap-2">
+								<div className="flex items-center gap-2">
+									<ContributorScoreBadge total={scoreQuery.data.score.total} />
+									<span className="text-[12px] text-tw-text-tertiary">
+										Trust score
+									</span>
+								</div>
+								<ContributorScoreBar score={scoreQuery.data.score} />
+							</div>
+						)}
 
 						{/* Stat grid */}
 						{githubUser.isLoading ? (
@@ -870,5 +892,82 @@ function buildGitHubRefUrl(
 	const path = contentType === "pull_request" ? "pull" : "issues";
 	if (commentId) return `${base}/${path}/${num}#issuecomment-${commentId}`;
 	return `${base}/${path}/${num}`;
+}
+
+function getScoreColor(total: number): string {
+	if (total >= 70) return "#67E19F";
+	if (total >= 40) return "#D1BC00";
+	return "#F56D5D";
+}
+
+function ContributorScoreBadge({ total }: { total: number }) {
+	const color = getScoreColor(total);
+	return (
+		<span
+			className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[12px] font-medium"
+			style={{ backgroundColor: `${color}20`, color }}
+		>
+			{total}/100
+		</span>
+	);
+}
+
+function ContributorScoreBar({
+	score,
+}: {
+	score: {
+		total: number;
+		globalReputation: number;
+		communitySignals: number;
+		repoHistory: number;
+		redFlags: number;
+	};
+}) {
+	const segments = [
+		{ label: "Global", value: score.globalReputation, max: 40, color: "#34A6FF" },
+		{ label: "Community", value: score.communitySignals, max: 30, color: "#A78BFA" },
+		{ label: "History", value: score.repoHistory, max: 20, color: "#67E19F" },
+	];
+	return (
+		<div className="flex flex-col gap-1.5">
+			<div className="flex h-1.5 rounded-full overflow-hidden bg-tw-surface gap-[1px]">
+				{segments.map((s) => (
+					<div
+						key={s.label}
+						className="h-full rounded-full transition-all"
+						style={{
+							width: `${(s.value / 100) * 100}%`,
+							backgroundColor: s.color,
+							minWidth: s.value > 0 ? "2px" : "0",
+						}}
+					/>
+				))}
+				{score.redFlags < 0 && (
+					<div
+						className="h-full rounded-full"
+						style={{
+							width: `${(Math.abs(score.redFlags) / 100) * 100}%`,
+							backgroundColor: "#F56D5D",
+							minWidth: "2px",
+						}}
+					/>
+				)}
+			</div>
+			<div className="flex items-center gap-3 text-[10px] text-tw-text-tertiary">
+				{segments.map((s) => (
+					<span key={s.label} className="flex items-center gap-1">
+						<span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+						{s.label} {s.value}
+					</span>
+				))}
+				{score.redFlags < 0 && (
+					<span className="flex items-center gap-1">
+						<span className="w-1.5 h-1.5 rounded-full bg-tw-error" />
+						Flags {score.redFlags}
+					</span>
+				)}
+			</div>
+		</div>
+	);
 }
 

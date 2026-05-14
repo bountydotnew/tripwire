@@ -7,6 +7,8 @@ import { waitlistRouter } from "./routers/waitlist";
 import { chatsRouter } from "./routers/chats";
 import { requestsRouter } from "./routers/requests";
 import { reputationRouter } from "./routers/reputation";
+import { vouchesRouter } from "./routers/vouches";
+import { fakeBountiesRouter } from "./routers/fake-bounties";
 
 export const trpcRouter = createTRPCRouter({
 	orgs: orgsRouter,
@@ -18,6 +20,8 @@ export const trpcRouter = createTRPCRouter({
 	chats: chatsRouter,
 	requests: requestsRouter,
 	reputation: reputationRouter,
+	vouches: vouchesRouter,
+	fakeBounties: fakeBountiesRouter,
 });
 
 export type TRPCRouter = typeof trpcRouter;

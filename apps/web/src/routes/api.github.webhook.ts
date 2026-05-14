@@ -4,6 +4,8 @@ import {
 	handlePullRequest,
 	handleIssue,
 	handleComment,
+	checkFakeBountyReference,
+	handleFakeBountyCatch,
 } from '@tripwire/core';
 import { db } from "@tripwire/db/client";
 import { organizations, repositories, account } from "@tripwire/db";
@@ -85,6 +87,35 @@ async function handler({ request }: { request: Request }) {
 		switch (event) {
 			case "pull_request": {
 				if (payload.action === "opened" || payload.action === "reopened") {
+					// Check for fake bounty references before running normal pipeline
+					const prBody = payload.pull_request.body ?? "";
+					const prTitle = payload.pull_request.title ?? "";
+					const prContent = `${prTitle}\n${prBody}`;
+
+					// Look up repo ID for fake bounty check
+					const [repoRow] = await db
+						.select({ id: repositories.id })
+						.from(repositories)
+						.where(eq(repositories.githubRepoId, repo.id));
+
+					if (repoRow) {
+						const bountyHit = await checkFakeBountyReference(repoRow.id, prContent);
+						if (bountyHit) {
+							await handleFakeBountyCatch({
+								repoId: repoRow.id,
+								bountyId: bountyHit.bountyId,
+								githubUsername: ctx.senderLogin,
+								githubUserId: ctx.senderId,
+								githubRef: `#${payload.pull_request.number}`,
+								refType: "pr",
+								prNumber: payload.pull_request.number,
+								installationId: ctx.installationId,
+								repoFullName: ctx.repoFullName,
+							});
+							break;
+						}
+					}
+
 					await handlePullRequest(
 						ctx,
 						payload.pull_request.number,

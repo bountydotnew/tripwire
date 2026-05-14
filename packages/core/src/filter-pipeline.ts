@@ -6,6 +6,7 @@ import {
 	ruleThresholdCounters,
 	whitelistEntries,
 	blacklistEntries,
+	globalVouches,
 	DEFAULT_RULE_CONFIG,
 	type RuleConfig,
 	type RuleAction,
@@ -225,6 +226,77 @@ function isNearMissMax(actual: number, limit: number): boolean {
 
 // ─── Content analysis helpers ──────────────────────────────────
 
+/**
+ * Detect the dominant script/language of text using Unicode code-point ranges.
+ */
+
+interface LanguageDetectionResult {
+	dominant: string;
+	confidence: number;
+	counts: Record<string, number>;
+}
+
+/** Strip noise that skews language detection. */
+function cleanForLanguageDetection(text: string): string {
+	return text
+		.replace(/```[\s\S]*?```/g, "")
+		.replace(/`[^`]+`/g, "")
+		.replace(/https?:\/\/\S+/g, "")
+		.replace(/[a-zA-Z_$][a-zA-Z0-9_$.]*\(/g, "")
+		.replace(/\b[A-Z][a-z]+(?:[A-Z][a-z]+)+\b/g, "")
+		.replace(/\b[a-z]+(?:_[a-z]+)+\b/g, "")
+		.replace(/#\S+/g, "")
+		.replace(/@\S+/g, "");
+}
+
+function detectLanguageScript(text: string): LanguageDetectionResult {
+	const cleaned = cleanForLanguageDetection(text);
+	const counts: Record<string, number> = {
+		latin: 0, cjk: 0, cyrillic: 0, arabic: 0,
+		devanagari: 0, hangul: 0, kana: 0,
+	};
+
+	for (const char of cleaned) {
+		const code = char.codePointAt(0)!;
+		if ((code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A) ||
+			(code >= 0xC0 && code <= 0x24F)) {
+			counts.latin++;
+		} else if (code >= 0x4E00 && code <= 0x9FFF) {
+			counts.cjk++;
+		} else if (code >= 0x0400 && code <= 0x04FF) {
+			counts.cyrillic++;
+		} else if (code >= 0x0600 && code <= 0x06FF) {
+			counts.arabic++;
+		} else if (code >= 0x0900 && code <= 0x097F) {
+			counts.devanagari++;
+		} else if (code >= 0xAC00 && code <= 0xD7AF) {
+			counts.hangul++;
+		} else if ((code >= 0x3040 && code <= 0x309F) || (code >= 0x30A0 && code <= 0x30FF)) {
+			counts.kana++;
+		}
+	}
+
+	const total = Object.values(counts).reduce((a, b) => a + b, 0);
+	if (total === 0) return { dominant: "unknown", confidence: 0, counts };
+
+	let dominant = "unknown";
+	let maxCount = 0;
+	for (const [script, count] of Object.entries(counts)) {
+		if (count > maxCount) {
+			maxCount = count;
+			dominant = script;
+		}
+	}
+
+	const SCRIPT_LANGUAGES: Record<string, string> = {
+		latin: "english", cjk: "chinese", cyrillic: "russian",
+		arabic: "arabic", devanagari: "hindi", hangul: "korean", kana: "japanese",
+	};
+	dominant = SCRIPT_LANGUAGES[dominant] ?? dominant;
+
+	return { dominant, confidence: maxCount / total, counts };
+}
+
 const ENGLISH_MARKERS = [
 	"the", "is", "are", "was", "were", "have", "has", "been",
 	"will", "would", "could", "should", "this", "that", "with",
@@ -232,17 +304,30 @@ const ENGLISH_MARKERS = [
 ];
 
 function isLikelyLanguage(text: string, language: string): boolean {
-	if (language !== "english") return true;
-
-	const words = text.toLowerCase().split(/\s+/);
+	const cleaned = cleanForLanguageDetection(text);
+	const words = cleaned.toLowerCase().split(/\s+/).filter(Boolean);
 	if (words.length < 5) return true;
 
-	const englishWordCount = words.filter((w) =>
-		ENGLISH_MARKERS.includes(w),
-	).length;
-	const ratio = englishWordCount / words.length;
+	const detection = detectLanguageScript(cleaned);
+	if (detection.dominant === "unknown") return true;
 
-	return ratio >= 0.05;
+	const lang = language.toLowerCase();
+
+	if (lang === "english") {
+		if (detection.dominant !== "english" && detection.confidence > 0.5) return false;
+		const englishWordCount = words.filter((w) => ENGLISH_MARKERS.includes(w)).length;
+		const ratio = englishWordCount / words.length;
+		return ratio >= 0.03;
+	}
+
+	const LANG_SCRIPTS: Record<string, string> = {
+		chinese: "chinese", japanese: "japanese", korean: "korean",
+		russian: "russian", arabic: "arabic", hindi: "hindi",
+	};
+	const expected = LANG_SCRIPTS[lang];
+	if (!expected) return true;
+
+	return detection.dominant === expected && detection.confidence > 0.3;
 }
 
 const AI_SLOP_PATTERNS = [
@@ -429,6 +514,7 @@ export async function runFilterPipeline(
 		cryptoAddressDetection: { ...DEFAULT_RULE_CONFIG.cryptoAddressDetection, ...rawConfig?.cryptoAddressDetection },
 		vouchedUsersOnly: { ...DEFAULT_RULE_CONFIG.vouchedUsersOnly, ...rawConfig?.vouchedUsersOnly },
 		aiHoneypot: { ...DEFAULT_RULE_CONFIG.aiHoneypot, ...rawConfig?.aiHoneypot },
+		autoWhitelistGlobalVouches: { ...DEFAULT_RULE_CONFIG.autoWhitelistGlobalVouches, ...rawConfig?.autoWhitelistGlobalVouches },
 		contentScope: scope,
 		repoFiles: {
 			rulesMd: { ...DEFAULT_RULE_CONFIG.repoFiles.rulesMd, ...rawConfig?.repoFiles?.rulesMd },
@@ -436,9 +522,47 @@ export async function runFilterPipeline(
 				...DEFAULT_RULE_CONFIG.repoFiles.prTemplate,
 				...rawConfig?.repoFiles?.prTemplate,
 			},
+			agentsMd: {
+				...DEFAULT_RULE_CONFIG.repoFiles.agentsMd,
+				...rawConfig?.repoFiles?.agentsMd,
+			},
 		},
 	};
-	const honeypotPhrases = config.repoFiles.prTemplate.honeypotPhrases;
+	// Combine honeypot phrases from both PR template and AGENTS.md
+	const honeypotPhrases = [
+		...config.repoFiles.prTemplate.honeypotPhrases,
+		...config.repoFiles.agentsMd.honeypotPhrases,
+	];
+
+	// ─── autoWhitelistGlobalVouches ───────────────────────────
+	if (config.autoWhitelistGlobalVouches.enabled) {
+		const minVouches = config.autoWhitelistGlobalVouches.minVouches;
+		const vouchRows = await db
+			.select()
+			.from(globalVouches)
+			.where(
+				sql`lower(${globalVouches.githubUsername}) = ${senderLoginLower}`,
+			);
+
+		if (vouchRows.length >= minVouches) {
+			await db
+				.insert(whitelistEntries)
+				.values({
+					repoId: repo.id,
+					githubUsername: ctx.senderLogin,
+					githubUserId: ctx.senderId,
+				})
+				.onConflictDoNothing();
+
+			return {
+				allowed: true,
+				outcome: "whitelist_bypass",
+				evaluations,
+				rulesChecked,
+				repoId: repo.id,
+			};
+		}
+	}
 
 	// ─── vouchedUsersOnly ──────────────────────────────────────
 	// Non-vouched (not-whitelisted) users are rejected before any

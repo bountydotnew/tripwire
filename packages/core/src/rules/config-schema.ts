@@ -37,6 +37,10 @@ export const ruleConfigSchema = z.object({
 	cryptoAddressDetection: ruleBaseSchema,
 	vouchedUsersOnly: ruleBaseSchema,
 	aiHoneypot: ruleBaseSchema,
+	autoWhitelistGlobalVouches: z.object({
+		enabled: z.boolean(),
+		minVouches: z.number().int().min(1).default(1),
+	}),
 	contentScope: z.object({
 		pullRequests: z.boolean(),
 		issues: z.boolean(),
@@ -48,6 +52,12 @@ export const ruleConfigSchema = z.object({
 			customContent: z.string(),
 		}),
 		prTemplate: z.object({
+			autoSync: z.boolean(),
+			honeypotEnabled: z.boolean(),
+			honeypotPhrases: z.array(honeypotPhraseSchema),
+			customContent: z.string(),
+		}),
+		agentsMd: z.object({
 			autoSync: z.boolean(),
 			honeypotEnabled: z.boolean(),
 			honeypotPhrases: z.array(honeypotPhraseSchema),

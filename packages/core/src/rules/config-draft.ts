@@ -210,6 +210,7 @@ languageRequirement: { ...DEFAULT_RULE_CONFIG.languageRequirement, ...raw?.langu
 		cryptoAddressDetection: { ...DEFAULT_RULE_CONFIG.cryptoAddressDetection, ...raw?.cryptoAddressDetection },
 		vouchedUsersOnly: { ...DEFAULT_RULE_CONFIG.vouchedUsersOnly, ...raw?.vouchedUsersOnly },
 		aiHoneypot: { ...DEFAULT_RULE_CONFIG.aiHoneypot, ...raw?.aiHoneypot },
+		autoWhitelistGlobalVouches: { ...DEFAULT_RULE_CONFIG.autoWhitelistGlobalVouches, ...raw?.autoWhitelistGlobalVouches },
 		contentScope: { ...DEFAULT_RULE_CONFIG.contentScope, ...raw?.contentScope },
 		repoFiles: {
 			rulesMd: {
@@ -221,6 +222,7 @@ languageRequirement: { ...DEFAULT_RULE_CONFIG.languageRequirement, ...raw?.langu
 						: "",
 			},
 			prTemplate: normalizePrTemplate(raw?.repoFiles?.prTemplate),
+			agentsMd: normalizeAgentsMd(raw?.repoFiles?.agentsMd),
 		},
 	};
 }
@@ -237,6 +239,24 @@ function normalizePrTemplate(
 			  (raw as { honeypotPhrase: string }).honeypotPhrase.length > 0
 			? [{ kind: "codeword" as const, phrase: (raw as { honeypotPhrase: string }).honeypotPhrase }]
 			: [];
+
+	return {
+		autoSync: raw?.autoSync ?? base.autoSync,
+		honeypotEnabled: raw?.honeypotEnabled ?? base.honeypotEnabled,
+		honeypotPhrases: phrases,
+		customContent: typeof raw?.customContent === "string" ? raw.customContent : "",
+	};
+}
+
+function normalizeAgentsMd(
+	raw: Partial<RuleConfig["repoFiles"]["agentsMd"]> | undefined,
+): RuleConfig["repoFiles"]["agentsMd"] {
+	const base = DEFAULT_RULE_CONFIG.repoFiles.agentsMd;
+	const phrases: RuleConfig["repoFiles"]["agentsMd"]["honeypotPhrases"] = Array.isArray(
+		raw?.honeypotPhrases,
+	)
+		? raw.honeypotPhrases.filter((p) => p && typeof p.phrase === "string" && p.phrase.length > 0)
+		: [];
 
 	return {
 		autoSync: raw?.autoSync ?? base.autoSync,

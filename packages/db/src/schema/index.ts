@@ -12,4 +12,6 @@ export * from "./events";
 export * from "./reputation";
 export * from "./conversations";
 export * from "./requests";
+export * from "./vouches";
+export * from "./fake-bounties";
 export * from "./waitlist";
