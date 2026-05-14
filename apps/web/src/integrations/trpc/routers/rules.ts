@@ -342,4 +342,3 @@ async function syncRepoFileSafe(
 		console.error(`[repo-files] auto-sync ${kind} failed for ${repo.id}:`, err);
 	}
 }
-
