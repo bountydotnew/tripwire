@@ -7,7 +7,7 @@ import type { TripwireEvent, EventAction } from "#/types/home";
 import { useAuth } from '@tripwire/auth/components';
 import { useWorkspace, useWorkspacePath } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
-import { TripwireMiniLogo } from "#/utils/chat";
+import { TripwireLogo } from "#/components/icons/tripwire-logo";
 
 export const Route = createFileRoute("/_app/$orgHandle/home")({
 	component: HomePage,
@@ -274,7 +274,7 @@ function HomeFloatingBar() {
 					>
 						<div className="flex items-center gap-2 min-w-0 flex-1">
 							<span className={previewChat.processing ? "animate-spin" : ""}>
-								<TripwireMiniLogo size={16} />
+								<TripwireLogo size={16} fill="#B4B4B4" />
 							</span>
 							<span className="text-[14px] text-[#EEEEEE] truncate">
 								{previewChat.message}
@@ -404,7 +404,7 @@ function RecentChats() {
 						className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-tw-hover transition-colors group"
 					>
 						<div className="flex items-center gap-2 min-w-0">
-							<TripwireMiniLogo size={12} />
+							<TripwireLogo size={12} fill="#B4B4B4" />
 							<span className="text-[13px] text-tw-text-secondary truncate group-hover:text-tw-text-primary transition-colors">
 								{chat.title ?? "New chat"}
 							</span>

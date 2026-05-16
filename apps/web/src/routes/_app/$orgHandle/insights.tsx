@@ -1,13 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { HeroStat } from "../../components/insights/hero-stat";
-import { StatCard } from "../../components/insights/stat-card";
-import { SpamTrendChart } from "../../components/insights/spam-trend-chart";
-import { BlacklistTrendChart } from "../../components/insights/blacklist-trend-chart";
-import { EmptyState } from "../../components/layout/empty-state";
+import { HeroStat } from "#/components/insights/hero-stat";
+import { StatCard } from "#/components/insights/stat-card";
+import { SpamTrendChart } from "#/components/insights/spam-trend-chart";
+import { BlacklistTrendChart } from "#/components/insights/blacklist-trend-chart";
+import { EmptyState } from "#/components/layout/empty-state";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace } from "#/lib/workspace-context";
-import { env } from "@tripwire/env/client";
 import {
 	AreaChart,
 	Area,
@@ -46,9 +45,7 @@ function InsightsPage() {
 	const { repo, repos, isLoading } = useWorkspace();
 	const repoId = repo?.id;
 	const trpc = useTRPC();
-	const githubAppSlug = env.VITE_GITHUB_APP_SLUG ?? "tripwire-app";
 
-	// ─── Fetch stats from tRPC ───────────────────────────────
 	const statsQuery = useQuery(
 		trpc.events.stats.queryOptions(
 			{ repoId: repoId! },
@@ -63,7 +60,6 @@ function InsightsPage() {
 		),
 	);
 
-	// ─── Derive display data ─────────────────────────────────
 	const stats = statsQuery.data;
 
 	const metrics = stats

@@ -122,7 +122,6 @@ export const chatsRouter = {
 		}),
 } satisfies TRPCRouterRecord;
 
-// ─── Helpers ─────────────────────────────────────────────────────
 
 /**
  * When the client saves messages, it sends whatever its useChat state holds.

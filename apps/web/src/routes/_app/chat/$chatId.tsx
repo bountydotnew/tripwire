@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
-import { ChatThread } from "#/components/ask/chat-thread";
+import { ChatThread } from "#/components/chat/chat-thread";
 import { usePersistedChat } from '#/components/chat/use-persisted-chat';
 import { useWorkspace } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";

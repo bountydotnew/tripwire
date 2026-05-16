@@ -1,13 +1,13 @@
-import { useState, useRef, useCallback, type KeyboardEvent } from "react";
+import { useState, useRef, type KeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { TopNav } from "./top-nav";
-import { WorkspaceRedirect } from "./workspace-redirect";
+import { TopNav } from "#/components/layout/top-nav";
+import { WorkspaceRedirect } from "#/components/layout/workspace-redirect";
 import { WorkspaceProvider } from "#/lib/workspace-context";
 import { AuthProvider } from '@tripwire/auth/components';
 import { ChatProvider, useAIChat } from '#/components/chat/chat-context';
-import { ChatThread } from "../ask/chat-thread";
+import { ChatThread } from "#/components/chat/chat-thread";
 import { useTRPC } from "#/integrations/trpc/react";
 import { UnicodeSpinner } from "#/components/ui/unicode-spinner";
 import { useCustomer } from "autumn-js/react";

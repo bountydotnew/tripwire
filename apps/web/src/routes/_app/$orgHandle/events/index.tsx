@@ -3,7 +3,6 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace } from "#/lib/workspace-context";
 import { EmptyState } from "#/components/layout/empty-state";
-import { env } from "@tripwire/env/client";
 import { useEffect, useState, useMemo } from "react";
 import type { EventAction } from "@tripwire/db";
 import { markEventsViewed } from "#/lib/use-events-unread";
@@ -13,7 +12,6 @@ export const Route = createFileRoute("/_app/$orgHandle/events/")({
 	pendingComponent: EventsPageSkeleton,
 });
 
-// ─── Types ─────────────────────────────────────────────────────
 
 type Event = {
 	id: string;
@@ -36,7 +34,6 @@ type FilterState = {
 	username: string;
 };
 
-// ─── Config ────────────────────────────────────────────────────
 
 const SEVERITY_DOT: Record<string, string> = {
 	success: "bg-tw-success",
@@ -83,7 +80,6 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
 	comment: "Comment",
 };
 
-// ─── Helpers ───────────────────────────────────────────────────
 
 function timeAgo(dateStr: string | Date): string {
 	const seconds = Math.floor(
@@ -99,7 +95,6 @@ function timeAgo(dateStr: string | Date): string {
 	})
 }
 
-// ─── Components ────────────────────────────────────────────────
 
 // Events that don't have useful detail pages
 const NON_CLICKABLE_ACTIONS = new Set([
@@ -292,13 +287,11 @@ function EventsPageSkeleton() {
 	)
 }
 
-// ─── Page ──────────────────────────────────────────────────────
 
 function EventsPage() {
 	const { repo, repos, isLoading } = useWorkspace();
 	const repoId = repo?.id;
 	const trpc = useTRPC();
-	const githubAppSlug = env.VITE_GITHUB_APP_SLUG ?? "tripwire-app";
 
 	useEffect(() => {
 		markEventsViewed(repoId);

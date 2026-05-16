@@ -12,7 +12,6 @@ import { z } from "zod";
 export const env = createEnv({
 	clientPrefix: "VITE_",
 	client: {
-		VITE_APP_TITLE: z.string().min(1).optional(),
 		VITE_GITHUB_APP_SLUG: z.string().min(1).optional(),
 	},
 	runtimeEnv: import.meta.env,

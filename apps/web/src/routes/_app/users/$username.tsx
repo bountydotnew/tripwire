@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { authClient } from "@tripwire/auth/client";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace, useWorkspacePath } from "#/lib/workspace-context";
-import { useGitHubUserFormatted } from "#/hooks/use-github-user";
+import { useGitHubUserFormatted } from "#/lib/use-github-user";
 import { ContributionsHeatmap } from "#/components/profile/contributions-heatmap";
 import { PinnedRepos } from "#/components/profile/pinned-repos";
 import { GithubIcon } from "#/components/icons/github";

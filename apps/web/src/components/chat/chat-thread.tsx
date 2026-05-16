@@ -17,10 +17,9 @@ import {
 	parseActionResult,
 	getApprovalText,
 	getBatchApprovalText,
-	getBriefActionText,
-	renderInlineText,
-	TripwireMiniLogo,
-} from "#/utils/chat";
+} from "#/lib/chat-format";
+import { getBriefActionText, renderInlineText } from "#/components/chat/chips";
+import { TripwireLogo } from "#/components/icons/tripwire-logo";
 
 interface ChatThreadProps {
 	messages?: UIMessage[];
@@ -118,7 +117,7 @@ function EmptyState() {
 	return (
 		<div className="flex flex-col items-center justify-center py-8 text-center">
 			<div className="size-12 flex items-center justify-center mb-3">
-				<TripwireMiniLogo size={20} />
+				<TripwireLogo size={20} fill="#B4B4B4" />
 			</div>
 			<p className="text-[14px] text-tw-text-secondary mb-1">Ask me anything</p>
 			<p className="text-[12px] text-tw-text-muted max-w-[240px]">
@@ -152,7 +151,7 @@ function ErrorMessage({ message }: { message: string }) {
 		<div className="flex items-end gap-2 px-1">
 			<div className="w-6 shrink-0">
 				<div className="size-6 rounded-full bg-[#F56D5D1A] flex items-center justify-center">
-					<TripwireMiniLogo size={12} />
+					<TripwireLogo size={12} fill="#B4B4B4" />
 				</div>
 			</div>
 			<div className="flex-1 min-w-0 flex flex-col gap-1.5">
@@ -186,7 +185,7 @@ function LoadingIndicator() {
 		<div className="flex items-end gap-2 px-1">
 			<div className="w-6 shrink-0">
 				<div className="size-6 rounded-full bg-[#FAFAFA14] flex items-center justify-center">
-					<TripwireMiniLogo />
+					<TripwireLogo size={12} fill="#B4B4B4" />
 				</div>
 			</div>
 			<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted">
@@ -297,7 +296,7 @@ function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessagePr
 			<div className="w-6 shrink-0">
 				{showAvatar && (
 					<div className="size-6 rounded-full bg-[#FAFAFA14] flex items-center justify-center">
-						<TripwireMiniLogo />
+						<TripwireLogo size={12} fill="#B4B4B4" />
 					</div>
 				)}
 			</div>

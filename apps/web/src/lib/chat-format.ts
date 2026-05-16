@@ -1,5 +1,4 @@
 import type { UIMessage, MessagePart } from "@tanstack/ai-client";
-import type { ReactNode } from "react";
 import type { ActionResultData } from "#/types/chat";
 
 export function getPartKey(part: MessagePart, messageId: string): string {
@@ -79,15 +78,18 @@ export function parseActionResult(content: string): ActionResultData | null {
 			};
 		}
 	} catch {
-		// Not valid JSON
+		// not valid JSON
 	}
 	return null;
 }
 
-export function getApprovalText(
-	toolName: string,
-	username?: string,
-): { text: string; yesLabel: string; noLabel: string } {
+interface ApprovalText {
+	text: string;
+	yesLabel: string;
+	noLabel: string;
+}
+
+export function getApprovalText(toolName: string, username?: string): ApprovalText {
 	switch (toolName) {
 		case "add_to_blacklist":
 			return {
@@ -134,12 +136,14 @@ export function getApprovalText(
 	}
 }
 
-export function getBatchApprovalText(action: string): {
+interface BatchApprovalText {
 	prefix: string;
 	suffix: string;
 	consequence: string | null;
 	buttonLabel: string;
-} {
+}
+
+export function getBatchApprovalText(action: string): BatchApprovalText {
 	switch (action) {
 		case "add_to_blacklist":
 			return { prefix: "Blacklist", suffix: "", consequence: "They will be blocked from all future contributions.", buttonLabel: "blacklist" };
@@ -156,93 +160,4 @@ export function getBatchApprovalText(action: string): {
 		default:
 			return { prefix: "Approve", suffix: "", consequence: null, buttonLabel: "approve" };
 	}
-}
-
-export function UserMentionChip({ username }: { username: string }) {
-	return (
-		<span
-			className="inline-flex items-center gap-1 rounded-[5px] px-1 py-[1px] bg-[#2A2A2A]"
-			style={{ verticalAlign: "-0.2em" }}
-		>
-			<img
-				src={`https://github.com/${username}.png?size=28`}
-				alt=""
-				className="w-3.5 h-3.5 rounded-full bg-[#3a3a3e]"
-			/>
-			<span className="text-[12px] leading-tight text-[#FAFAFA] font-medium">
-				@{username}
-			</span>
-		</span>
-	);
-}
-
-export function IssueChip({ label, number }: { label: string | null; number: string }) {
-	return (
-		<span
-			className="inline-flex items-center gap-1 rounded-[5px] px-1 py-[1px] bg-[#2A2A2A]"
-			style={{ verticalAlign: "-0.2em" }}
-		>
-			<svg width="10" height="10" viewBox="0 0 16 16" fill="none" className="shrink-0">
-				<circle cx="8" cy="8" r="5.5" stroke="#B4B4B4" strokeWidth="1.2" />
-				<circle cx="8" cy="8" r="1.5" fill="#B4B4B4" />
-			</svg>
-			<span className="text-[12px] leading-tight text-[#FAFAFA] font-medium tabular-nums">
-				{label ? `${label} ` : ""}#{number}
-			</span>
-		</span>
-	);
-}
-
-export function renderInlineText(text: string): ReactNode {
-	if (!text) return text;
-	const regex = /(@[A-Za-z0-9][A-Za-z0-9_-]*)|((?:PR|Issue|issue)\s+#\d+)|(#\d+)/g;
-	const parts: ReactNode[] = [];
-	let lastIndex = 0;
-	let m: RegExpExecArray | null;
-	let key = 0;
-	// biome-ignore lint/suspicious/noAssignInExpressions: needed for regex iteration
-	while ((m = regex.exec(text)) !== null) {
-		if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
-		const tok = m[0];
-		if (tok.startsWith("@")) {
-			parts.push(<UserMentionChip key={`u${key++}`} username={tok.slice(1)} />);
-		} else {
-			const mm = tok.match(/^(?:(PR|Issue|issue)\s+)?#(\d+)$/);
-			const rawLabel = mm?.[1];
-			const label = rawLabel ? (rawLabel.toLowerCase() === "issue" ? "Issue" : "PR") : null;
-			parts.push(<IssueChip key={`i${key++}`} label={label} number={mm?.[2] || ""} />);
-		}
-		lastIndex = regex.lastIndex;
-	}
-	if (lastIndex < text.length) parts.push(text.slice(lastIndex));
-	return parts;
-}
-
-export function getBriefActionText(action: string, username?: string): ReactNode {
-	const user = username ? <>{renderInlineText(`@${username}`)}</> : "user";
-	switch (action) {
-		case "add_to_blacklist":
-			return <>Blacklist {user}</>;
-		case "remove_from_blacklist":
-			return <>Remove {user} from blacklist</>;
-		case "add_to_whitelist":
-			return <>Whitelist {user}</>;
-		case "remove_from_whitelist":
-			return <>Remove {user} from whitelist</>;
-		case "move_to_whitelist":
-			return <>Move {user} to whitelist</>;
-		case "move_to_blacklist":
-			return <>Move {user} to blacklist</>;
-		default:
-			return <>{action.replace(/_/g, " ")} {user}</>;
-	}
-}
-
-export function TripwireMiniLogo({ size = 12 }: { size?: number }) {
-	return (
-		<svg viewBox="0 0 610.08 589.32" width={size} height={size} fill="#B4B4B4" preserveAspectRatio="none">
-			<path d="M609.85 266.25c-2.93-37.11-34.21-66.57-72.05-66.57H74.66c-42.93-.01-77.81 35.17-74.43 77.96 2.93 37.11 34.21 66.58 72.05 66.58h80.92c19.88 0 37.14-13.09 43.16-32.03 14.65-46.07 57.76-79.45 108.69-79.45s94.03 33.38 108.69 79.45c6.02 18.94 23.29 32.03 43.16 32.03h78.53c42.93 0 77.81-35.17 74.44-77.97ZM305.04 409.68c-37.82 0-71.03-19.68-90-49.33v138.97c0 49.5 40.5 90 90 90s90-40.5 90-90V360.35c-18.98 29.66-52.18 49.33-90 49.33Z" />
-			<circle cx="305.04" cy="90.37" r="90.37" />
-		</svg>
-	);
 }

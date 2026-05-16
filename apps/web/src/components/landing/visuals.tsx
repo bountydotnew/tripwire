@@ -1,4 +1,3 @@
-// ─── Rule Visualizations ─────────────────────────────────────
 
 export function AiSlopViz() {
 	// Stacked text lines, two highlighted as flagged with left accent bar

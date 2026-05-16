@@ -19,7 +19,6 @@ import { useRouterState } from "@tanstack/react-router";
 import { useCustomer } from "autumn-js/react";
 import { useTRPC } from "#/integrations/trpc/react";
 
-// ─── Types ───────────────────────────────────────────────────
 
 interface ChatContextValue {
 	// State
@@ -61,7 +60,6 @@ const defaultContextValue: ChatContextValue = {
 
 const ChatContext = createContext<ChatContextValue>(defaultContextValue);
 
-// ─── Provider ────────────────────────────────────────────────
 
 interface ChatProviderProps {
 	children: ReactNode;
@@ -87,7 +85,6 @@ export function ChatProvider({ children }: ChatProviderProps) {
 	return <ChatProviderClient>{children}</ChatProviderClient>;
 }
 
-// ─── Client-only Provider ────────────────────────────────────
 
 const STORAGE_KEY_CONV = "tw.askConversationId";
 
@@ -341,7 +338,6 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
 
-// ─── Hook ────────────────────────────────────────────────────
 
 export function useAIChat() {
 	return useContext(ChatContext);

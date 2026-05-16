@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const easeOut = [0.23, 1, 0.32, 1] as const;
 
-// ─── Slop Detection ─────────────────────────────────────────
 function SlopDetection() {
   const lines = [
     { text: "fix: resolve race condition in pool", bad: false },
@@ -75,7 +74,6 @@ function SlopDetection() {
   );
 }
 
-// ─── Profile Picture ────────────────────────────────────────
 function ProfilePicture() {
   const items = [
     { real: true, img: "https://avatars.githubusercontent.com/u/75869731?v=4" },
@@ -151,7 +149,6 @@ function ProfilePicture() {
   );
 }
 
-// ─── Language Gate ───────────────────────────────────────────
 function LanguageGate() {
   const [lang, setLang] = useState("en");
   const data: Record<string, { t: string; ok: boolean }[]> = {
@@ -219,7 +216,6 @@ function LanguageGate() {
   );
 }
 
-// ─── PR Threshold ───────────────────────────────────────────
 function PRThreshold() {
   const [min, setMin] = useState(5);
   const users = [
@@ -292,7 +288,6 @@ function PRThreshold() {
   );
 }
 
-// ─── Account Age ────────────────────────────────────────────
 function AccountAge() {
   const [day, setDay] = useState(0);
   const limit = 30;
@@ -339,7 +334,6 @@ function AccountAge() {
   );
 }
 
-// ─── Max PRs Per Day ────────────────────────────────────────
 function MaxPrsPerDay() {
   const [limit, setLimit] = useState(3);
   const prs = [
@@ -410,7 +404,6 @@ function MaxPrsPerDay() {
   );
 }
 
-// ─── Max Files Changed ──────────────────────────────────────
 function MaxFilesChanged() {
   const [limit, setLimit] = useState(20);
   const prs = [
@@ -483,7 +476,6 @@ function MaxFilesChanged() {
   );
 }
 
-// ─── Repo Activity Minimum ──────────────────────────────────
 function RepoActivityMinimum() {
   const [min, setMin] = useState(3);
   const users = [
@@ -554,7 +546,6 @@ function RepoActivityMinimum() {
   );
 }
 
-// ─── Require Profile README ─────────────────────────────────
 function RequireProfileReadme() {
   const users = [
     { name: "alice", hasReadme: true, bio: "Building cool stuff" },
@@ -614,7 +605,6 @@ function RequireProfileReadme() {
   );
 }
 
-// ─── Allow & Block ──────────────────────────────────────────
 function AllowBlock() {
   const [users, setUsers] = useState([
     { name: "t3dotgg", side: "allow" },
@@ -667,7 +657,6 @@ function AllowBlock() {
   );
 }
 
-// ─── Carousel ──────────────────────────────────────────────
 const FEATURES = [
   { title: "AI slop detection", description: "Pattern-match automated contributions and flag them before merge", content: <SlopDetection /> },
   { title: "Require profile picture", description: "Block contributors using GitHub's default silhouette", content: <ProfilePicture /> },
@@ -705,7 +694,6 @@ function CarouselCard({
   );
 }
 
-// ─── Main ───────────────────────────────────────────────────
 export function TripwireFeatures() {
   const [paused, setPaused] = useState(false);
 

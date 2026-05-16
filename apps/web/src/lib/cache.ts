@@ -9,7 +9,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { qk } from "./query-keys";
 
-// ─── User-scoped invalidation ───────────────────────────
 
 /** Invalidate all cached GitHub data for a user (profile, repos, contributions, etc.) */
 export function invalidateGitHubUser(queryClient: QueryClient, username: string) {
@@ -20,7 +19,6 @@ export function invalidateGitHubUser(queryClient: QueryClient, username: string)
 	queryClient.invalidateQueries({ queryKey: ["github", "achievements", username.toLowerCase()] });
 }
 
-// ─── Repo-scoped invalidation ───────────────────────────
 
 /** Invalidate everything scoped to a specific repo (events, rules, lists, reputation). */
 export function invalidateRepoData(queryClient: QueryClient, repoId: string) {
@@ -73,7 +71,6 @@ export function invalidateRuleCaches(queryClient: QueryClient, repoId: string) {
 	});
 }
 
-// ─── Workspace invalidation ─────────────────────────────
 
 /** Invalidate workspace repos (after org switch, install, etc.) */
 export function invalidateWorkspaceRepos(queryClient: QueryClient, baOrgId?: string) {

@@ -299,7 +299,6 @@ export const rulesRouter = {
 		}),
 } satisfies TRPCRouterRecord;
 
-// ─── repo-file sync helpers ───────────────────────────────────────
 
 type RepoFileKind = "rules-md" | "pr-template";
 

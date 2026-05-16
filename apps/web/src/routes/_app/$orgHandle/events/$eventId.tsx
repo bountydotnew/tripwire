@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace, useWorkspacePath } from "#/lib/workspace-context";
-import { useGitHubUserFormatted } from "#/hooks/use-github-user";
+import { useGitHubUserFormatted } from "#/lib/use-github-user";
 import { toastManager } from "#/components/ui/toast";
 import { toastFromError } from "#/lib/toast-error";
 import { invalidateListCaches } from "#/lib/cache";
@@ -507,7 +507,6 @@ function EventDetailPage() {
 	);
 }
 
-// ────────────────── Helper Components ──────────────────
 
 function Block({
 	label,
@@ -793,7 +792,6 @@ function TimelineRow({
 	);
 }
 
-// ────────────────── Helper Functions ──────────────────
 
 function isAlreadyActioned(action: string | undefined): boolean {
 	const actionedActions = [

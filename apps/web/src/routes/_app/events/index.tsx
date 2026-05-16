@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useOrgRedirect } from "#/lib/use-org-redirect";
 
-export const Route = createFileRoute("/_app/rules")({
+export const Route = createFileRoute("/_app/events/")({
 	component: () => {
-		useOrgRedirect((slug) => `/${slug}/rules`);
+		useOrgRedirect((slug) => `/${slug}/events`);
 		return null;
 	},
 });

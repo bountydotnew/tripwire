@@ -10,7 +10,6 @@
  */
 
 export const qk = {
-	// ─── GitHub public data (no auth required) ──────────────
 	github: {
 		user: (username: string) =>
 			["github", "user", username.toLowerCase()] as const,
@@ -27,12 +26,10 @@ export const qk = {
 			["github", "profile", username.toLowerCase()] as const,
 	},
 
-	// ─── Workspace state ────────────────────────────────────
 	workspace: {
 		repos: (baOrgId: string) => ["workspace", "repos", baOrgId] as const,
 	},
 
-	// ─── Misc ───────────────────────────────────────────────
 	eventsUnread: (repoId: string) =>
 		["events", "unread", repoId] as const,
 } as const;

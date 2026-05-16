@@ -45,7 +45,6 @@ const WorkspaceContext = createContext<WorkspaceContextValue>({
 	isLoading: true,
 });
 
-// ─── URL helpers ────────────────────────────────────────
 
 /** Extract orgHandle from pathname. Matches /:orgHandle/page */
 function extractOrgHandle(pathname: string): string | null {
@@ -85,7 +84,6 @@ export function buildWorkspacePath(orgSlug: string, page: string): string {
 	return `/${orgSlug}/${page}`;
 }
 
-// ─── Provider ───────────────────────────────────────────
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const trpc = useTRPC();

@@ -128,7 +128,6 @@ export const vouchesRouter = {
 			return { removed: deleted.length > 0 };
 		}),
 
-	// ─── Vouch requests ─────────────────────────────────────
 
 	/** Public: submit a request to be vouched (requires GitHub sign-in) */
 	requestVouch: publicProcedure

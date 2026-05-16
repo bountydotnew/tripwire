@@ -15,10 +15,10 @@ import {
 	RepoActivityViz,
 	RuleCardGrid,
 	VouchedUsersViz,
-} from "../../components/rules/rule-card-grid";
-import { RulesSaveBar } from "../../components/rules/rules-save-bar";
-import { PeopleTab } from "../../components/rules/people-tab";
-import { EmptyState } from "../../components/layout/empty-state";
+} from "#/components/rules/rule-card-grid";
+import { RulesSaveBar } from "#/components/rules/rules-save-bar";
+import { PeopleTab } from "#/components/rules/people-tab";
+import { EmptyState } from "#/components/layout/empty-state";
 import { Button } from "#/components/ui/button";
 import { Checkbox } from "#/components/ui/checkbox";
 import { RepoFilesTree } from "#/components/rules/repo-files-tree";
@@ -32,7 +32,7 @@ import {
 	DialogTitle,
 } from "#/components/ui/dialog";
 import { toastManager } from "#/components/ui/toast";
-import { DEFAULT_RULE_CONFIG, type RuleConfig } from "@tripwire/db";
+import type { RuleConfig } from "@tripwire/db";
 import { env } from "@tripwire/env/client";
 import { useTRPC } from "#/integrations/trpc/react";
 // Narrow subpath: avoids pulling the server-only events/reputation/filter
@@ -1039,7 +1039,6 @@ function RulesPage() {
 	);
 }
 
-// ─── Requests tab ───────────────────────────────────────
 
 function RequestsTab({ repoRequests, repoRequestsLoading, vouchRequests, vouchRequestsLoading, onDecideRepoRequest, onDecideVouchRequest, isDecidingRepo, isDecidingVouch }: {
 	repoRequests: Array<{ id: string; kind: string; githubUsername: string; avatarUrl: string | null; reason: string }>;

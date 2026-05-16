@@ -300,7 +300,6 @@ export function PeopleTab({
 	);
 }
 
-// ─── Vouched subtab ─────────────────────────────────────
 
 function VouchedSubtab() {
 	const trpc = useTRPC();

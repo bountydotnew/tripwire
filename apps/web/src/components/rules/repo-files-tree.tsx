@@ -5,7 +5,6 @@ import { Button } from "#/components/ui/button";
 import { Checkbox } from "#/components/ui/checkbox";
 import type { RuleConfig, HoneypotPhraseKind } from "@tripwire/db";
 
-// ─── Simple markdown renderer ───────────────────────────
 
 function RenderedMarkdown({ content }: { content: string }) {
 	const html = useMemo(() => renderMarkdown(content), [content]);
@@ -70,7 +69,6 @@ function renderMarkdown(md: string): string {
 	return `<p>${html}</p>`;
 }
 
-// ─── Types ──────────────────────────────────────────────
 
 interface RepoFilesTreeProps {
 	config: RuleConfig;
@@ -113,7 +111,6 @@ const HONEYPOT_KIND_HINT: Record<HoneypotPhraseKind, string> = {
 	tag: "Bracketed slug (e.g. [rules-confirmed])",
 };
 
-// ─── Helpers ────────────────────────────────────────────
 
 function getFileContent(
 	file: FileKey,
@@ -170,7 +167,6 @@ function getHoneypotTarget(file: FileKey): "prTemplate" | "agentsMd" | null {
 	return null;
 }
 
-// ─── Settings panel (renders below the tree+editor) ─────
 
 function HoneypotSection({
 	target,
@@ -318,7 +314,6 @@ function FileSettings({
 	);
 }
 
-// ─── Main component ─────────────────────────────────────
 
 const FILE_KEYS = ["RULES.md", "PULL_REQUEST_TEMPLATE.md", "AGENTS.md"] as const;
 const FILE_TO_PATH: Record<FileKey, string> = {

@@ -1,6 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { TripwireEvent, User } from "#/types/home";
-import { createUserFromUsername } from "#/utils/home";
 
 interface EventGroupCardProps {
 	group: {
@@ -11,7 +10,17 @@ interface EventGroupCardProps {
 }
 
 function getUser(username: string): User {
-	return createUserFromUsername(username);
+	return {
+		username,
+		name: username,
+		avatar: `https://github.com/${username}.png`,
+		accountAge: "Unknown",
+		publicRepos: 0,
+		followers: 0,
+		mergedPrs: 0,
+		readme: false,
+		tint: "#888",
+	};
 }
 
 export function EventGroupCard({ group, onOpenEvent }: EventGroupCardProps) {
