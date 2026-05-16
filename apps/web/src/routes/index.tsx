@@ -53,22 +53,22 @@ function LandingPage() {
 					scale={3.0}
 					digitSize={1.2}
 					scanlineIntensity={0.5}
-					glitchAmount={1}
+					glitchAmount={5}
 					flickerAmount={1}
 					noiseAmp={1}
 					chromaticAberration={0}
 					dither={0}
-					curvature={0.1}
+					curvature={0.05}
 					tint="#A7EF9E"
 					mouseReact
 					mouseStrength={0.5}
 					cursorMask={EYE_CURSOR_MASK}
-					brightness={0.5}
+					brightness={0.3}
 				/>
 			</div>
 
 			{/* Content */}
-			<div className="relative z-10 flex w-full md:max-w-[70vw] w-full min-h-screen flex-col">
+			<div className="relative z-10 flex w-full md:max-w-[95vw] w-full min-h-screen flex-col">
 				<LandingHeader session={session} />
 				<div className="flex w-full flex-1 gap-3 justify-center items-center flex-col px-4">
 					<h1 className="text-tw-text-primary font-sans font-medium text-lg">
