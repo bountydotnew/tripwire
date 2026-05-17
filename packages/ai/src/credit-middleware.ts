@@ -14,11 +14,17 @@ import { autumn } from "@tripwire/auth/autumn";
 interface CreditMiddlewareOptions {
 	customerId: string;
 	modelId: string;
+	userName?: string;
+	userEmail?: string;
+	repoId?: string;
 }
 
 export function createCreditMiddleware({
 	customerId,
 	modelId,
+	userName,
+	userEmail,
+	repoId,
 }: CreditMiddlewareOptions): ChatMiddleware {
 	let totalPromptTokens = 0;
 	let totalCompletionTokens = 0;
@@ -93,9 +99,15 @@ export function createCreditMiddleware({
 			const aiLog = createLogger({
 				operation: "ai.usage",
 				_parentRequestId: parentRequestId,
+				user: {
+					id: customerId,
+					name: userName,
+					email: userEmail,
+				},
 				ai: {
 					model: modelId,
 					customerId,
+					repoId,
 					promptTokens: totalPromptTokens,
 					completionTokens: totalCompletionTokens,
 					totalTokens: totalPromptTokens + totalCompletionTokens,

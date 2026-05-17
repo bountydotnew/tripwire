@@ -45,7 +45,8 @@ export type EventAction =
 	// Catch-all (renamed from issue_deleted for clarity)
 	| "issue_deleted"
 	// Reputation administration
-	| "score_reset"; // maintainer cleared a user's contributor-score history
+	| "score_reset" // maintainer cleared a user's contributor-score history
+	| "block_cleared"; // maintainer expunged a specific block (neutralizes its score impact)
 
 export type EventSeverity = "info" | "warning" | "success" | "error";
 export type EventContentType = "pull_request" | "issue" | "comment";

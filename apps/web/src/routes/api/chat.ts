@@ -224,6 +224,9 @@ export const Route = createFileRoute("/api/chat")({
 					const creditMiddleware = createCreditMiddleware({
 						customerId: ctx.user.id,
 						modelId: aiModel,
+						userName: ctx.user.name ?? undefined,
+						userEmail: ctx.user.email ?? undefined,
+						repoId: resolvedRepoId,
 					});
 
 					const approvalSigner = createApprovalSignerMiddleware({

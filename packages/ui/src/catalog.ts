@@ -187,6 +187,137 @@ export const catalog = defineCatalog(schema, {
 				"Explains a contributor score by listing every factor and its point delta, grouped by category",
 		},
 
+		// ─── Pull Request List ────────────────────────────────────────
+		PullRequestList: {
+			props: z.object({
+				username: z.string(),
+				prs: z.array(z.object({
+					title: z.string(),
+					number: z.number(),
+					url: z.string(),
+					repo: z.string(),
+					state: z.string(),
+					createdAt: z.string(),
+					mergedAt: z.string().nullable(),
+					labels: z.array(z.object({ name: z.string(), color: z.string() })),
+					additions: z.number(),
+					deletions: z.number(),
+					changedFiles: z.number(),
+					commits: z.number(),
+					timeToMergeMinutes: z.number().nullable(),
+				})),
+				totalCount: z.number(),
+				showing: z.number(),
+			}),
+			description: "Displays a list of GitHub pull requests with diff stats, timing, and metadata",
+		},
+
+		// ─── Single PR Detail ─────────────────────────────────────────
+		PullRequestDetail: {
+			props: z.object({
+				title: z.string(),
+				number: z.number(),
+				url: z.string(),
+				repo: z.string(),
+				state: z.string(),
+				author: z.string(),
+				authorAvatar: z.string(),
+				createdAt: z.string(),
+				mergedAt: z.string().nullable(),
+				additions: z.number(),
+				deletions: z.number(),
+				changedFiles: z.number(),
+				commits: z.number(),
+				timeToMergeMinutes: z.number().nullable(),
+				draft: z.boolean(),
+				body: z.string().nullable(),
+				closedBy: z.string().nullable(),
+				selfClosed: z.boolean().nullable(),
+				labels: z.array(z.object({ name: z.string(), color: z.string() })),
+				files: z.array(z.object({
+					filename: z.string(),
+					status: z.string(),
+					additions: z.number(),
+					deletions: z.number(),
+				})),
+				reviewers: z.array(z.object({
+					login: z.string(),
+					state: z.string(),
+					avatarUrl: z.string(),
+				})),
+				commitMessages: z.array(z.string()),
+				comments: z.array(z.object({
+					author: z.string(),
+					authorAvatar: z.string(),
+					body: z.string(),
+					createdAt: z.string(),
+					type: z.enum(["comment", "review"]),
+				})),
+			}),
+			description: "Full detail view of a single pull request with files, reviewers, commits, comments, and diff stats",
+		},
+
+		// ─── Comment Thread ───────────────────────────────────────────
+		CommentThread: {
+			props: z.object({
+				repo: z.string(),
+				issueNumber: z.number(),
+				comments: z.array(z.object({
+					author: z.string(),
+					authorAvatar: z.string(),
+					body: z.string(),
+					createdAt: z.string(),
+					type: z.enum(["comment", "review"]),
+				})),
+				totalCount: z.number(),
+			}),
+			description: "Displays a comment thread from a GitHub issue or pull request, with markdown rendering",
+		},
+
+		// ─── Repository List ──────────────────────────────────────────
+		RepoList: {
+			props: z.object({
+				username: z.string(),
+				repos: z.array(z.object({
+					name: z.string(),
+					fullName: z.string(),
+					url: z.string(),
+					description: z.string().nullable(),
+					stars: z.number(),
+					forks: z.number(),
+					language: z.string().nullable(),
+					isFork: z.boolean(),
+					createdAt: z.string(),
+					updatedAt: z.string(),
+					pushedAt: z.string().nullable(),
+					openIssuesCount: z.number(),
+					topics: z.array(z.string()),
+					license: z.string().nullable(),
+					archived: z.boolean(),
+				})),
+				totalCount: z.number(),
+				showing: z.number(),
+			}),
+			description: "Displays a list of GitHub repositories with stars, language, timestamps, and metadata",
+		},
+
+		// ─── Activity Summary ─────────────────────────────────────────
+		ActivitySummary: {
+			props: z.object({
+				totalContributions: z.number(),
+				contributionYears: z.array(z.number()),
+				pinned: z.array(z.object({
+					name: z.string(),
+					url: z.string(),
+					description: z.string().nullable(),
+					stars: z.number(),
+					language: z.string().nullable(),
+				})),
+				orgs: z.array(z.object({ login: z.string(), avatarUrl: z.string() })),
+			}),
+			description: "Shows a GitHub user's contribution activity summary",
+		},
+
 		// ─── Text Block ───────────────────────────────────────────────
 		Text: {
 			props: z.object({

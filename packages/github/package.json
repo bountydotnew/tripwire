@@ -9,7 +9,8 @@
 		"./install-state": "./src/install-state.ts",
 		"./verify-webhook": "./src/verify-webhook.ts",
 		"./repo-files": "./src/repo-files.ts",
-		"./public": "./src/public.ts"
+		"./public": "./src/public.ts",
+		"./data-factory": "./src/data-factory.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
@@ -18,6 +19,7 @@
 	"dependencies": {
 		"@tripwire/db": "workspace:*",
 		"@tripwire/env": "workspace:*",
+		"drizzle-orm": "^0.45.1",
 		"evlog": "^2.17.0",
 		"jose": "5.9.6",
 		"linkedom": "^0.18.12"

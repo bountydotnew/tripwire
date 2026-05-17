@@ -15,8 +15,15 @@ vi.mock("./github-api", () => ({
 	hasProfileReadme: vi.fn(),
 }));
 
-// Mock the database
-vi.mock("@tripwire/db", () => ({
+// Mock the database — re-export all real schema types + mock the client
+vi.mock("@tripwire/db", async () => {
+	const actual = await vi.importActual("@tripwire/db");
+	return {
+		...actual,
+	};
+});
+
+vi.mock("@tripwire/db/client", () => ({
 	db: {
 		select: vi.fn().mockReturnThis(),
 		from: vi.fn().mockReturnThis(),

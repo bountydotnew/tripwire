@@ -1,6 +1,10 @@
-// Public entry point for @tripwire/github — a pure GitHub REST/GraphQL +
-// installation crypto helpers. No DB writes, no event emission. Anything
-// that touches the events table or rule config lives in @tripwire/core.
+// Public entry point for @tripwire/github — GitHub REST/GraphQL helpers,
+// installation crypto, and a caching data factory for enriched user data.
+// Event writes and rule config live in @tripwire/core.
+//
+// The data factory (./data-factory) is server-only (imports drizzle-orm)
+// and is available via the "./data-factory" subpath export, NOT re-exported
+// here, to avoid pulling DB deps into client bundles.
 
 export * from "./github-api";
 export * from "./public";
