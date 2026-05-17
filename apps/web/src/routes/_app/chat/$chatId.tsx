@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useRef, type KeyboardEvent } from "react";
 import { ChatThread } from "#/components/chat/chat-thread";
-import { usePersistedChat } from '#/components/chat/use-persisted-chat';
+import { usePersistedChat } from "#/components/chat/use-persisted-chat";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
 import type { UIMessage } from "#/types/chat";
@@ -23,30 +23,30 @@ function ChatPage() {
 	// Only use initialMessage from sessionStorage (cleared after use, survives navigation but not refresh)
 	const [initialMessage] = useState(() => {
 		const key = `tw.chat.init.${chatId}`;
-		const msg = sessionStorage.getItem(key);
-		if (msg) sessionStorage.removeItem(key);
+		if (typeof window === "undefined") return null;
+		const msg = window.sessionStorage.getItem(key);
+		if (msg) window.sessionStorage.removeItem(key);
 		return msg;
 	});
 
 	const chat = usePersistedChat({
 		chatId,
 		initialMessages: convQuery.data?.messages as UIMessage[] | undefined,
-		repoId: repo?.id,
+		initialMessagesVersion: convQuery.dataUpdatedAt,
+		repoId: convQuery.data?.repoId ?? repo?.id,
 	});
 
 	// Auto-send initial message (only on first navigation from home, not refresh)
 	const didSendInitial = useRef(false);
-	useEffect(() => {
-		if (
-			initialMessage &&
-			!didSendInitial.current &&
-			!convQuery.isPending &&
-			chat.messages.length === 0
-		) {
-			didSendInitial.current = true;
-			chat.sendMessage(initialMessage);
-		}
-	}, [initialMessage, convQuery.isPending]);
+	if (
+		initialMessage &&
+		!didSendInitial.current &&
+		!convQuery.isPending &&
+		chat.messages.length === 0
+	) {
+		didSendInitial.current = true;
+		queueMicrotask(() => chat.sendMessage(initialMessage));
+	}
 
 	const [inputValue, setInputValue] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);

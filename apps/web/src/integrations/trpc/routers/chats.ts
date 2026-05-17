@@ -4,6 +4,7 @@ import { authedProcedure } from "../init";
 import { db } from "@tripwire/db/client";
 import { conversations } from "@tripwire/db";
 import type { TRPCRouterRecord } from "@trpc/server";
+import { mergeMessagesPreservingResults } from "#/lib/chat-persistence";
 
 export const chatsRouter = {
 	create: authedProcedure
@@ -46,13 +47,13 @@ export const chatsRouter = {
 		.input(
 			z.object({
 				chatId: z.string().uuid(),
+				repoId: z.string().uuid().optional(),
 				messages: z.array(z.any()),
 				title: z.string().optional(),
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			// Merge with whatever's in DB so server-side cleanups (e.g. error
-			// tool-results pushed by /api/chat's executeApprovedTools) survive a
+			// Merge with whatever's in DB so server-side tool outputs survive a
 			// later save from the client that's still using its stale state.
 			const [existing] = await db
 				.select({ messages: conversations.messages })
@@ -65,15 +66,17 @@ export const chatsRouter = {
 				)
 				.limit(1);
 
-			const merged = existing
-				? mergeMessagesPreservingResults(input.messages, existing.messages ?? [])
-				: input.messages;
+			const merged = mergeMessagesPreservingResults(
+				input.messages,
+				existing?.messages ?? [],
+			);
 
 			await db
 				.insert(conversations)
 				.values({
 					id: input.chatId,
 					userId: ctx.user.id,
+					repoId: input.repoId ?? null,
 					messages: merged,
 					title: input.title ?? "New chat",
 				})
@@ -121,62 +124,3 @@ export const chatsRouter = {
 				);
 		}),
 } satisfies TRPCRouterRecord;
-
-
-/**
- * When the client saves messages, it sends whatever its useChat state holds.
- * That state doesn't reflect server-side mutations performed in /api/chat
- * (e.g. error tool-results pushed by executeApprovedTools when it rejects a
- * stale approval). To prevent the client's save from silently clobbering
- * those, we merge: for every assistant message in the input, any tool-result
- * present in the DB for a toolCallId that the input's message is missing
- * gets preserved.
- *
- * Tradeoff: the client can never "delete" a tool-result by sending an
- * update without it. That's fine — tool-results in this app are append-only
- * audit records of what the server actually did.
- */
-function mergeMessagesPreservingResults(
-	input: unknown[],
-	existing: unknown[],
-): unknown[] {
-	// Build a map: assistant-message-index → { resultId → result-part }
-	const existingResults = new Map<number, Map<string, unknown>>();
-	for (let i = 0; i < existing.length; i++) {
-		const msg = existing[i] as { role?: string; parts?: unknown[] } | undefined;
-		if (!msg || msg.role !== "assistant" || !Array.isArray(msg.parts)) continue;
-		const map = new Map<string, unknown>();
-		for (const part of msg.parts) {
-			const p = part as { type?: string; toolCallId?: string; id?: string };
-			if (p.type === "tool-result") {
-				const id = p.toolCallId || p.id;
-				if (id) map.set(id, part);
-			}
-		}
-		if (map.size > 0) existingResults.set(i, map);
-	}
-
-	return input.map((msg, i) => {
-		const m = msg as { role?: string; parts?: unknown[] } | undefined;
-		if (!m || m.role !== "assistant" || !Array.isArray(m.parts)) return msg;
-		const dbResults = existingResults.get(i);
-		if (!dbResults) return msg;
-
-		const inputResultIds = new Set<string>();
-		for (const part of m.parts) {
-			const p = part as { type?: string; toolCallId?: string; id?: string };
-			if (p.type === "tool-result") {
-				const id = p.toolCallId || p.id;
-				if (id) inputResultIds.add(id);
-			}
-		}
-
-		const missing: unknown[] = [];
-		for (const [id, part] of dbResults) {
-			if (!inputResultIds.has(id)) missing.push(part);
-		}
-		if (missing.length === 0) return msg;
-
-		return { ...m, parts: [...m.parts, ...missing] };
-	});
-}

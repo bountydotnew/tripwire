@@ -1,8 +1,55 @@
-import type { UIMessage, MessagePart, ToolCallPart, ToolResultPart, ThinkingPart } from "@tanstack/ai-client";
+import type {
+	UIMessage,
+	UIMessagePart,
+	ToolUIPart,
+	DynamicToolUIPart,
+	ReasoningUIPart,
+	UIDataTypes,
+	UITools,
+} from "ai";
 import type { Spec } from "@json-render/core";
 import type { RuleConfig } from "@tripwire/db";
 
-export type { UIMessage, MessagePart, ToolCallPart, ToolResultPart, ThinkingPart };
+export type {
+	UIMessage,
+	ToolUIPart,
+	DynamicToolUIPart,
+	ReasoningUIPart as ThinkingPart,
+};
+
+export type LegacyToolCallPart = {
+	type: "tool-call";
+	id?: string;
+	toolCallId?: string;
+	name?: string;
+	arguments?: string;
+	input?: unknown;
+	state?: string;
+	approval?: { id: string; approved?: boolean; reason?: string };
+};
+
+export type LegacyToolResultPart = {
+	type: "tool-result";
+	toolCallId?: string;
+	id?: string;
+	content?: string;
+	state?: string;
+};
+
+export type LegacyThinkingPart = {
+	type: "thinking";
+	content?: string;
+	text?: string;
+};
+
+export type MessagePart =
+	| UIMessagePart<UIDataTypes, UITools>
+	| LegacyToolCallPart
+	| LegacyToolResultPart
+	| LegacyThinkingPart;
+
+export type ToolCallPart = ToolUIPart | DynamicToolUIPart | LegacyToolCallPart;
+export type ToolResultPart = LegacyToolResultPart;
 
 /** Re-export json-render Spec for tool result rendering */
 export type { Spec as RenderSpec };

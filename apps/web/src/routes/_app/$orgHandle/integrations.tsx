@@ -40,11 +40,16 @@ function IntegrationsPage() {
 							</div>
 						</div>
 					</div>
-					<Button size="xs" variant="outline" asChild className="shrink-0 bg-white text-black border-[#CDCDCD] hover:bg-white/90">
-						<a href={installUrl} target="_blank" rel="noopener noreferrer">
-							{repos.length > 0 ? "Manage" : "Install"}
-						</a>
-					</Button>
+					<Button
+						size="xs"
+						variant="outline"
+						className="shrink-0 bg-white text-black border-[#CDCDCD] hover:bg-white/90"
+						render={(
+							<a href={installUrl} target="_blank" rel="noopener noreferrer">
+								{repos.length > 0 ? "Manage" : "Install"}
+							</a>
+						)}
+					/>
 				</div>
 			</div>
 

@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import type { ContributionsData, ContributionWeek } from "@tripwire/github";
+import type { ContributionsData } from "@tripwire/github";
 
 const COLOR_BANDS = [
 	{ min: 1, max: 5, color: "#1a3a2a" },

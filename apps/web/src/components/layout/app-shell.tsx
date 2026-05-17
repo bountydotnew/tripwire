@@ -366,7 +366,8 @@ function SidebarRecentChats() {
 							exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0, overflow: "hidden" }}
 							transition={{
 								layout: { duration: 0.25, ease: [0.25, 1, 0.5, 1] },
-								exit: { duration: 0.2, ease: [0.25, 1, 0.5, 1] },
+								duration: 0.2,
+								ease: [0.25, 1, 0.5, 1],
 							}}
 							className={`group flex items-center gap-2 w-full px-1.5 py-1.5 rounded-lg text-left ${
 								isLoading

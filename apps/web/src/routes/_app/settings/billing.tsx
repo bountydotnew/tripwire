@@ -24,7 +24,6 @@ function BillingSettingsPage() {
 	const aiBalance = customer?.balances?.ai_credits;
 	const creditsUsed = aiBalance?.usage ?? 0;
 	const creditsGranted = aiBalance?.granted ?? 0;
-	const creditsRemaining = aiBalance?.remaining ?? 0;
 	const isUnlimited = aiBalance?.unlimited ?? false;
 
 	// Usage percentage for progress bar
@@ -115,7 +114,7 @@ function UpgradeButton({ isFreePlan }: { isFreePlan: boolean }) {
 
 	const handleUpgrade = async () => {
 		try {
-			await attach({ productId: "pro" });
+			await attach({ planId: "pro" });
 		} catch (err) {
 			console.error("[Billing] Upgrade failed:", err);
 		}

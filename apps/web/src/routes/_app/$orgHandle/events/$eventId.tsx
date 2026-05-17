@@ -20,7 +20,6 @@ function EventDetailPage() {
 	const { repo } = useWorkspace();
 	const homePath = useWorkspacePath("home");
 	const eventsPath = useWorkspacePath("events");
-	const usersBasePath = "/users";
 	const [actionStatus, setActionStatus] = useState<"idle" | "blacklisted" | "safe" | "closed">("idle");
 
 	// Fetch the event
@@ -372,7 +371,8 @@ function EventDetailPage() {
 							<div className="flex-1 min-w-0">
 								<div className="flex items-center gap-2">
 									<Link
-										to={`${usersBasePath}/${username}`}
+										to="/users/$username"
+										params={{ username }}
 										className="text-[15px] leading-5 text-tw-text-primary font-medium hover:text-tw-accent transition-colors"
 									>
 										@{username}
@@ -975,4 +975,3 @@ function ContributorScoreBar({
 		</div>
 	);
 }
-

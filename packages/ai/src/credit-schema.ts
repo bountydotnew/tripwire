@@ -67,9 +67,10 @@ export async function computeCostCents(
 	try {
 		const tl = await getTokenlens();
 		const model = await tl.getModelData({ modelId });
-		if (model?.cost) {
-			const inputRate = Number(model.cost.prompt ?? model.cost.input ?? 0);
-			const outputRate = Number(model.cost.completion ?? model.cost.output ?? 0);
+		if (model?.cost && typeof model.cost === "object") {
+			const cost = model.cost as Record<string, unknown>;
+			const inputRate = Number(cost.prompt ?? cost.input ?? 0);
+			const outputRate = Number(cost.completion ?? cost.output ?? 0);
 
 			if (inputRate > 0 || outputRate > 0) {
 				const { rawCostUsd, cents } = computeFromRates(inputRate, outputRate, promptTokens, completionTokens);

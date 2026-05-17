@@ -1,8 +1,11 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useChat, fetchServerSentEvents } from "@tanstack/ai-react";
+import { useState, useMemo, useRef, useCallback } from "react";
+import { useChat } from "@ai-sdk/react";
+import {
+	DefaultChatTransport,
+	lastAssistantMessageIsCompleteWithApprovalResponses,
+} from "ai";
 import type { UIMessage, SerializedMessage } from "#/types/chat";
 import { useMutation } from "@tanstack/react-query";
-import { useWorkspace } from "#/lib/workspace-context";
 import { useCustomer } from "autumn-js/react";
 import { useTRPC } from "#/integrations/trpc/react";
 import { useRouterState } from "@tanstack/react-router";
@@ -10,6 +13,7 @@ import { useRouterState } from "@tanstack/react-router";
 interface UsePersistedChatOptions {
 	chatId: string;
 	initialMessages?: UIMessage[];
+	initialMessagesVersion?: number;
 	repoId?: string;
 }
 
@@ -19,7 +23,7 @@ function extractTitle(messages: UIMessage[]): string {
 	const text =
 		firstUser.parts
 			?.filter((p: any) => p.type === "text")
-			.map((p: any) => p.content)
+			.map((p: any) => p.text ?? p.content)
 			.join("") ?? "";
 	return text.slice(0, 80) || "New chat";
 }
@@ -27,6 +31,7 @@ function extractTitle(messages: UIMessage[]): string {
 export function usePersistedChat({
 	chatId,
 	initialMessages,
+	initialMessagesVersion,
 	repoId,
 }: UsePersistedChatOptions) {
 	const currentPath = useRouterState({ select: (s) => s.location.pathname });
@@ -41,27 +46,46 @@ export function usePersistedChat({
 		quotaExhaustedByError ||
 		(aiBalance != null && aiBalance.remaining <= 0 && !aiBalance.unlimited);
 
-	const connection = useMemo(
+	const requestBodyRef = useRef({
+		repoId,
+		conversationId: chatId,
+		currentPage: currentPath,
+	});
+	requestBodyRef.current = {
+		repoId,
+		conversationId: chatId,
+		currentPage: currentPath,
+	};
+
+	// Keep the Chat instance's transport stable while still sending fresh
+	// repo/page metadata as the workspace context finishes loading.
+	const transport = useMemo(
 		() =>
-			fetchServerSentEvents("/api/chat", () => ({
-				body: {
-					repoId,
-					conversationId: chatId,
-					currentPage: currentPath,
-				},
-			})),
-		[repoId, chatId, currentPath],
+			new DefaultChatTransport<UIMessage>({
+				api: "/api/chat",
+				body: () => requestBodyRef.current,
+			}),
+		[],
+	);
+
+	const saveMessages = useMutation(
+		trpc.chats.saveMessages.mutationOptions(),
 	);
 
 	const {
 		messages,
 		sendMessage: sendChatMessage,
-		isLoading,
+		status,
 		addToolApprovalResponse,
 		setMessages,
 		error: chatHookError,
-	} = useChat({
-		connection,
+	} = useChat<UIMessage>({
+		id: initialMessages && initialMessages.length > 0
+			? `${chatId}:${initialMessagesVersion ?? initialMessages.length}`
+			: chatId,
+		messages: initialMessages ?? [],
+		transport,
+		sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
 		onError: (error) => {
 			if (error.message.includes("429")) {
 				setQuotaExhaustedByError(true);
@@ -71,40 +95,24 @@ export function usePersistedChat({
 			console.error("[chat]", error.message);
 			setChatError(error);
 		},
-	});
-
-	// Seed with persisted messages once loaded
-	const didSeed = useRef(false);
-	useEffect(() => {
-		if (initialMessages && initialMessages.length > 0 && !didSeed.current) {
-			didSeed.current = true;
-			setMessages(initialMessages);
-		}
-	}, [initialMessages]);
-
-	// Auto-save when AI finishes responding
-	const saveMessages = useMutation(
-		trpc.chats.saveMessages.mutationOptions(),
-	);
-
-	const wasLoading = useRef(false);
-	useEffect(() => {
-		if (wasLoading.current && !isLoading && messages.length > 0) {
+		onFinish: ({ messages }) => {
+			if (messages.length === 0) return;
 			saveMessages.mutate({
 				chatId,
-				messages: messages as SerializedMessage[],
+				repoId,
+				messages: messages as unknown as SerializedMessage[],
 				title: extractTitle(messages),
 			});
 			refetchCustomer();
-		}
-		wasLoading.current = isLoading;
-	}, [isLoading]);
+		},
+	});
+	const isLoading = status === "submitted" || status === "streaming";
 
 	const sendMessage = useCallback(
 		(content: string) => {
 			if (!content.trim() || isQuotaExhausted) return;
 			setChatError(null);
-			sendChatMessage(content);
+			void sendChatMessage({ text: content });
 		},
 		[sendChatMessage, isQuotaExhausted],
 	);

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { authClient } from "@tripwire/auth/client";
 import { useTRPC } from "#/integrations/trpc/react";
-import { useWorkspace, useWorkspacePath } from "#/lib/workspace-context";
+import { useWorkspace } from "#/lib/workspace-context";
 import { useGitHubUserFormatted } from "#/lib/use-github-user";
 import { ContributionsHeatmap } from "#/components/profile/contributions-heatmap";
 import { PinnedRepos } from "#/components/profile/pinned-repos";
@@ -25,10 +25,9 @@ export const Route = createFileRoute("/_app/users/$username")({
 
 function UserProfilePage() {
 	const { username } = Route.useParams();
-	const { repo } = useWorkspace();
+	const { org, repo } = useWorkspace();
 	const { data: session } = authClient.useSession();
 	const trpc = useTRPC();
-	const eventsPath = useWorkspacePath("events");
 
 	const githubUser = useGitHubUserFormatted(username);
 	const user = githubUser.data;
@@ -288,7 +287,8 @@ function UserProfilePage() {
 								return (
 									<Link
 										key={event.id}
-										to={`${eventsPath}/${event.id}`}
+										to="/$orgHandle/events/$eventId"
+										params={{ orgHandle: org?.slug ?? "", eventId: event.id }}
 										className="rounded-[10px] bg-tw-inner px-3 py-2.5 flex items-center gap-3 hover:bg-tw-hover transition-colors"
 									>
 										<span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: sevColor }} />

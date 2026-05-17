@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { authedProcedure } from "../init";
 import { assertRepoOwner, computeContributorScore } from "@tripwire/core";
 import { resetContributorScore } from "@tripwire/core";
-import { fetchUserContributions, fetchUserGraphQL, fetchUserAchievements } from "@tripwire/github";
+import { fetchUserContributions } from "@tripwire/github";
 import { db } from "@tripwire/db/client";
 import {
 	repositories,

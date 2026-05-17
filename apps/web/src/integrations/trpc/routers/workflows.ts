@@ -2,7 +2,7 @@ import { z } from "zod";
 import { and, eq, desc, sql } from "drizzle-orm";
 import { authedProcedure } from "../init";
 import { db } from "@tripwire/db/client";
-import { workflows, repositories, organizations, events, githubReputation } from "@tripwire/db";
+import { workflows, repositories, organizations, events } from "@tripwire/db";
 import { fetchPublicUser, fetchPublicRepos } from "@tripwire/github/public";
 import {
 	getInstallationToken,

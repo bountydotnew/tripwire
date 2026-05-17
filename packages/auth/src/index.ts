@@ -76,6 +76,7 @@ export const auth = betterAuth({
 				for (const { orgId } of ownedOrgs) {
 					try {
 						await auth.api.deleteOrganization({
+							headers: new Headers(),
 							body: { organizationId: orgId },
 						});
 					} catch (err) {
@@ -91,15 +92,14 @@ export const auth = betterAuth({
 			allowUserToCreateOrganization: true,
 			organizationHooks: {
 				// Prevent deleting the default personal org
-				beforeDeleteOrganization: async (data) => {
-					const org = data.organization;
+				beforeDeleteOrganization: async () => {
 					// Personal orgs have a single owner and were auto-created
 					// Allow deletion only from the beforeDelete user hook (no request context)
 					// or if explicitly triggered by the user
 				},
 
 				// Guard ownership transfers
-				beforeUpdateMemberRole: async ({ member: targetMember, newRole, user, organization: org }) => {
+				beforeUpdateMemberRole: async ({ newRole, user, organization: org }) => {
 					// Only owners can transfer ownership
 					if (newRole === "owner" || (Array.isArray(newRole) && newRole.includes("owner"))) {
 						const [callerMembership] = await db
@@ -140,6 +140,7 @@ export const auth = betterAuth({
 
 						if (previousOwner) {
 							await auth.api.updateMemberRole({
+								headers: new Headers(),
 								body: {
 									memberId: previousOwner.id,
 									role: "admin",

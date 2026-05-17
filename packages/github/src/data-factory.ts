@@ -83,12 +83,25 @@ async function upsertCache(
 ) {
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + CACHE_TTL_MS);
+	const normalizedUsername = username.toLowerCase();
+	const updateSet = {
+		...(data.githubUserId !== undefined && { githubUserId: data.githubUserId }),
+		...(data.profileJson !== undefined && { profileJson: data.profileJson }),
+		...(data.mergedPrsJson !== undefined && { mergedPrsJson: data.mergedPrsJson }),
+		...(data.mergedPrCount !== undefined && { mergedPrCount: data.mergedPrCount }),
+		...(data.reposJson !== undefined && { reposJson: data.reposJson }),
+		...(data.repoCount !== undefined && { repoCount: data.repoCount }),
+		...(data.graphqlJson !== undefined && { graphqlJson: data.graphqlJson }),
+		fetchedAt: now,
+		expiresAt,
+		updatedAt: now,
+	};
 	try {
 		const { sql, db, githubUserCache } = await getDbDeps();
 		await db
 			.insert(githubUserCache)
 			.values({
-				githubUsername: username.toLowerCase(),
+				githubUsername: normalizedUsername,
 				githubUserId: data.githubUserId ?? null,
 				profileJson: data.profileJson ?? {},
 				mergedPrsJson: data.mergedPrsJson ?? [],
@@ -99,20 +112,12 @@ async function upsertCache(
 				fetchedAt: now,
 				expiresAt,
 			})
-			.onConflictDoUpdate({
-				target: sql`lower(${githubUserCache.githubUsername})`,
-				set: {
-					...(data.githubUserId !== undefined && { githubUserId: data.githubUserId }),
-					...(data.profileJson !== undefined && { profileJson: data.profileJson }),
-					...(data.mergedPrsJson !== undefined && { mergedPrCount: data.mergedPrCount }),
-					...(data.reposJson !== undefined && { reposJson: data.reposJson }),
-					...(data.repoCount !== undefined && { repoCount: data.repoCount }),
-					...(data.graphqlJson !== undefined && { graphqlJson: data.graphqlJson }),
-					fetchedAt: now,
-					expiresAt,
-					updatedAt: now,
-				},
-			});
+			.onConflictDoNothing();
+
+		await db
+			.update(githubUserCache)
+			.set(updateSet)
+			.where(sql`lower(${githubUserCache.githubUsername}) = ${normalizedUsername}`);
 	} catch {
 		// Cache write failure — non-fatal
 	}

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { useWorkspace, buildWorkspacePath } from "#/lib/workspace-context";
+import { useWorkspace } from "#/lib/workspace-context";
 
 /**
  * Auto-redirects users to their default org when they land on a path

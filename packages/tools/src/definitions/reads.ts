@@ -805,7 +805,10 @@ const explainScoreFlag = defineTool({
 			"**Evidence:**",
 			...((output.evidence as Array<Record<string, unknown>>).slice(0, 10).map((e, i) => {
 				if ("title" in e) return `${i + 1}. ${e.title} (${e.repo}#${e.number}) — ${e.createdAt ? new Date(e.createdAt as string).toLocaleDateString() : ""}${e.timeToMergeMinutes != null ? ` — merged in ${e.timeToMergeMinutes}min` : ""}`;
-				if ("reason" in e) return `• ${e.reason} → ${e.delta > 0 ? "+" : ""}${e.delta}`;
+				if ("reason" in e) {
+					const delta = typeof e.delta === "number" ? e.delta : 0;
+					return `• ${e.reason} → ${delta > 0 ? "+" : ""}${delta}`;
+				}
 				if ("name" in e) return `• ${e.name}${e.stars ? ` (${e.stars}★)` : ""}`;
 				if ("action" in e) return `• ${e.description ?? e.action} (${e.date ? new Date(e.date as string).toLocaleDateString() : ""})`;
 				return `• ${JSON.stringify(e)}`;

@@ -1,4 +1,4 @@
-import { toolDefinition } from "@tanstack/ai";
+import { tool as aiTool, type ToolSet } from "ai";
 import { z } from "zod";
 import {
 	type AnyToolDefinition,
@@ -39,50 +39,46 @@ const specSchema = z.object({
 });
 
 /**
- * Convert a registry of tool definitions into the TanStack AI tool array
- * the chat route expects (each entry has `name` + `execute` + `inputSchema`).
+ * Convert a registry of tool definitions into the AI SDK tool set
+ * the chat route expects (a record keyed by tool name).
  *
- * The wrapper does the InferSchemaType cast once at the boundary — handlers
- * see the inferred type from their own zod schema, not `unknown`.
+ * The wrapper does the schema cast once at the boundary so handlers see the
+ * inferred type from their own zod schema, not `unknown`.
  */
 export function createChatTools(
 	ctx: ToolContext,
 	tools: readonly AnyToolDefinition[],
-) {
-	return filterToolsForSurface(tools, "chat").map((tool) =>
-		buildChatTool(tool, ctx),
-	);
+): ToolSet {
+	const chatTools: ToolSet = {};
+	for (const tool of filterToolsForSurface(tools, "chat")) {
+		chatTools[tool.name] = buildChatTool(tool, ctx);
+	}
+	return chatTools;
 }
 
 function buildChatTool<TShape extends z.ZodRawShape, TOutput>(
 	tool: ToolDefinition<TShape, TOutput>,
 	ctx: ToolContext,
 ) {
-	const def = toolDefinition({
-		name: tool.name,
+	return aiTool({
 		description: tool.description,
 		inputSchema: tool.inputSchema,
 		outputSchema: specSchema,
 		needsApproval: tool.needsApproval,
-		lazy: tool.lazy,
-	});
+		execute: async (rawArgs) => {
+			const args = rawArgs as z.infer<z.ZodObject<TShape>>;
 
-	return def.server(async (rawArgs) => {
-		// TanStack-AI infers args as `unknown` because zod 4's standard-schema
-		// interface isn't recognized by InferSchemaType. We've validated the
-		// schema by registering it; cast through the tool's own inferred type.
-		const args = rawArgs as z.infer<z.ZodObject<TShape>>;
-
-		try {
-			return await runToolForChat(tool, args, ctx);
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			return makeSpec("ActionResult", {
-				success: false,
-				message,
-				action: tool.name,
-			});
-		}
+			try {
+				return await runToolForChat(tool, args, ctx);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				return makeSpec("ActionResult", {
+					success: false,
+					message,
+					action: tool.name,
+				});
+			}
+		},
 	});
 }
 
