@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as githubApi from "@tripwire/github";
 
-// Mock the GitHub API module
+// Mock the GitHub API module while preserving non-mocked exports.
 vi.mock("@tripwire/github", async () => {
 	const actual = await vi.importActual("@tripwire/github");
 	return {
@@ -19,7 +19,8 @@ vi.mock("@tripwire/github", async () => {
 	};
 });
 
-// Mock the database — re-export all real schema types + mock the client
+// Mock the database: re-export all real schema/config values and mock only
+// the client module used by pipeline code.
 vi.mock("@tripwire/db", async () => {
 	const actual = await vi.importActual("@tripwire/db");
 	return {

@@ -1,4 +1,4 @@
-import { useState, useRef, type KeyboardEvent } from "react";
+import { useState, useRef, useMemo, type KeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +13,17 @@ import { UnicodeSpinner } from "#/components/ui/unicode-spinner";
 import { useCustomer } from "autumn-js/react";
 import { useRequestNotifications } from "#/lib/use-request-notifications";
 import Dither from "#/components/Dither";
+import {
+	Context,
+	ContextTrigger,
+	ContextContent,
+	ContextContentHeader,
+	ContextContentBody,
+	ContextContentFooter,
+	ContextInputUsage,
+	ContextOutputUsage,
+} from "#/components/ui/context";
+import { AI_MODEL_ID, getContextWindow } from "@tripwire/ai/model-config";
 import type { UIMessage } from "#/types/chat";
 
 export function AppShell() {
@@ -31,7 +42,46 @@ function AppShellInner() {
 	useRequestNotifications();
 	// Handles auto-redirects: no org in URL → default workspace, "_" placeholder → first repo
 
-	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted, newChat } = useAIChat();
+	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted, newChat, messages: chatMessages } = useAIChat();
+
+	// Compute cumulative usage from message metadata, with estimation fallback
+	const chatUsage = useMemo(() => {
+		let inputTokens = 0;
+		let outputTokens = 0;
+		let costUSD = 0;
+		let hasMetadata = false;
+
+		for (const msg of chatMessages) {
+			const meta = (msg as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+			if (meta?.usage) {
+				hasMetadata = true;
+				const u = meta.usage as Record<string, number>;
+				inputTokens += u.inputTokens ?? 0;
+				outputTokens += u.outputTokens ?? 0;
+			}
+			if (typeof meta?.costUSD === "number") {
+				costUSD += meta.costUSD;
+			}
+		}
+
+		// Fallback: estimate tokens from message text (~4 chars per token)
+		if (!hasMetadata && chatMessages.length > 0) {
+			for (const msg of chatMessages) {
+				const parts = (msg as Record<string, unknown>).parts as Array<{ type: string; text?: string; content?: string }> | undefined;
+				let charCount = 0;
+				if (parts) {
+					for (const p of parts) {
+						charCount += (p.text ?? p.content ?? "").length;
+					}
+				}
+				const estimated = Math.ceil(charCount / 4);
+				if (msg.role === "user") inputTokens += estimated;
+				else outputTokens += estimated;
+			}
+		}
+
+		return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, costUSD };
+	}, [chatMessages]);
 	const [inputValue, setInputValue] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -119,6 +169,26 @@ function AppShellInner() {
 									</span>
 								</div>
 								<div className="flex items-center gap-1.5">
+									<Context
+											usedTokens={chatUsage.totalTokens}
+											maxTokens={getContextWindow(AI_MODEL_ID)}
+											usage={{
+												inputTokens: chatUsage.inputTokens,
+												outputTokens: chatUsage.outputTokens,
+											}}
+											modelId={AI_MODEL_ID}
+											costUSD={chatUsage.costUSD}
+										>
+											<ContextTrigger className="h-6 px-1.5 text-[11px] text-tw-text-muted" />
+											<ContextContent>
+												<ContextContentHeader />
+												<ContextContentBody>
+													<ContextInputUsage />
+													<ContextOutputUsage />
+												</ContextContentBody>
+												<ContextContentFooter />
+											</ContextContent>
+									</Context>
 									<CreditBalancePill />
 									<button
 										onClick={newChat}
@@ -255,12 +325,12 @@ function CreditBalancePill() {
 
 	return (
 		<span
-			className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums transition-colors ${
+			className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[14px] font-medium tabular-nums transition-colors ${
 				isEmpty
 					? "bg-red-500/10 text-red-400"
 					: isLow
 						? "bg-amber-500/10 text-amber-400"
-						: "bg-[#FAFAFA08] text-tw-text-muted"
+						: "bg-[#FAFAFA08] text-muted-foreground"
 			}`}
 		>
 			${(remaining / 100).toFixed(2)}
@@ -367,7 +437,8 @@ function SidebarRecentChats() {
 							exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0, overflow: "hidden" }}
 							transition={{
 								layout: { duration: 0.25, ease: [0.25, 1, 0.5, 1] },
-								exit: { duration: 0.2, ease: [0.25, 1, 0.5, 1] },
+								duration: 0.2,
+								ease: [0.25, 1, 0.5, 1],
 							}}
 							className={`group flex items-center gap-2 w-full px-1.5 py-1.5 rounded-lg text-left ${
 								isLoading

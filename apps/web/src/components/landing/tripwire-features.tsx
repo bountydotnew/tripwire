@@ -179,7 +179,7 @@ function LanguageGate() {
               backgroundColor: lang === l ? "#262525" : "rgba(0,0,0,0)",
               color: lang === l ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.2)",
             }}
-            whileActive={{ scale: 0.97 }}
+            whileTap={{ scale: 0.97 }}
             style={{ borderWidth: 1, borderStyle: "solid" }}
             transition={{ duration: 0.16, ease: easeOut }}
           >

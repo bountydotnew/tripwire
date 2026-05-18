@@ -12,14 +12,8 @@ import { githubApi } from "./app";
 import { fetchUserGraphQL, fetchUserContributions } from "./user";
 import type { GitHubUserGraphQL, PinnedRepo, ContributionsData } from "./user";
 import type { CachedPR, CachedRepo } from "@tripwire/db";
-
-// ─── Cache TTL ─────────────────────────────────────────────────
-
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const MIN_BATCH_SIZE = 20; // always fetch at least this many for cache warmth
-
-// ─── Public types ──────────────────────────────────────────────
-
 export type { CachedPR as GitHubPR, CachedRepo as GitHubRepoDetail };
 
 export interface FetchOptions {
@@ -43,9 +37,6 @@ export interface ActivityResult {
 	pinned: PinnedRepo[];
 	graphql: GitHubUserGraphQL | null;
 }
-
-// ─── Internal: cache helpers (lazy-load DB deps) ──────────────
-
 async function getDbDeps() {
 	const { eq, sql } = await import("drizzle-orm");
 	const { db } = await import("@tripwire/db/client");
@@ -83,12 +74,25 @@ async function upsertCache(
 ) {
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + CACHE_TTL_MS);
+	const normalizedUsername = username.toLowerCase();
+	const updateSet = {
+		...(data.githubUserId !== undefined && { githubUserId: data.githubUserId }),
+		...(data.profileJson !== undefined && { profileJson: data.profileJson }),
+		...(data.mergedPrsJson !== undefined && { mergedPrsJson: data.mergedPrsJson }),
+		...(data.mergedPrCount !== undefined && { mergedPrCount: data.mergedPrCount }),
+		...(data.reposJson !== undefined && { reposJson: data.reposJson }),
+		...(data.repoCount !== undefined && { repoCount: data.repoCount }),
+		...(data.graphqlJson !== undefined && { graphqlJson: data.graphqlJson }),
+		fetchedAt: now,
+		expiresAt,
+		updatedAt: now,
+	};
 	try {
 		const { sql, db, githubUserCache } = await getDbDeps();
 		await db
 			.insert(githubUserCache)
 			.values({
-				githubUsername: username.toLowerCase(),
+				githubUsername: normalizedUsername,
 				githubUserId: data.githubUserId ?? null,
 				profileJson: data.profileJson ?? {},
 				mergedPrsJson: data.mergedPrsJson ?? [],
@@ -99,27 +103,16 @@ async function upsertCache(
 				fetchedAt: now,
 				expiresAt,
 			})
-			.onConflictDoUpdate({
-				target: sql`lower(${githubUserCache.githubUsername})`,
-				set: {
-					...(data.githubUserId !== undefined && { githubUserId: data.githubUserId }),
-					...(data.profileJson !== undefined && { profileJson: data.profileJson }),
-					...(data.mergedPrsJson !== undefined && { mergedPrCount: data.mergedPrCount }),
-					...(data.reposJson !== undefined && { reposJson: data.reposJson }),
-					...(data.repoCount !== undefined && { repoCount: data.repoCount }),
-					...(data.graphqlJson !== undefined && { graphqlJson: data.graphqlJson }),
-					fetchedAt: now,
-					expiresAt,
-					updatedAt: now,
-				},
-			});
+			.onConflictDoNothing();
+
+		await db
+			.update(githubUserCache)
+			.set(updateSet)
+			.where(sql`lower(${githubUserCache.githubUsername}) = ${normalizedUsername}`);
 	} catch {
 		// Cache write failure — non-fatal
 	}
 }
-
-// ─── Internal: transformers ────────────────────────────────────
-
 function transformSearchItemToPR(item: Record<string, unknown>): CachedPR {
 	const repoUrl = (item.repository_url as string) ?? "";
 	const repoFullName = repoUrl.replace("https://api.github.com/repos/", "");
@@ -212,9 +205,6 @@ function transformRepoItem(item: Record<string, unknown>): CachedRepo {
 		archived: (item.archived as boolean) ?? false,
 	};
 }
-
-// ─── Public API ────────────────────────────────────────────────
-
 /**
  * Fetch a user's pull requests with full details.
  * Defaults to 5 merged PRs. Cached for 1 hour.
@@ -271,9 +261,6 @@ export async function fetchUserPRs(
 
 	return { items: enriched, totalCount };
 }
-
-// ─── Issue / PR comments ───────────────────────────────────────
-
 export interface CommentThreadResult {
 	comments: PRComment[];
 	totalCount: number;
@@ -341,9 +328,6 @@ export async function fetchComments(
 
 	return { comments: sorted.slice(0, limit), totalCount: sorted.length };
 }
-
-// ─── Single PR detail ──────────────────────────────────────────
-
 export interface PRComment {
 	id: number;
 	author: string;

@@ -7,6 +7,15 @@ import { catalog } from "./catalog";
  * Component Registry for AI tool results
  * Maps catalog components to styled React implementations
  */
+
+/** Format large numbers compactly: 1200 → "1.2K", 1500000 → "1.5M" */
+function fmtCompact(n: number): string {
+	if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
+	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+	if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+	return String(n);
+}
+
 /** Lightweight markdown-to-JSX for tool card bodies (no deps). */
 function MiniMarkdown({ content }: { content: string }) {
 	const lines = content.split("\n");
@@ -142,11 +151,13 @@ export const { registry } = defineRegistry(catalog, {
 					{/* Header: avatar, name, score */}
 					<div className="flex items-center gap-2.5">
 						{props.avatar && (
-							<img src={props.avatar} alt="" className="size-10 rounded-full" />
+							<a href={`/users/${props.username}`}>
+								<img src={props.avatar} alt="" className="size-10 rounded-full hover:opacity-80 transition-opacity" />
+							</a>
 						)}
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center gap-2">
-								<span className="text-[14px] text-tw-text-primary font-medium">@{props.username}</span>
+								<a href={`/users/${props.username}`} className="text-[14px] text-tw-text-primary font-medium hover:text-tw-accent transition-colors">@{props.username}</a>
 								<span className={`text-[11px] font-medium ${statusColor}`}>{statusLabel}</span>
 							</div>
 							{(props.name || props.company) && (
@@ -171,35 +182,35 @@ export const { registry } = defineRegistry(catalog, {
 					{/* Stats grid */}
 					<div className="grid grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
 						<div><span className="text-tw-text-muted">Account age </span><span className="text-tw-text-secondary">{ageText}</span></div>
-						<div><span className="text-tw-text-muted">Public repos </span><span className="text-tw-text-secondary">{props.publicRepos}</span></div>
-						<div><span className="text-tw-text-muted">Followers </span><span className="text-tw-text-secondary">{props.followers}</span></div>
+						<div><span className="text-tw-text-muted">Public repos </span><span className="text-tw-text-secondary">{fmtCompact(props.publicRepos)}</span></div>
+						<div><span className="text-tw-text-muted">Followers </span><span className="text-tw-text-secondary">{fmtCompact(props.followers)}</span></div>
 						<div className="col-span-3">
 							<span className="text-tw-text-muted">Breakdown </span>
 							<span className="text-tw-text-secondary">
-								Non-fork public: {props.publicNonForkRepos}
+								Non-fork public: {fmtCompact(props.publicNonForkRepos)}
 								<span className="text-tw-text-muted"> · </span>
-								Forks: {props.publicForkRepos}
+								Forks: {fmtCompact(props.publicForkRepos)}
 								<span className="text-tw-text-muted"> · </span>
-								PRs here: {props.prsToThisRepo}
+								PRs here: {fmtCompact(props.prsToThisRepo)}
 							</span>
 						</div>
 						<div className="col-span-3">
 							<span className="text-tw-text-muted">PRs </span>
 							<span className="text-tw-text-secondary">
-								{props.closedPrs} closed PRs: {props.mergedPrs} merged, {props.closedUnmergedPrs} not merged
+								{fmtCompact(props.closedPrs)} closed: {fmtCompact(props.mergedPrs)} merged, {fmtCompact(props.closedUnmergedPrs)} not merged
 							</span>
 						</div>
-						<div><span className="text-tw-text-muted">Contributions </span><span className="text-tw-text-secondary">{props.contributionsLastYear}</span></div>
-						<div><span className="text-tw-text-muted">Following </span><span className="text-tw-text-secondary">{props.following}</span></div>
+						<div><span className="text-tw-text-muted">Contributions </span><span className="text-tw-text-secondary">{fmtCompact(props.contributionsLastYear)}</span></div>
+						<div><span className="text-tw-text-muted">Following </span><span className="text-tw-text-secondary">{fmtCompact(props.following)}</span></div>
 					</div>
 
 					{/* Event breakdown */}
 					{(props.blockedCount > 0 || props.allowedCount > 0 || props.nearMissCount > 0) && (
 						<div className="flex items-center gap-3 text-[11px]">
 							<span className="text-tw-text-muted">Events:</span>
-							{props.allowedCount > 0 && <span className="text-tw-success">{props.allowedCount} allowed</span>}
-							{props.blockedCount > 0 && <span className="text-tw-error">{props.blockedCount} blocked</span>}
-							{props.nearMissCount > 0 && <span className="text-tw-warning">{props.nearMissCount} near-miss</span>}
+							{props.allowedCount > 0 && <span className="text-tw-success">{fmtCompact(props.allowedCount)} allowed</span>}
+							{props.blockedCount > 0 && <span className="text-tw-error">{fmtCompact(props.blockedCount)} blocked</span>}
+							{props.nearMissCount > 0 && <span className="text-tw-warning">{fmtCompact(props.nearMissCount)} near-miss</span>}
 						</div>
 					)}
 
@@ -230,8 +241,8 @@ export const { registry } = defineRegistry(catalog, {
 
 					{/* Sponsors + signals */}
 					<div className="flex flex-wrap gap-2 text-[10px] text-tw-text-muted">
-						{props.sponsorsCount > 0 && <span>{props.sponsorsCount} sponsor{props.sponsorsCount !== 1 ? "s" : ""}</span>}
-						{props.sponsoringCount > 0 && <span>sponsoring {props.sponsoringCount}</span>}
+						{props.sponsorsCount > 0 && <span>{fmtCompact(props.sponsorsCount)} sponsor{props.sponsorsCount !== 1 ? "s" : ""}</span>}
+						{props.sponsoringCount > 0 && <span>sponsoring {fmtCompact(props.sponsoringCount)}</span>}
 						{props.hasTwoFactor && <span className="text-tw-success">2FA</span>}
 						{props.hasProfileReadme && <span>README</span>}
 					</div>
@@ -1085,7 +1096,7 @@ export const { registry } = defineRegistry(catalog, {
 											</span>
 										)}
 										{repo.stars > 0 && (
-											<span className="text-tw-text-muted tabular-nums">{repo.stars}</span>
+											<span className="text-tw-text-muted tabular-nums">{fmtCompact(repo.stars)}</span>
 										)}
 									</div>
 								</button>
@@ -1097,9 +1108,9 @@ export const { registry } = defineRegistry(catalog, {
 											{repo.pushedAt && <span>Pushed {relativeDate(repo.pushedAt)}</span>}
 										</div>
 										<div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px]">
-											{repo.stars > 0 && <span className="text-tw-text-secondary">{repo.stars} star{repo.stars !== 1 ? "s" : ""}</span>}
-											{repo.forks > 0 && <span className="text-tw-text-secondary">{repo.forks} fork{repo.forks !== 1 ? "s" : ""}</span>}
-											{repo.openIssuesCount > 0 && <span className="text-tw-text-secondary">{repo.openIssuesCount} open issue{repo.openIssuesCount !== 1 ? "s" : ""}</span>}
+											{repo.stars > 0 && <span className="text-tw-text-secondary">{fmtCompact(repo.stars)} star{repo.stars !== 1 ? "s" : ""}</span>}
+											{repo.forks > 0 && <span className="text-tw-text-secondary">{fmtCompact(repo.forks)} fork{repo.forks !== 1 ? "s" : ""}</span>}
+											{repo.openIssuesCount > 0 && <span className="text-tw-text-secondary">{fmtCompact(repo.openIssuesCount)} open issue{repo.openIssuesCount !== 1 ? "s" : ""}</span>}
 											{repo.license && <span className="text-tw-text-muted">{repo.license}</span>}
 										</div>
 										{repo.topics.length > 0 && (
@@ -1133,7 +1144,7 @@ export const { registry } = defineRegistry(catalog, {
 					<div className="flex items-baseline justify-between">
 						<div className="text-[12px] text-tw-text-muted">Activity</div>
 						<div className="text-[18px] font-semibold text-tw-text-primary tabular-nums">
-							{props.totalContributions.toLocaleString()}
+							{fmtCompact(props.totalContributions)}
 							<span className="text-[11px] text-tw-text-muted ml-1">contributions</span>
 						</div>
 					</div>
@@ -1162,7 +1173,10 @@ export const { registry } = defineRegistry(catalog, {
 										<span className="text-[10px] text-tw-text-muted">{repo.language}</span>
 									)}
 									{repo.stars > 0 && (
-										<span className="text-[10px] text-tw-text-muted tabular-nums ml-auto">{repo.stars}</span>
+										<span className="text-[10px] text-tw-text-muted tabular-nums ml-auto flex items-center gap-0.5">
+											<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
+											{fmtCompact(repo.stars)}
+										</span>
 									)}
 								</a>
 							))}
@@ -1226,7 +1240,6 @@ export const { registry } = defineRegistry(catalog, {
 	},
 });
 
-// ─── UserCard score breakdown affordance ─────────────────────────
 // Fetches the score_breakdown spec via /api/tools/run (bypasses the LLM
 // — no token cost) and renders it inline beneath the card.
 

@@ -409,9 +409,6 @@ function ScopeOverrideSection({ global, override, onChange }: ScopeOverrideSecti
 		return o !== undefined ? o : global[key];
 	};
 
-	const isOverridden = (key: keyof RepoContentScope): boolean =>
-		override?.[key] !== undefined;
-
 	const handleToggle = (key: keyof RepoContentScope) => {
 		const current = effective(key);
 		const next = !current;

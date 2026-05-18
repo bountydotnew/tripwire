@@ -23,11 +23,12 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
 				</p>
 			</div>
 			{action && (
-				<Button size="sm" variant="outline" asChild className="bg-white text-black border-[#CDCDCD] hover:bg-white/90">
-					<a href={action.href}>
-						{action.label}
-					</a>
-				</Button>
+				<Button
+					size="sm"
+					variant="outline"
+					className="bg-white text-black border-[#CDCDCD] hover:bg-white/90"
+					render={<a href={action.href}>{action.label}</a>}
+				/>
 			)}
 		</div>
 	);

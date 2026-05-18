@@ -101,9 +101,6 @@ async function fetchGitHubUser(username: string, token?: string): Promise<GitHub
 
 const fmtDate = (d: Date) =>
 	d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-
-// ─── list_repos (no repo context required) ───────────────────────
-
 const listRepos = defineTool({
 	name: "list_repos",
 	description:
@@ -124,9 +121,6 @@ const listRepos = defineTool({
 			.innerJoin(organizations, eq(repositories.orgId, organizations.id))
 			.where(eq(organizations.ownerId, ctx.userId)),
 });
-
-// ─── list_events ─────────────────────────────────────────────────
-
 const listEvents = defineTool({
 	name: "list_events",
 	description:
@@ -166,9 +160,6 @@ const listEvents = defineTool({
 			})),
 		}),
 });
-
-// ─── get_event ───────────────────────────────────────────────────
-
 const getEvent = defineTool({
 	name: "get_event",
 	description: "Fetch a single Tripwire event by id.",
@@ -189,10 +180,6 @@ const getEvent = defineTool({
 			username: event.targetGithubUsername,
 		}),
 });
-
-// ─── lookup_user ─────────────────────────────────────────────────
-
-// ─── Shared user signal fetch ────────────────────────────────────
 // Used by both lookup_user (UserCard) and score_breakdown (ScoreBreakdown).
 
 interface UserSignals {
@@ -510,9 +497,6 @@ const lookupUser = defineTool({
 		});
 	},
 });
-
-// ─── score_breakdown ─────────────────────────────────────────────
-
 const CATEGORY_META: Record<
 	ScoreCategory,
 	{ label: string; max: number | null }
@@ -587,9 +571,6 @@ const scoreBreakdown = defineTool({
 			categories: output.categories,
 		}),
 });
-
-// ─── explain_score_flag ────────────────────────────────────────────
-
 const explainScoreFlag = defineTool({
 	name: "explain_score_flag",
 	description:
@@ -805,7 +786,10 @@ const explainScoreFlag = defineTool({
 			"**Evidence:**",
 			...((output.evidence as Array<Record<string, unknown>>).slice(0, 10).map((e, i) => {
 				if ("title" in e) return `${i + 1}. ${e.title} (${e.repo}#${e.number}) — ${e.createdAt ? new Date(e.createdAt as string).toLocaleDateString() : ""}${e.timeToMergeMinutes != null ? ` — merged in ${e.timeToMergeMinutes}min` : ""}`;
-				if ("reason" in e) return `• ${e.reason} → ${e.delta > 0 ? "+" : ""}${e.delta}`;
+				if ("reason" in e) {
+					const delta = typeof e.delta === "number" ? e.delta : 0;
+					return `• ${e.reason} → ${delta > 0 ? "+" : ""}${delta}`;
+				}
 				if ("name" in e) return `• ${e.name}${e.stars ? ` (${e.stars}★)` : ""}`;
 				if ("action" in e) return `• ${e.description ?? e.action} (${e.date ? new Date(e.date as string).toLocaleDateString() : ""})`;
 				return `• ${JSON.stringify(e)}`;
@@ -820,9 +804,6 @@ const explainScoreFlag = defineTool({
 		return makeSpec("Text", { content: lines.join("\n") });
 	},
 });
-
-// ─── reputation_leaderboard ──────────────────────────────────────
-
 const getReputationLeaderboard = defineTool({
 	name: "get_reputation_leaderboard",
 	description:
@@ -859,9 +840,6 @@ const getReputationLeaderboard = defineTool({
 			})),
 		}),
 });
-
-// ─── Workflow tools ────────────────────────────────────────────
-
 const listWorkflows = defineTool({
 	name: "list_workflows",
 	description:
@@ -962,9 +940,6 @@ const describeWorkflow = defineTool({
 		return makeSpec("Text", { content: lines.join("\n") });
 	},
 });
-
-// ─── GitHub data factory tools ─────────────────────────────────
-
 const getUserPrs = defineTool({
 	name: "get_user_prs",
 	description:

@@ -1,6 +1,7 @@
 import {
 	DEFAULT_RULE_CONFIG,
 	RULE_KEYS,
+	RULE_META,
 	type ContentScope,
 	type RuleAction,
 	type RuleConfig,
@@ -33,19 +34,9 @@ const SCOPE_LABELS: Record<keyof ContentScope, string> = {
 
 const SCOPE_FIELD_ORDER: (keyof ContentScope)[] = ["pullRequests", "issues", "comments"];
 
-const RULE_LABELS: Record<RuleKey, string> = {
-	aiSlopDetection: "AI slop detection",
-languageRequirement: "Language requirement",
-	minMergedPrs: "Minimum merged PRs",
-	accountAge: "Account age",
-	maxPrsPerDay: "Max PRs per day",
-	maxFilesChanged: "Max files changed",
-	repoActivityMinimum: "Repo activity minimum",
-	requireProfileReadme: "Require profile README",
-	cryptoAddressDetection: "Crypto address detection",
-	vouchedUsersOnly: "Vouched users only",
-	aiHoneypot: "AI honeypot",
-};
+const RULE_LABELS: Record<RuleKey, string> = Object.fromEntries(
+	Object.entries(RULE_META).map(([k, v]) => [k, v.name]),
+) as Record<RuleKey, string>;
 
 const ACTION_LABELS: Record<RuleAction, string> = {
 	block: "Block",

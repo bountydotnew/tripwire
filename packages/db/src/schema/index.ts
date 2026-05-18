@@ -7,6 +7,7 @@ export * from "./orgs";
 export * from "./oauth";
 export * from "./installations";
 export * from "./rules";
+export * from "./rule-meta";
 export * from "./lists";
 export * from "./events";
 export * from "./reputation";

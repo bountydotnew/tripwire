@@ -20,7 +20,6 @@ function EventDetailPage() {
 	const { repo } = useWorkspace();
 	const homePath = useWorkspacePath("home");
 	const eventsPath = useWorkspacePath("events");
-	const usersBasePath = "/users";
 	const [actionStatus, setActionStatus] = useState<"idle" | "blacklisted" | "safe" | "closed">("idle");
 
 	// Fetch the event
@@ -372,7 +371,8 @@ function EventDetailPage() {
 							<div className="flex-1 min-w-0">
 								<div className="flex items-center gap-2">
 									<Link
-										to={`${usersBasePath}/${username}`}
+										to="/users/$username"
+										params={{ username }}
 										className="text-[15px] leading-5 text-tw-text-primary font-medium hover:text-tw-accent transition-colors"
 									>
 										@{username}
@@ -848,23 +848,9 @@ function getEventTitle(action: string, severity: string | null | undefined): str
 	return title;
 }
 
+import { RULE_META } from "@tripwire/db";
 function formatRuleName(ruleName: string): string {
-	const names: Record<string, string> = {
-		cryptoAddressDetection: "Crypto address detection",
-		spamDetection: "Spam pattern match",
-		accountAge: "Account age",
-		repoActivityMinimum: "Repo activity",
-		languageRequirement: "Language requirement",
-		requireProfilePicture: "Profile picture",
-		minMergedPrs: "Minimum merged PRs",
-		maxPrsPerDay: "Max PRs per day",
-		maxFilesChanged: "Max files changed",
-		requireProfileReadme: "Profile README",
-		aiSlopDetection: "AI slop detection",
-		vouchedUsersOnly: "Vouched users only",
-		aiHoneypot: "AI honeypot",
-	};
-	return names[ruleName] || ruleName;
+	return (RULE_META as Record<string, { name: string }>)[ruleName]?.name ?? ruleName;
 }
 
 function formatRelativeTime(date: Date | undefined | null): string {
@@ -975,4 +961,3 @@ function ContributorScoreBar({
 		</div>
 	);
 }
-

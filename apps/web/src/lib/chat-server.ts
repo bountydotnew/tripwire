@@ -1,175 +1,77 @@
-import type { ChatMiddleware } from "@tanstack/ai";
-import {
-	hashArgs,
-	signApprovalToken,
-	verifyApprovalToken,
-} from "@tripwire/ai";
+import type { UIMessage } from "ai";
+import type { ToolSet } from "ai";
 
-export interface ApprovalSessionContext {
-	userId: string;
-	conversationId: string;
-	repoId: string;
-}
+export type ChatHistoryMessage = UIMessage | Record<string, any>;
 
-/**
- * Replaces the opaque `approval.id` on `approval-requested` chunks with an
- * HMAC-signed token bound to {toolCallId, userId, conversationId, repoId,
- * name, argsHash}. The token round-trips through the client and is verified
- * by executeApprovedTools on the next request — synthetic
- * "approval-responded" tool-calls can't be forged without BETTER_AUTH_SECRET.
- */
-export function createApprovalSignerMiddleware(
-	session: ApprovalSessionContext,
-): ChatMiddleware {
-	return {
-		name: "approval-signer",
-		onChunk(_ctx, chunk) {
-			if (chunk.type !== "CUSTOM") return;
-			if ((chunk as any).name !== "approval-requested") return;
-			const value = (chunk as any).value;
-			if (!value || typeof value !== "object") return;
-			const { toolCallId, toolName, input, approval } = value;
-			if (!toolCallId || !toolName || !approval?.id) return;
-
-			const token = signApprovalToken({
-				toolCallId,
-				userId: session.userId,
-				conversationId: session.conversationId,
-				repoId: session.repoId,
-				name: toolName,
-				argsHash: hashArgs(input ?? {}),
-			});
-
-			return {
-				...chunk,
-				value: {
-					...value,
-					approval: { ...approval, id: token },
-				},
-			} as typeof chunk;
-		},
-	};
-}
-
-/**
- * Execute approved tool-calls that the client approved but the server hasn't
- * executed yet. Mutates `messages` in-place, adding tool-result parts next to
- * each approved tool-call. Tool-calls without a valid server-signed token get
- * an error tool-result and are not executed.
- */
-export async function executeApprovedTools(
-	messages: any[],
-	tools: any[],
-	session: ApprovalSessionContext,
-): Promise<{ mutated: boolean }> {
-	const toolMap = new Map<string, (args: any) => Promise<any>>();
-	for (const tool of tools) {
-		if (tool.name && tool.execute) toolMap.set(tool.name, tool.execute);
+export function mergeClientMessagesWithStored(
+	clientMessages: ChatHistoryMessage[],
+	storedMessages: ChatHistoryMessage[],
+): ChatHistoryMessage[] {
+	if (storedMessages.length === 0) {
+		return clientMessages
+			.filter((message) => message.role === "user")
+			.map((message) => cloneMessage(message));
 	}
 
-	const pendingCalls: Array<{ call: any; message: any }> = [];
-	for (const msg of messages) {
-		if (msg.role !== "assistant" || !msg.parts) continue;
-		const msgResultIds = new Set<string>();
-		for (const part of msg.parts) {
-			if (part.type === "tool-result") {
-				const id = part.toolCallId || part.id;
-				if (id) msgResultIds.add(id);
-			}
-		}
-		for (const part of msg.parts) {
-			if (part.type !== "tool-call") continue;
-			if (part.state !== "approval-responded") continue;
-			if (!part.approval?.approved) continue;
-			const id = part.toolCallId || part.id;
-			if (id && !msgResultIds.has(id)) {
-				pendingCalls.push({ call: part, message: msg });
-			}
-		}
+	const merged = storedMessages.map((message) => cloneMessage(message));
+	const mergedById = new Map<string, any>();
+	for (const message of merged) {
+		if (typeof message.id === "string") mergedById.set(message.id, message);
 	}
 
-	if (pendingCalls.length === 0) return { mutated: false };
+	for (const clientMessage of clientMessages) {
+		const existing = typeof clientMessage.id === "string"
+			? mergedById.get(clientMessage.id)
+			: undefined;
 
-	console.log(`[executeApproved] processing ${pendingCalls.length} approved tools: ${pendingCalls.map((p) => p.call.name).join(", ")}`);
-
-	for (const { call, message } of pendingCalls) {
-		const id = call.toolCallId || call.id;
-		let args: any = {};
-		if (call.arguments) {
-			try { args = JSON.parse(call.arguments); } catch {}
-		} else if (call.input) {
-			args = call.input;
-		}
-
-		const token: string | undefined = call.approval?.id;
-		if (!token) {
-			console.warn(`[executeApproved] rejecting ${call.name} (${id}): missing approval signature`);
-			call.state = "input-complete";
-			message.parts.push({
-				type: "tool-result",
-				toolCallId: id,
-				content: JSON.stringify({ error: "approval_signature_missing" }),
-				state: "error",
-			});
+		if (!existing) {
+			if (clientMessage.role === "user") {
+				merged.push(cloneMessage(clientMessage));
+			}
 			continue;
 		}
 
-		const ok = verifyApprovalToken(token, {
-			toolCallId: id,
-			userId: session.userId,
-			conversationId: session.conversationId,
-			repoId: session.repoId,
-			name: call.name,
-			argsHash: hashArgs(args),
-		});
-
-		if (!ok) {
-			console.warn(`[executeApproved] rejecting ${call.name} (${id}): invalid approval signature`);
-			call.state = "input-complete";
-			message.parts.push({
-				type: "tool-result",
-				toolCallId: id,
-				content: JSON.stringify({ error: "approval_signature_invalid" }),
-				state: "error",
-			});
-			continue;
-		}
-
-		const execute = toolMap.get(call.name);
-		if (!execute) continue;
-
-		try {
-			const output = await execute(args);
-			call.state = "input-complete";
-			message.parts.push({
-				type: "tool-result",
-				toolCallId: id,
-				content: typeof output === "string" ? output : JSON.stringify(output),
-				state: "complete",
-			});
-		} catch (err: any) {
-			call.state = "input-complete";
-			message.parts.push({
-				type: "tool-result",
-				toolCallId: id,
-				content: JSON.stringify({ error: err?.message ?? "Tool execution failed" }),
-				state: "error",
-			});
+		if (existing.role === "assistant") {
+			applyApprovalResponses(existing, clientMessage);
 		}
 	}
 
-	return { mutated: true };
+	return merged;
+}
+
+function applyApprovalResponses(storedMessage: any, clientMessage: any): void {
+	if (!Array.isArray(storedMessage.parts) || !Array.isArray(clientMessage.parts)) return;
+
+	const storedApprovals = new Map<string, any>();
+	for (const part of storedMessage.parts) {
+		const id = getPartToolCallId(part);
+		if (!id || part.state !== "approval-requested" || !part.approval?.id) continue;
+		storedApprovals.set(id, part);
+	}
+
+	for (const clientPart of clientMessage.parts) {
+		const id = getPartToolCallId(clientPart);
+		if (!id || clientPart.state !== "approval-responded") continue;
+		const storedPart = storedApprovals.get(id);
+		if (!storedPart) continue;
+		if (clientPart.approval?.id !== storedPart.approval?.id) continue;
+		storedPart.state = "approval-responded";
+		storedPart.approval = {
+			...storedPart.approval,
+			approved: Boolean(clientPart.approval?.approved),
+			...(clientPart.approval?.reason ? { reason: clientPart.approval.reason } : {}),
+		};
+	}
 }
 
 /**
- * Clean up TanStack AI messages before sending to the model.
+ * Clean up UI messages before sending to the model.
  *
- * OpenAI requires every role:"tool" message to follow an assistant message
- * containing the matching tool_calls entry. TanStack AI's approval flow can
- * produce orphaned tool-results, split assistant messages, or pending
- * approvals — this aggressively merges and strips them.
+ * Keeps completed AI SDK v6 tool parts, converts old TanStack-style completed
+ * tool-call/result pairs, and drops pending or orphaned tool state unless the
+ * user just responded to a stored approval.
  */
-export function sanitizeMessages(rawMessages: any[]): any[] {
+export function sanitizeMessages(rawMessages: ChatHistoryMessage[], tools?: ToolSet): UIMessage[] {
 	const merged: any[] = [...rawMessages];
 
 	// Merge split assistant messages: tool-result-only messages get folded
@@ -208,13 +110,13 @@ export function sanitizeMessages(rawMessages: any[]): any[] {
 		if (!msg.parts) continue;
 		const msgResultIds = new Set<string>();
 		for (const part of msg.parts) {
-			if (part.type === "tool-result") {
+			if (isLegacyToolResult(part)) {
 				const id = part.toolCallId || part.id;
 				if (id) msgResultIds.add(id);
 			}
 		}
 		for (const part of msg.parts) {
-			if (part.type === "tool-call" && part.name) {
+			if (isLegacyToolCall(part) && part.name) {
 				const id = part.toolCallId || part.id;
 				if (id && msgResultIds.has(id)) completedCallIds.add(id);
 			}
@@ -231,12 +133,12 @@ export function sanitizeMessages(rawMessages: any[]): any[] {
 
 			const cleanParts = msg.parts
 				.filter((part: any) => {
-					if (part.type === "tool-call") {
+					if (isLegacyToolCall(part)) {
 						if (!part.name) return false;
 						const id = part.toolCallId || part.id;
 						return id && completedCallIds.has(id);
 					}
-					if (part.type === "tool-result") {
+					if (isLegacyToolResult(part)) {
 						const id = part.toolCallId || part.id;
 						return id && completedCallIds.has(id);
 					}
@@ -244,12 +146,12 @@ export function sanitizeMessages(rawMessages: any[]): any[] {
 				})
 				.map((part: any) => {
 					const id = part.toolCallId || part.id;
-					if (part.type === "tool-call" && completedCallIds.has(id)) {
+					if (isLegacyToolCall(part) && completedCallIds.has(id)) {
 						if (part.state !== "input-complete" && part.state !== "approval-responded") {
 							return { ...part, state: "input-complete" };
 						}
 					}
-					if (part.type === "tool-result" && completedCallIds.has(id)) {
+					if (isLegacyToolResult(part) && completedCallIds.has(id)) {
 						if (part.state !== "complete" && part.state !== "error") {
 							return { ...part, state: "complete" };
 						}
@@ -265,23 +167,157 @@ export function sanitizeMessages(rawMessages: any[]): any[] {
 			return true;
 		});
 
-	// Safety net: drop tool-calls from assistant messages without matching
-	// results. Approved calls already have results from executeApprovedTools().
+	// Safety net: drop legacy tool calls from assistant messages without
+	// matching results. AI SDK approval parts are preserved above.
 	for (const msg of result) {
 		if (msg.role !== "assistant" || !msg.parts) continue;
 		const resultIds = new Set<string>();
 		for (const part of msg.parts) {
-			if (part.type === "tool-result") {
+			if (isLegacyToolResult(part)) {
 				const id = part.toolCallId || part.id;
 				if (id) resultIds.add(id);
 			}
 		}
 		msg.parts = msg.parts.filter((part: any) => {
-			if (part.type !== "tool-call") return true;
+			if (!isLegacyToolCall(part)) return true;
 			const id = part.toolCallId || part.id;
 			return id && resultIds.has(id);
 		});
 	}
 
-	return result.filter((msg: any) => !(msg.parts && msg.parts.length === 0));
+	return result
+		.map((msg: any) => normalizeMessageForAiSdk(msg, tools))
+		.filter((msg: UIMessage | null): msg is UIMessage => !!msg && msg.parts.length > 0);
+}
+
+function normalizeMessageForAiSdk(message: any, tools?: ToolSet): UIMessage | null {
+	if (!message || typeof message !== "object") return null;
+	if (!["system", "user", "assistant"].includes(message.role)) return null;
+
+	const parts = Array.isArray(message.parts)
+		? normalizeParts(message.parts, tools)
+		: typeof message.content === "string"
+			? [{ type: "text", text: message.content }]
+			: [];
+
+	return {
+		id: typeof message.id === "string" ? message.id : crypto.randomUUID(),
+		role: message.role,
+		parts,
+	};
+}
+
+function normalizeParts(parts: any[], tools?: ToolSet): any[] {
+	const legacyResults = new Map<string, any>();
+	for (const part of parts) {
+		if (!isLegacyToolResult(part)) continue;
+		const id = part.toolCallId || part.id;
+		if (id) legacyResults.set(id, part);
+	}
+
+	const normalized: any[] = [];
+	for (const part of parts) {
+		if (part?.type === "text") {
+			const text = part.text ?? part.content;
+			if (typeof text === "string" && text.length > 0) {
+				normalized.push({ type: "text", text });
+			}
+			continue;
+		}
+
+		if (part?.type === "thinking" || part?.type === "reasoning") {
+			const text = part.text ?? part.content;
+			if (typeof text === "string" && text.length > 0) {
+				normalized.push({ type: "reasoning", text, state: "done" });
+			}
+			continue;
+		}
+
+		if (isAiSdkToolPart(part)) {
+			const toolName = getPartToolName(part);
+			if (toolName && (!tools || tools[toolName])) {
+				normalized.push(part);
+			}
+			continue;
+		}
+
+		if (isLegacyToolCall(part) && part.name) {
+			const id = getPartToolCallId(part);
+			const result = id ? legacyResults.get(id) : undefined;
+			if (!id || !result || (tools && !tools[part.name])) continue;
+			normalized.push({
+				type: `tool-${part.name}`,
+				toolCallId: id,
+				state: result.state === "error" ? "output-error" : "output-available",
+				input: parseToolInput(part),
+				...(result.state === "error"
+					? { errorText: parseToolResultError(result) }
+					: { output: parseToolResultOutput(result) }),
+				...(part.approval ? { approval: part.approval } : {}),
+			});
+		}
+	}
+
+	return normalized;
+}
+
+function cloneMessage(message: ChatHistoryMessage): any {
+	return JSON.parse(JSON.stringify(message));
+}
+
+function isLegacyToolCall(part: any): boolean {
+	return part?.type === "tool-call";
+}
+
+function isLegacyToolResult(part: any): boolean {
+	return part?.type === "tool-result";
+}
+
+function isAiSdkToolPart(part: any): boolean {
+	return part?.type === "dynamic-tool"
+		|| (typeof part?.type === "string" && part.type.startsWith("tool-") && part.type !== "tool-call");
+}
+
+function getPartToolName(part: any): string | undefined {
+	if (part?.type === "dynamic-tool") return part.toolName;
+	if (typeof part?.type === "string" && part.type.startsWith("tool-")) {
+		return part.type.slice("tool-".length);
+	}
+	return part?.name;
+}
+
+function getPartToolCallId(part: any): string | undefined {
+	return typeof part?.toolCallId === "string"
+		? part.toolCallId
+		: typeof part?.id === "string"
+			? part.id
+			: undefined;
+}
+
+function parseToolInput(part: any): Record<string, unknown> {
+	if (part?.input && typeof part.input === "object") return part.input;
+	if (typeof part?.arguments !== "string") return {};
+	try {
+		return JSON.parse(part.arguments);
+	} catch {
+		return {};
+	}
+}
+
+function parseToolResultOutput(part: any): unknown {
+	if (part?.output !== undefined) return part.output;
+	if (typeof part?.content !== "string") return part?.content ?? null;
+	try {
+		return JSON.parse(part.content);
+	} catch {
+		return part.content;
+	}
+}
+
+function parseToolResultError(part: any): string {
+	const output = parseToolResultOutput(part);
+	if (output && typeof output === "object" && "error" in output) {
+		return String((output as { error: unknown }).error);
+	}
+	return typeof output === "string" ? output : "Tool execution failed";
 }

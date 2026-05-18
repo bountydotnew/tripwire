@@ -1,7 +1,7 @@
-import { useRef, useEffect, useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { UnicodeSpinner, useRandomThinkingVariant } from "#/components/ui/unicode-spinner";
 import { useThinkingPhrase } from '@tripwire/ai/components';
-import type { UIMessage, MessagePart, ToolCallPart, ToolResultPart, RenderSpec } from "#/types/chat";
+import type { UIMessage, MessagePart, ToolResultPart, RenderSpec } from "#/types/chat";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import { Streamdown, type StreamdownProps } from "streamdown";
 import { code } from "@streamdown/code";
@@ -17,6 +17,11 @@ import {
 	parseActionResult,
 	getApprovalText,
 	getBatchApprovalText,
+	isToolPart,
+	getPartToolName,
+	getToolCallId,
+	getToolInput,
+	getToolOutput,
 } from "#/lib/chat-format";
 import { getBriefActionText, renderInlineText } from "#/components/chat/chips";
 import { TripwireLogo } from "#/components/icons/tripwire-logo";
@@ -36,13 +41,6 @@ export function ChatThread(props: ChatThreadProps = {}) {
 	const error = props.error ?? ctx.error;
 	const isQuotaExhausted = props.isQuotaExhausted ?? ctx.isQuotaExhausted;
 	const respondToToolApproval = props.respondToToolApproval ?? ctx.respondToToolApproval;
-	const bottomRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		if (messages.length > 0) {
-			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-		}
-	}, [messages.length]);
 
 	const avatarMap = useMemo(() => {
 		const out: Record<string, boolean> = {};
@@ -55,19 +53,6 @@ export function ChatThread(props: ChatThreadProps = {}) {
 		}
 		return out;
 	}, [messages]);
-
-	// Detect bulk-loaded messages (conversation loaded from DB)
-	const prevCount = useRef(0);
-	const [animatingIn, setAnimatingIn] = useState(false);
-	useEffect(() => {
-		const jumped = messages.length - prevCount.current;
-		prevCount.current = messages.length;
-		if (jumped > 1) {
-			setAnimatingIn(true);
-			const timer = setTimeout(() => setAnimatingIn(false), 400 + messages.length * 40);
-			return () => clearTimeout(timer);
-		}
-	}, [messages.length]);
 
 	if (isQuotaExhausted) {
 		return <QuotaExhaustedState />;
@@ -87,17 +72,10 @@ export function ChatThread(props: ChatThreadProps = {}) {
 
 	return (
 		<div className="flex flex-col gap-3 pt-1 pb-2">
-			{messages.map((msg, i) => (
+			{messages.map((msg, msgIdx) => (
 				<div
-					key={msg.id}
+					key={msg.id || `msg-${msgIdx}`}
 					className="transition-all duration-300 ease-out"
-					style={
-						animatingIn
-							? {
-									animation: `chatFadeIn 0.3s ease-out ${i * 40}ms both`,
-								}
-							: undefined
-					}
 				>
 					<ChatMessage
 						message={msg}
@@ -108,7 +86,6 @@ export function ChatThread(props: ChatThreadProps = {}) {
 			))}
 			{isLoading && <LoadingIndicator />}
 			{error && <ErrorMessage message={error.message} />}
-			<div ref={bottomRef} />
 		</div>
 	);
 }
@@ -211,9 +188,10 @@ function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessagePr
 		return <UserMessage content={getTextContent(message)} />;
 	}
 
-	const pendingApprovals = (message.parts ?? []).filter(
-		(part): part is MessagePart & { type: "tool-call"; approval: { id: string } } =>
-			part.type === "tool-call" && part.state === "approval-requested" && !!part.approval
+	const messageParts = (message.parts ?? []) as MessagePart[];
+	const pendingApprovals = messageParts.filter(
+		(part): part is MessagePart & { approval: { id: string }; state: "approval-requested" } =>
+			isToolPart(part) && part.state === "approval-requested" && !!part.approval
 			&& !handledApprovalIds.has(part.approval.id),
 	);
 
@@ -234,15 +212,15 @@ function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessagePr
 	};
 
 	const groupedParts = useMemo(() => {
-		const rawParts = message.parts ?? [];
+		const rawParts = (message.parts ?? []) as MessagePart[];
 
-		// Deduplicate parts by toolCallId (TanStack AI can send duplicates)
+		// Deduplicate parts by toolCallId (legacy tool streams can send duplicates)
 		const seen = new Set<string>();
 		const parts = rawParts.filter((part) => {
-			if (part.type === "tool-call" || part.type === "tool-result") {
+			if (isToolPart(part) || part.type === "tool-result") {
 				const id = part.type === "tool-result"
 					? (part as ToolResultPart).toolCallId
-					: (part as ToolCallPart).id;
+					: getToolCallId(part);
 				const key = `${part.type}-${id}`;
 				if (id && seen.has(key)) return false;
 				if (id) seen.add(key);
@@ -270,7 +248,25 @@ function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessagePr
 
 		for (const part of parts) {
 			if (part.type === "tool-result") {
-				const actionResult = parseActionResult(part.content);
+				const actionResult = parseActionResult((part as ToolResultPart).content ?? "");
+				if (actionResult && actionResult.success) {
+					if (currentAction === null || currentAction === actionResult.action) {
+						currentGroup.push({ part, data: actionResult });
+						currentAction = actionResult.action;
+						continue;
+					} else {
+						flushGroup();
+						currentGroup.push({ part, data: actionResult });
+						currentAction = actionResult.action;
+						continue;
+					}
+				}
+			}
+			if (isToolPart(part) && part.state === "output-available") {
+				const output = getToolOutput(part);
+				const actionResult = parseActionResult(
+					typeof output === "string" ? output : JSON.stringify(output),
+				);
 				if (actionResult && actionResult.success) {
 					if (currentAction === null || currentAction === actionResult.action) {
 						currentGroup.push({ part, data: actionResult });
@@ -304,23 +300,23 @@ function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessagePr
 				{pendingApprovals.length > 1 ? (
 					<>
 						{groupedParts
-							.filter((p) => p.type !== "tool-call" || (p as MessagePart & { state?: string }).state !== "approval-requested")
-							.map((part) => {
+							.filter((p) => !isToolPart(p as MessagePart) || (p as MessagePart & { state?: string }).state !== "approval-requested")
+							.map((part, i) => {
 								if (part.type === "grouped-results") {
 									return <CombinedActionResult key={part.key} results={part.results} />;
 								}
 								const mp = part as MessagePart;
-								return <MessagePartRenderer key={getPartKey(mp, message.id)} part={mp} onRespondToApproval={onRespondToApproval} />;
+								return <MessagePartRenderer key={getPartKey(mp, message.id, i)} part={mp} onRespondToApproval={onRespondToApproval} />;
 							})}
 						<BatchApprovalCard approvals={pendingApprovals} onApproveAll={handleApproveAll} onDenyAll={handleDenyAll} />
 					</>
 				) : (
-					groupedParts.map((part) => {
+					groupedParts.map((part, i) => {
 						if (part.type === "grouped-results") {
 							return <CombinedActionResult key={part.key} results={part.results} />;
 						}
 						const mp = part as MessagePart;
-						return <MessagePartRenderer key={getPartKey(mp, message.id)} part={mp} onRespondToApproval={onRespondToApproval} />;
+						return <MessagePartRenderer key={getPartKey(mp, message.id, i)} part={mp} onRespondToApproval={onRespondToApproval} />;
 					})
 				)}
 			</div>
@@ -346,48 +342,17 @@ interface MessagePartRendererProps {
 function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererProps) {
 	switch (part.type) {
 		case "text":
-			return <MarkdownText content={part.content} />;
+			return <MarkdownText content={part.text ?? (part as { content?: string }).content ?? ""} />;
 
 		case "thinking":
+		case "reasoning":
 			return <ReasoningBlock content={(part as { content?: string; text?: string }).content ?? (part as { text?: string }).text ?? ""} />;
-
-		case "tool-call": {
-			let toolArgs: Record<string, unknown> = {};
-			if (part.arguments) {
-				try {
-					toolArgs = JSON.parse(part.arguments);
-				} catch {
-					// Arguments still streaming
-				}
-			} else if (part.input) {
-				toolArgs = part.input as Record<string, unknown>;
-			}
-
-			if (part.state === "approval-requested" && part.approval && !handledApprovalIds.has(part.approval.id)) {
-				return (
-					<ToolApprovalCard
-						toolName={part.name}
-						args={toolArgs}
-						onApprove={() => {
-							handledApprovalIds.add(part.approval!.id);
-							onRespondToApproval(part.approval!.id, true);
-						}}
-						onDeny={() => {
-							handledApprovalIds.add(part.approval!.id);
-							onRespondToApproval(part.approval!.id, false);
-						}}
-					/>
-				);
-			}
-
-			return <ToolStep toolName={part.name} args={toolArgs} state={part.state} />;
-		}
 
 		case "tool-result":
 			// Tool results are now shown inside ToolStep's collapsible detail
 			// Only render standalone if there's a UI card (json-render spec)
 			try {
-				const parsed = JSON.parse(part.content);
+				const parsed = JSON.parse((part as ToolResultPart).content ?? "");
 				if (parsed && typeof parsed === "object" && "root" in parsed && "elements" in parsed) {
 					return <ToolResultDisplay result={parsed} />;
 				}
@@ -397,6 +362,34 @@ function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererP
 			}
 
 		default:
+			if (isToolPart(part)) {
+				const toolArgs = getToolInput(part);
+				const toolName = getPartToolName(part);
+				const approval = "approval" in part ? part.approval : undefined;
+
+				if (part.state === "approval-requested" && approval && !handledApprovalIds.has(approval.id)) {
+					return (
+						<ToolApprovalCard
+							toolName={toolName}
+							args={toolArgs}
+							onApprove={() => {
+								handledApprovalIds.add(approval.id);
+								onRespondToApproval(approval.id, true);
+							}}
+							onDeny={() => {
+								handledApprovalIds.add(approval.id);
+								onRespondToApproval(approval.id, false);
+							}}
+						/>
+					);
+				}
+
+				if (part.state === "output-available") {
+					return <ToolResultDisplay result={getToolOutput(part)} fallback={<ToolStep toolName={toolName} args={toolArgs} state={part.state} />} />;
+				}
+
+				return <ToolStep toolName={toolName} args={toolArgs} state={part.state ?? "input-streaming"} />;
+			}
 			return null;
 	}
 }
@@ -405,7 +398,7 @@ function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererP
 // Without these allowlists, AI or GitHub-derived content could inject:
 //   - clickable links to attacker-controlled domains
 //   - auto-loaded <img> tags that leak the viewer's IP/UA to arbitrary hosts
-// Keep the lists minimal — better to block too much and add later.
+// Keep the lists minimal; better to block too much and add later.
 const ALLOWED_LINK_PREFIXES: readonly string[] = [
 	"https://github.com/",
 	"https://api.github.com/",
@@ -449,7 +442,7 @@ const SAFE_STREAMDOWN_CONFIG = {
 	components: {
 		a: ({ href, children, ...rest }) => {
 			if (!isAllowed(href, ALLOWED_LINK_PREFIXES)) {
-				// Render as plain text — no anchor, no navigation.
+				// Render as plain text: no anchor, no navigation.
 				return <span className="tw-chat-blocked-link">{children}</span>;
 			}
 			return (
@@ -460,7 +453,7 @@ const SAFE_STREAMDOWN_CONFIG = {
 		},
 		img: ({ src, alt }) => {
 			if (typeof src !== "string" || !isAllowed(src, ALLOWED_IMAGE_PREFIXES)) {
-				// Drop the image entirely — never issue a GET to a non-allowlisted host.
+				// Drop the image entirely; never issue a GET to a non-allowlisted host.
 				return null;
 			}
 			return <img src={src} alt={alt ?? ""} loading="lazy" referrerPolicy="no-referrer" />;
@@ -490,7 +483,10 @@ interface ToolStepProps {
 
 function ToolStep({ toolName, args, state }: ToolStepProps) {
 	const [isOpen, setIsOpen] = useState(false);
-	const isComplete = state === "input-complete" || state === "approval-responded";
+	const isComplete = state === "input-complete"
+		|| state === "approval-responded"
+		|| state === "output-available"
+		|| state === "output-denied";
 	const isError = state === "error" || state === "output-error";
 	const displayName = formatToolName(toolName);
 	const argsStr = formatToolArgs(toolName, args);
@@ -610,22 +606,15 @@ function ToolApprovalCard({ toolName, args, onApprove, onDeny }: ToolApprovalCar
 }
 
 interface BatchApprovalCardProps {
-	approvals: Array<MessagePart & { type: "tool-call"; approval: { id: string } }>;
+	approvals: Array<MessagePart & { approval: { id: string } }>;
 	onApproveAll: () => void;
 	onDenyAll: () => void;
 }
 
 function BatchApprovalCard({ approvals, onApproveAll, onDenyAll }: BatchApprovalCardProps) {
 	const parsed = approvals.map((part) => {
-		let toolArgs: Record<string, unknown> = {};
-		if (part.arguments) {
-			try {
-				toolArgs = JSON.parse(part.arguments);
-			} catch {
-				// Arguments still streaming
-			}
-		}
-		return { name: part.name, username: toolArgs.username as string | undefined };
+		const toolArgs = getToolInput(part);
+		return { name: getPartToolName(part), username: toolArgs.username as string | undefined };
 	});
 
 	const allSameAction = parsed.every((p) => p.name === parsed[0].name);
@@ -668,7 +657,7 @@ function BatchApprovalCard({ approvals, onApproveAll, onDenyAll }: BatchApproval
 			<div className="text-[12px] text-tw-text-muted uppercase tracking-wider">{approvals.length} actions</div>
 			<div className="flex flex-col gap-1">
 				{parsed.map((p, i) => (
-					<div key={approvals[i].id} className="flex items-center gap-2 text-[13px] text-tw-text-primary">
+					<div key={getToolCallId(approvals[i]) ?? approvals[i].approval.id} className="flex items-center gap-2 text-[13px] text-tw-text-primary">
 						<span className="size-1.5 rounded-full bg-tw-warning shrink-0" />
 						{getBriefActionText(p.name, p.username)}
 					</div>
@@ -694,8 +683,15 @@ function BatchApprovalCard({ approvals, onApproveAll, onDenyAll }: BatchApproval
 	);
 }
 
-function ToolResultDisplay({ result }: { result: unknown }) {
-	if (!result || typeof result !== "object") return null;
+function ToolResultDisplay({ result, fallback = null }: { result: unknown; fallback?: ReactNode }) {
+	if (typeof result === "string") {
+		try {
+			result = JSON.parse(result);
+		} catch {
+			return fallback;
+		}
+	}
+	if (!result || typeof result !== "object") return fallback;
 
 	const r = result as Record<string, unknown>;
 
@@ -707,7 +703,7 @@ function ToolResultDisplay({ result }: { result: unknown }) {
 		);
 	}
 
-	return null;
+	return fallback;
 }
 
 function CombinedActionResult({ results }: { results: ActionResultData[] }) {

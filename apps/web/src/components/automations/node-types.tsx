@@ -1,8 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback } from "react";
 import { Handle, Position, useReactFlow, type NodeProps } from "@xyflow/react";
-
-// ─── Shared node shell ──────────────────────────────────────────
-
 function NodeShell({
 	children,
 	color,
@@ -191,9 +188,6 @@ function EditableText({
 		</div>
 	);
 }
-
-// ─── Icons ──────────────────────────────────────────────────────
-
 const icons = {
 	trigger: (
 		<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -244,9 +238,6 @@ const colors = {
 
 // Handle style matching the card border system — no colored circles
 const handleBase = "!w-2.5 !h-2.5 !rounded-sm !border !border-tw-border !bg-tw-card";
-
-// ─── Trigger labels ─────────────────────────────────────────────
-
 const triggerLabels: Record<string, string> = {
 	pr_opened: "PR Opened",
 	pr_edited: "PR Edited",
@@ -260,20 +251,19 @@ const triggerLabels: Record<string, string> = {
 	repo_scan: "Repo History Scan",
 };
 
-const ruleLabels: Record<string, string> = {
-	accountAge: "Account Age",
-	minMergedPrs: "Min Merged PRs",
-	aiSlopDetection: "AI Slop Detection",
-	languageRequirement: "Language Requirement",
-	maxPrsPerDay: "Max PRs/Day",
-	maxFilesChanged: "Max Files Changed",
-	repoActivityMinimum: "Repo Activity Min",
-	requireProfileReadme: "Profile README",
-	cryptoAddressDetection: "Crypto Address",
-	vouchedUsersOnly: "Vouched Only",
-	aiHoneypot: "AI Honeypot",
-	contributorScore: "Contributor Score",
-};
+import { RULE_META, type RuleKey } from "@tripwire/db";
+import { formatCamelCase } from "#/lib/format";
+
+/** Rule labels derived from the single source of truth in @tripwire/db */
+const ruleLabels: Record<string, string> = new Proxy(
+	Object.fromEntries(Object.entries(RULE_META).map(([k, v]) => [k, v.name])),
+	{ get(target, prop: string) { return target[prop] ?? formatCamelCase(prop); } },
+);
+
+/** Rules hidden from the workflow palette */
+const HIDDEN_RULES = new Set(
+	Object.entries(RULE_META).filter(([, v]) => v.comingSoon).map(([k]) => k),
+);
 
 const actionLabels: Record<string, string> = {
 	block: "Block",
@@ -291,9 +281,6 @@ const actionLabels: Record<string, string> = {
 	send_webhook: "Send Webhook",
 	request_review: "Request Review",
 };
-
-// ─── Node components ────────────────────────────────────────────
-
 export const TriggerNode = memo(({ data, selected }: NodeProps) => {
 	const trigger = (data.trigger as string) ?? "pr_opened";
 	return (
@@ -416,7 +403,7 @@ export const ActionNode = memo(({ id, data, selected }: NodeProps) => {
 });
 ActionNode.displayName = "ActionNode";
 
-export const DelayNode = memo(({ data, selected }: NodeProps) => {
+export const DelayNode = memo(({ id, data, selected }: NodeProps) => {
 	const duration = (data.duration as string) ?? "5m";
 	return (
 		<>
@@ -424,10 +411,12 @@ export const DelayNode = memo(({ data, selected }: NodeProps) => {
 			<NodeShell
 				color={colors.delay}
 				icon={icons.delay}
-				label={`Wait ${duration}`}
-				sublabel="Delay"
+				label="Delay"
+				sublabel={`Wait ${duration}`}
 				selected={selected}
-			/>
+			>
+				<EditableText label="Duration" value={duration} nodeId={id} fieldKey="duration" placeholder="5m, 1h, 1d" />
+			</NodeShell>
 			<Handle type="source" position={Position.Bottom} className={`${handleBase} !-bottom-1.5`} />
 		</>
 	);
@@ -460,9 +449,6 @@ export const TransformNode = memo(({ data, selected }: NodeProps) => {
 	);
 });
 TransformNode.displayName = "TransformNode";
-
-// ─── Registry ───────────────────────────────────────────────────
-
 export const nodeTypes = {
 	trigger: TriggerNode,
 	rule: RuleNode,
@@ -473,4 +459,4 @@ export const nodeTypes = {
 	transform: TransformNode,
 };
 
-export { colors as nodeColors, icons as nodeIcons, triggerLabels, ruleLabels, actionLabels };
+export { colors as nodeColors, icons as nodeIcons, triggerLabels, ruleLabels, actionLabels, HIDDEN_RULES };

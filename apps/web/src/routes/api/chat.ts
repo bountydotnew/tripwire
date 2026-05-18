@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-	chat,
-	toServerSentEventsResponse,
-	maxIterations,
-} from "@tanstack/ai";
-import { openRouterText } from "@tanstack/ai-openrouter";
-import { webSearchTool } from "@tanstack/ai-openrouter/tools";
+	consumeStream,
+	convertToModelMessages,
+	stepCountIs,
+	streamText,
+} from "ai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { useRequest } from "nitro/context";
 import type { RequestLogger } from "evlog";
 import { createChatTools, tripwireTools } from "@tripwire/tools";
-import { createCreditMiddleware } from "@tripwire/ai/credit-middleware";
+import { logCreditUsageError, trackCreditUsage } from "@tripwire/ai/credit-middleware";
 import { buildSystemPrompt } from "@tripwire/ai";
 import { createContext, assertRepoOwner } from "#/integrations/trpc/init";
 import { autumn } from "@tripwire/auth/autumn";
@@ -18,8 +18,7 @@ import { conversations, organizations, repositories } from "@tripwire/db";
 import { and, eq } from "drizzle-orm";
 import type { ProviderError } from "#/types/chat";
 import {
-	createApprovalSignerMiddleware,
-	executeApprovedTools,
+	mergeClientMessagesWithStored,
 	sanitizeMessages,
 } from "#/lib/chat-server";
 
@@ -84,11 +83,12 @@ export const Route = createFileRoute("/api/chat")({
 			POST: async ({ request }) => {
 				const ctx = await createContext({ headers: request.headers });
 				if (!ctx.user) return jsonError(401, { error: "Unauthorized" });
+				const user = ctx.user;
 
 				try {
 					let quota: any;
 					try {
-						quota = await checkQuota(ctx.user.id);
+						quota = await checkQuota(user.id);
 					} catch (checkErr) {
 						// Autumn down/misconfigured: fail closed rather than grant free credits.
 						console.error("[Tripwire] Autumn check failed, denying request:", checkErr);
@@ -116,20 +116,27 @@ export const Route = createFileRoute("/api/chat")({
 					// verify the row belongs to this user. Without this check the endpoint
 					// trusts the body, so a user could attach their messages to someone else's
 					// chat. New chats race with trpc.chats.create so the row may not exist
-					// yet — only block when the row exists and is owned by a different user.
+					// yet; only block when the row exists and is owned by a different user.
+					let existingConversation: { userId: string; repoId: string | null; messages: any[] } | undefined;
 					if (conversationId && typeof conversationId === "string") {
 						const [existing] = await db
-							.select({ userId: conversations.userId })
+							.select({
+								userId: conversations.userId,
+								repoId: conversations.repoId,
+								messages: conversations.messages,
+							})
 							.from(conversations)
 							.where(eq(conversations.id, conversationId))
 							.limit(1);
-						if (existing && existing.userId !== ctx.user.id) {
+						existingConversation = existing;
+						if (existing && existing.userId !== user.id) {
 							return jsonError(403, { error: "conversation_not_accessible" });
 						}
 					}
 
-					const resolvedRepoId = (repoId as string | undefined)
-						?? await resolveRepoIdForUser(ctx.user.id);
+					const resolvedRepoId = existingConversation?.repoId
+						?? (repoId as string | undefined)
+						?? await resolveRepoIdForUser(user.id);
 
 					if (!resolvedRepoId) {
 						return jsonError(400, {
@@ -138,7 +145,7 @@ export const Route = createFileRoute("/api/chat")({
 					}
 
 					try {
-						await assertRepoOwner(ctx.user.id, resolvedRepoId);
+						await assertRepoOwner(user.id, resolvedRepoId);
 					} catch {
 						return jsonError(403, { error: "repo_not_accessible" });
 					}
@@ -151,7 +158,7 @@ export const Route = createFileRoute("/api/chat")({
 
 					const systemPrompt = buildSystemPrompt({
 						repoName: repo?.fullName ?? "Unknown Repository",
-						userName: ctx.user.name ?? ctx.user.email ?? "User",
+						userName: user.name ?? user.email ?? "User",
 						currentPage: currentPage ?? "/home",
 					});
 
@@ -168,36 +175,26 @@ export const Route = createFileRoute("/api/chat")({
 
 					const tools = createChatTools(
 						{
-							userId: ctx.user.id,
-							userName: ctx.user.name ?? ctx.user.email ?? "User",
+							userId: user.id,
+							userName: user.name ?? user.email ?? "User",
 							repoId: resolvedRepoId,
 						},
 						tripwireTools,
 					);
 
-					// Run executeApprovedTools BEFORE sanitize. sanitize strips tool-calls
-					// without a paired tool-result in the same message — for an
-					// approval-responded call the result doesn't exist until
-					// executeApprovedTools produces it. Sanitize-first would wipe the
-					// approved call and the model would re-propose the same tool on every
-					// iteration (the approval-loop bug).
-					const approvalResult = await executeApprovedTools(rawMessages, tools, {
-						userId: ctx.user.id,
-						conversationId: String(conversationId ?? ""),
-						repoId: resolvedRepoId,
-					});
+					const mergedMessages = mergeClientMessagesWithStored(
+						Array.isArray(rawMessages) ? rawMessages : [],
+						existingConversation?.messages ?? [],
+					);
 
-					// Persist approval cleanup immediately — otherwise the client's eventual
-					// saveMessages overwrites our cleanup with the original stale state, and
-					// the same calls get re-rejected on every request.
-					if (approvalResult.mutated && typeof conversationId === "string") {
+					if (typeof conversationId === "string" && existingConversation) {
 						await db
 							.update(conversations)
-							.set({ messages: rawMessages, updatedAt: new Date() })
+							.set({ messages: mergedMessages, updatedAt: new Date() })
 							.where(
 								and(
 									eq(conversations.id, conversationId),
-									eq(conversations.userId, ctx.user.id),
+									eq(conversations.userId, user.id),
 								),
 							)
 							.catch((err) => {
@@ -205,7 +202,11 @@ export const Route = createFileRoute("/api/chat")({
 							});
 					}
 
-					const messages = sanitizeMessages(rawMessages);
+					const messages = sanitizeMessages(mergedMessages, tools);
+					const modelMessages = await convertToModelMessages(
+						messages.map(({ id: _id, ...message }) => message),
+						{ tools, ignoreIncompleteToolCalls: true },
+					);
 
 					if (process.env.NODE_ENV !== "production") {
 						const summary = messages.map((m: any, i: number) => {
@@ -221,58 +222,80 @@ export const Route = createFileRoute("/api/chat")({
 						console.log(`[Chat] ${messages.length} messages:\n${summary}`);
 					}
 
-					const creditMiddleware = createCreditMiddleware({
-						customerId: ctx.user.id,
-						modelId: aiModel,
-						userName: ctx.user.name ?? undefined,
-						userEmail: ctx.user.email ?? undefined,
-						repoId: resolvedRepoId,
+					const openrouter = createOpenRouter({
+						apiKey: process.env.OPENROUTER_API_KEY,
+						appName: "Tripwire",
+						compatibility: "strict",
 					});
 
-					const approvalSigner = createApprovalSignerMiddleware({
-						userId: ctx.user.id,
-						conversationId: String(conversationId ?? ""),
-						repoId: resolvedRepoId,
-					});
-
-					// TanStack AI's default ConsoleLogger uses console.dir(depth:null), which
-					// dumps entire HTTP response objects on errors. Swap in one that extracts
-					// the message string.
-					const stream = chat({
-						adapter: openRouterText(aiModel as Parameters<typeof openRouterText>[0]),
-						messages,
-						tools: [...tools, webSearchTool({ maxResults: 3 })],
-						systemPrompts: [systemPrompt],
-						conversationId,
-						agentLoopStrategy: maxIterations(10),
-						middleware: [approvalSigner, creditMiddleware],
-						debug: {
-							errors: true,
-							provider: false,
-							output: false,
-							middleware: false,
-							tools: false,
-							agentLoop: false,
-							config: false,
-							request: false,
-							logger: {
-								debug: (msg: string) => console.debug(msg),
-								info: (msg: string) => console.info(msg),
-								warn: (msg: string) => console.warn(msg),
-								error: (msg: string, meta?: Record<string, unknown>) => {
-									if (meta?.error) {
-										const err = meta.error as ProviderError;
-										const raw = err?.error?.metadata?.raw ?? err?.error?.message ?? err?.message ?? "Unknown";
-										console.error(msg, typeof raw === "string" ? raw : JSON.stringify(raw));
-									} else {
-										console.error(msg, meta ?? "");
-									}
-								},
-							},
+					const result = streamText({
+						model: openrouter.chat(aiModel, {
+							plugins: [{ id: "web", max_results: 3 }],
+						}),
+						messages: modelMessages,
+						tools,
+						system: systemPrompt,
+						stopWhen: stepCountIs(10),
+						abortSignal: request.signal,
+						onFinish: async ({ totalUsage }) => {
+							await trackCreditUsage({
+								customerId: user.id,
+								modelId: aiModel,
+								userName: user.name ?? undefined,
+								userEmail: user.email ?? undefined,
+								repoId: resolvedRepoId,
+								usage: totalUsage,
+							});
+						},
+						onError: ({ error }) => {
+							logCreditUsageError({
+								customerId: user.id,
+								modelId: aiModel,
+								userName: user.name ?? undefined,
+								userEmail: user.email ?? undefined,
+								repoId: resolvedRepoId,
+								error,
+							});
+							const err = error as ProviderError;
+							const raw = err?.error?.metadata?.raw ?? err?.error?.message ?? err?.message ?? "Unknown";
+							console.error("[Chat API stream]", typeof raw === "string" ? raw : JSON.stringify(raw));
 						},
 					});
 
-					return toServerSentEventsResponse(stream);
+					return result.toUIMessageStreamResponse({
+						originalMessages: messages,
+						messageMetadata: ({ part }) => {
+							if (part.type === "finish") {
+								return { usage: part.usage, modelId: aiModel };
+							}
+							return undefined;
+						},
+						onFinish: async ({ messages: finishedMessages }) => {
+							if (typeof conversationId !== "string") return;
+							await db
+								.insert(conversations)
+								.values({
+									id: conversationId,
+									userId: user.id,
+									repoId: resolvedRepoId,
+									messages: finishedMessages,
+									title: "New chat",
+								})
+								.onConflictDoUpdate({
+									target: conversations.id,
+									set: {
+										messages: finishedMessages,
+										repoId: resolvedRepoId,
+										updatedAt: new Date(),
+									},
+									setWhere: eq(conversations.userId, user.id),
+								})
+								.catch((err) => {
+									console.error("[chat] Failed to persist server stream:", err);
+								});
+						},
+						consumeSseStream: consumeStream,
+					});
 				} catch (error: any) {
 					const errMsg = error?.error?.message || error?.message || "Unknown error";
 					const provider = error?.error?.metadata?.provider_name;

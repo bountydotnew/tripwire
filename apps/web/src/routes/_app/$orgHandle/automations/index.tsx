@@ -192,7 +192,7 @@ function AutomationsPage() {
 					/>
 					<button
 						type="button"
-						onClick={handleCreate}
+						onClick={() => handleCreate()}
 						disabled={!newName.trim() || createWf.isPending}
 						className="h-8 px-3 rounded-lg bg-tw-accent text-white text-[13px] font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
 					>

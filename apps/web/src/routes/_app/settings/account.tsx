@@ -142,8 +142,6 @@ function DeleteAccountRow() {
 	const [confirmText, setConfirmText] = useState("");
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
-	const navigate = useNavigate();
-
 	const handleDelete = async () => {
 		setIsDeleting(true);
 		setDeleteError(null);
