@@ -1,7 +1,13 @@
-import { useState, useRef, type KeyboardEvent, type ChangeEvent, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type KeyboardEvent, type ChangeEvent, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
+import {
+	buildListedUserSuggestions,
+	getMentionTrigger,
+	replaceMentionTrigger,
+	type ListedUserSuggestion,
+} from "#/lib/chat/mentions";
 
 interface ChatInputProps {
 	value: string;
@@ -28,13 +34,13 @@ export function ChatInput({
 }: ChatInputProps) {
 	const { repo } = useWorkspace();
 	const trpc = useTRPC();
+	const suggestionListId = `${useId()}-mention-suggestions`;
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	// Mention state
 	const [mentionActive, setMentionActive] = useState(false);
 	const [mentionQuery, setMentionQuery] = useState("");
 	const [mentionIdx, setMentionIdx] = useState(0);
-	const [mentionStart, setMentionStart] = useState(-1);
 
 	const mentionsQuery = useQuery(
 		trpc.whitelist.mentions.queryOptions(
@@ -43,23 +49,30 @@ export function ChatInput({
 		),
 	);
 
-	const mentions = mentionsQuery.data;
-	const mentionItems = mentions
-		? [
-				...mentions.whitelisted.map((u) => ({ ...u, list: "whitelist" as const })),
-				...mentions.blacklisted.map((u) => ({ ...u, list: "blacklist" as const })),
-			].filter((u) => u.githubUsername.toLowerCase().includes(mentionQuery.toLowerCase()))
-		: [];
+	const mentionItems = useMemo(() => {
+		const mentions = mentionsQuery.data;
+		if (!mentions) return [];
+
+		const users: ListedUserSuggestion[] = [
+			...mentions.whitelisted.map((u) => ({ ...u, list: "whitelist" as const })),
+			...mentions.blacklisted.map((u) => ({ ...u, list: "blacklist" as const })),
+		];
+
+		return buildListedUserSuggestions(users, mentionQuery);
+	}, [mentionsQuery.data, mentionQuery]);
 	const mentionCount = mentionItems.length;
+	const activeSuggestion = mentionActive ? mentionItems[mentionIdx] : undefined;
+	const activeSuggestionId = activeSuggestion
+		? `${suggestionListId}-${activeSuggestion.list}-${activeSuggestion.githubUsername.toLowerCase()}`
+		: undefined;
 
 	const detectMention = (val: string, cursorPos: number) => {
-		const atIdx = val.lastIndexOf("@", cursorPos - 1);
-		if (atIdx === -1 || val.slice(atIdx + 1, cursorPos).includes(" ")) {
+		const trigger = getMentionTrigger(val, cursorPos);
+		if (!trigger) {
 			setMentionActive(false);
 			return;
 		}
-		setMentionStart(atIdx);
-		setMentionQuery(val.slice(atIdx + 1, cursorPos));
+		setMentionQuery(trigger.query);
 		setMentionActive(true);
 		setMentionIdx(0);
 	};
@@ -71,22 +84,26 @@ export function ChatInput({
 	};
 
 	const selectMention = (username: string) => {
-		if (!inputRef.current || mentionStart === -1) return;
-		const before = value.slice(0, mentionStart);
-		const after = value.slice(inputRef.current.selectionStart ?? mentionStart);
-		const newValue = `${before}@${username} ${after}`;
-		onChange(newValue);
+		if (!inputRef.current) return;
+		const cursorPosition = inputRef.current.selectionStart ?? value.length;
+		const trigger = getMentionTrigger(value, cursorPosition);
+		if (!trigger) return;
+
+		const next = replaceMentionTrigger(value, trigger, username);
+		onChange(next.value);
 		setMentionActive(false);
-		setMentionStart(-1);
 		setMentionQuery("");
-		setTimeout(() => {
-			const pos = before.length + username.length + 2;
+		window.requestAnimationFrame(() => {
 			inputRef.current?.focus();
-			inputRef.current?.setSelectionRange(pos, pos);
-		}, 0);
+			inputRef.current?.setSelectionRange(next.cursorPosition, next.cursorPosition);
+		});
 	};
 
 	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+		if (e.nativeEvent.isComposing) {
+			return;
+		}
+
 		if (mentionActive) {
 			if (e.key === "Escape") {
 				setMentionActive(false);
@@ -121,11 +138,19 @@ export function ChatInput({
 	return (
 		<div className={className} style={style}>
 			{mentionActive && mentionCount > 0 && (
-				<div className="absolute bottom-full left-4 right-4 rounded-t-[12px] rounded-b-none bg-tw-card border border-b-0 border-tw-border overflow-hidden max-h-[180px] overflow-y-auto shadow-2xl z-50">
+				<div
+					id={suggestionListId}
+					role="listbox"
+					className="absolute bottom-full left-4 right-4 rounded-t-[12px] rounded-b-none bg-tw-card border border-b-0 border-tw-border overflow-hidden max-h-[180px] overflow-y-auto shadow-2xl z-50"
+				>
 					{mentionItems.map((user, i) => (
 						<button
-							key={`${user.list}-${user.githubUsername}`}
+							id={`${suggestionListId}-${user.list}-${user.githubUsername.toLowerCase()}`}
+							key={`${user.list}-${user.githubUsername.toLowerCase()}`}
 							type="button"
+							role="option"
+							tabIndex={-1}
+							aria-selected={i === mentionIdx}
 							onMouseDown={(e) => {
 								e.preventDefault();
 								selectMention(user.githubUsername);
@@ -163,6 +188,11 @@ export function ChatInput({
 				<input
 					ref={inputRef}
 					type="text"
+					role="combobox"
+					aria-autocomplete="list"
+					aria-controls={suggestionListId}
+					aria-expanded={mentionActive && mentionCount > 0}
+					aria-activedescendant={mentionActive && mentionCount > 0 ? activeSuggestionId : undefined}
 					placeholder={placeholder}
 					value={value}
 					onChange={handleInputChange}
@@ -172,6 +202,9 @@ export function ChatInput({
 				/>
 				<button
 					type="button"
+					disabled
+					aria-label="Voice input unavailable"
+					title="Voice input unavailable"
 					className="flex items-center justify-center size-9 rounded-[10px] text-tw-text-tertiary hover:text-tw-text-secondary transition-colors"
 				>
 					<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">

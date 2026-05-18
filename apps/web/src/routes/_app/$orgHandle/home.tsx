@@ -9,6 +9,7 @@ import { useWorkspace, useWorkspacePath } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
 import { TripwireLogo } from "#/components/icons/tripwire-logo";
 import { ChatInput } from "#/components/chat/chat-input";
+import { toastFromError } from "#/lib/toast-error";
 
 export const Route = createFileRoute("/_app/$orgHandle/home")({
 	component: HomePage,
@@ -235,10 +236,15 @@ function HomeFloatingBar() {
 		if (!inputValue.trim()) return;
 		const chatId = crypto.randomUUID();
 		const message = inputValue.trim();
-		setInputValue("");
 
-		await createChat.mutateAsync({ id: chatId, repoId: repo?.id });
-		setPreviewChat({ id: chatId, message, processing: true });
+		try {
+			await createChat.mutateAsync({ id: chatId, repoId: repo?.id });
+			setInputValue("");
+			setPreviewChat({ id: chatId, message, processing: true });
+		} catch (err) {
+			setPreviewChat(null);
+			toastFromError(err, { fallbackTitle: "Failed to start chat" });
+		}
 	};
 
 	const handleGoToChat = () => {
