@@ -25,3 +25,5 @@ export * from "./assertions";
 export * from "./workflow-registry";
 export * from "./workflow-operations";
 export * from "./workflow-operations-schema";
+export * from "./node-evaluators";
+export * from "./workflow-executor";

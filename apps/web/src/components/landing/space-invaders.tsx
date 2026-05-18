@@ -1,4 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import {
+	TRIPWIRE_EYE_OUTER_PATH,
+	TRIPWIRE_EYE_OUTER_VIEWBOX,
+	TRIPWIRE_EYE_SOCKET_PATH,
+	TRIPWIRE_EYE_SOCKET_VIEWBOX,
+	TRIPWIRE_EYE_SOCKET_RECT_IN_OUTER,
+	TRIPWIRE_EYE_PUPIL_PATH,
+	TRIPWIRE_EYE_PUPIL_VIEWBOX,
+	TRIPWIRE_EYE_PUPIL_RECT_IN_OUTER,
+} from "#/components/landing/tripwire-eye";
 
 const PLAYER_W = 32;
 const PLAYER_H = 16;
@@ -20,6 +30,8 @@ const GREEN = "#A7EF9E";
 const GREEN_DIM = "rgba(167, 239, 158, 0.25)";
 const GREEN_MID = "rgba(167, 239, 158, 0.5)";
 const RED = "#F56D5D";
+const LASER_RED = "#FF3333";
+const LASER_GLOW = "rgba(255, 51, 51, 0.3)";
 
 interface Entity { x: number; y: number; w: number; h: number; alive: boolean }
 interface Bullet extends Entity { dy: number }
@@ -40,13 +52,44 @@ function createInvaders(w: number): Entity[] {
 	return invaders;
 }
 
+// Pre-build Path2D objects for the eye (done once at module load)
+const eyeOuterPath = new Path2D(TRIPWIRE_EYE_OUTER_PATH);
+const eyeSocketPath = new Path2D(TRIPWIRE_EYE_SOCKET_PATH);
+const eyePupilPath = new Path2D(TRIPWIRE_EYE_PUPIL_PATH);
+
+const EYE_SCALE = PLAYER_W / TRIPWIRE_EYE_OUTER_VIEWBOX[0]; // fit to player width
+const EYE_H = TRIPWIRE_EYE_OUTER_VIEWBOX[1] * EYE_SCALE;
+
 function drawPlayer(ctx: CanvasRenderingContext2D, x: number, y: number) {
+	ctx.save();
+	ctx.translate(x, y - EYE_H / 2 + PLAYER_H / 2);
+	ctx.scale(EYE_SCALE, EYE_SCALE);
+
+	// Outer shape
 	ctx.fillStyle = GREEN;
-	ctx.fillRect(x + 12, y, 8, 4);
-	ctx.fillRect(x + 8, y + 4, 16, 4);
-	ctx.fillRect(x + 4, y + 8, 24, 4);
-	ctx.fillRect(x, y + 12, 32, 4);
-	ctx.fillRect(x + 15, y - 4, 2, 4);
+	ctx.fill(eyeOuterPath);
+
+	// Socket (dark hole)
+	ctx.save();
+	ctx.translate(TRIPWIRE_EYE_SOCKET_RECT_IN_OUTER[0], TRIPWIRE_EYE_SOCKET_RECT_IN_OUTER[1]);
+	const sx = TRIPWIRE_EYE_SOCKET_RECT_IN_OUTER[2] / TRIPWIRE_EYE_SOCKET_VIEWBOX[0];
+	const sy = TRIPWIRE_EYE_SOCKET_RECT_IN_OUTER[3] / TRIPWIRE_EYE_SOCKET_VIEWBOX[1];
+	ctx.scale(sx, sy);
+	ctx.fillStyle = "#111";
+	ctx.fill(eyeSocketPath);
+	ctx.restore();
+
+	// Pupil (red — the laser source)
+	ctx.save();
+	ctx.translate(TRIPWIRE_EYE_PUPIL_RECT_IN_OUTER[0], TRIPWIRE_EYE_PUPIL_RECT_IN_OUTER[1]);
+	const px = TRIPWIRE_EYE_PUPIL_RECT_IN_OUTER[2] / TRIPWIRE_EYE_PUPIL_VIEWBOX[0];
+	const py = TRIPWIRE_EYE_PUPIL_RECT_IN_OUTER[3] / TRIPWIRE_EYE_PUPIL_VIEWBOX[1];
+	ctx.scale(px, py);
+	ctx.fillStyle = RED;
+	ctx.fill(eyePupilPath);
+	ctx.restore();
+
+	ctx.restore();
 }
 
 function drawInvader(ctx: CanvasRenderingContext2D, x: number, y: number, frame: number) {
@@ -193,10 +236,12 @@ export function useSpaceInvaders(active: boolean, onExit: () => void): HTMLCanva
 			const now = performance.now();
 			if (s.keys.has(" ") && now - s.lastShot > SHOOT_COOLDOWN) {
 				s.lastShot = now;
+				const pupilCenterX = (TRIPWIRE_EYE_PUPIL_RECT_IN_OUTER[0] + TRIPWIRE_EYE_PUPIL_RECT_IN_OUTER[2] / 2) * EYE_SCALE;
+				const pupilCenterY = (TRIPWIRE_EYE_PUPIL_RECT_IN_OUTER[1]) * EYE_SCALE - EYE_H / 2 + PLAYER_H / 2;
 				s.bullets.push({
-					x: s.player.x + PLAYER_W / 2 - BULLET_W / 2,
-					y: s.player.y - BULLET_H,
-					w: BULLET_W, h: BULLET_H, alive: true, dy: -BULLET_SPEED,
+					x: s.player.x + pupilCenterX - BULLET_W / 2,
+					y: s.player.y + pupilCenterY - BULLET_H,
+					w: BULLET_W, h: BULLET_H * 2, alive: true, dy: -BULLET_SPEED,
 				});
 			}
 
@@ -257,9 +302,13 @@ export function useSpaceInvaders(active: boolean, onExit: () => void): HTMLCanva
 			for (const inv of s.invaders) {
 				if (inv.alive) drawInvader(ctx, inv.x, inv.y, s.animFrame);
 			}
+			for (const b of s.bullets) {
+				ctx.fillStyle = LASER_GLOW;
+				ctx.fillRect(b.x - 2, b.y, b.w + 4, b.h);
+				ctx.fillStyle = LASER_RED;
+				ctx.fillRect(b.x, b.y, b.w, b.h);
+			}
 			ctx.fillStyle = GREEN;
-			for (const b of s.bullets) ctx.fillRect(b.x, b.y, b.w, b.h);
-			ctx.fillStyle = RED;
 			for (const b of s.enemyBullets) ctx.fillRect(b.x, b.y, b.w, b.h);
 			for (const e of s.explosions) drawExplosion(ctx, e.x, e.y, e.t);
 

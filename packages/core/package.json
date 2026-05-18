@@ -12,7 +12,9 @@
 		"./rules/config-schema": "./src/rules/config-schema.ts",
 		"./rules/config-draft": "./src/rules/config-draft.ts",
 		"./rules/signal-registry": "./src/rules/signal-registry.ts",
-		"./workflow-registry": "./src/workflow-registry.ts"
+		"./workflow-registry": "./src/workflow-registry.ts",
+		"./node-evaluators": "./src/node-evaluators.ts",
+		"./workflow-executor": "./src/workflow-executor.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
