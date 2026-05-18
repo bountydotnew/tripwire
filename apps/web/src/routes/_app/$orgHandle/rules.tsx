@@ -52,6 +52,7 @@ import {
 	generateAgentsMd,
 } from "@tripwire/github/repo-files";
 import { useWorkspace } from "#/lib/workspace-context";
+import { useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app/$orgHandle/rules")({
 	component: RulesPage,
@@ -310,6 +311,7 @@ function RulesPage() {
 			"people",
 			"requests",
 			"files",
+			"workflows",
 		] as const).withDefault("marketplace"),
 	);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -621,6 +623,16 @@ function RulesPage() {
 						>
 							<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1.5h5l3 3v8h-8v-11Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M8 1.5v3h3" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
 							Files
+						</button>
+						<button
+							type="button"
+							onClick={() => setTab("workflows")}
+							className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${tab === "workflows" ? "bg-tw-card text-white" : "text-[#FFFFFF99] hover:bg-[#ffffff08]"}`}
+						>
+							<span className="flex items-center gap-2">
+								<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8.5 1.5a1 1 0 0 0-1.8-.6L2.6 7.4a1 1 0 0 0 .8 1.6h3.1l-1 5.5a1 1 0 0 0 1.8.6l4.1-6.5a1 1 0 0 0-.8-1.6H7.5l1-5.5Z" fill="currentColor"/></svg>
+								Workflows
+							</span>
 						</button>
 					</nav>
 				</div>
@@ -977,6 +989,10 @@ function RulesPage() {
 							onRemoveHoneypotPhrase={removeHoneypotPhrase}
 						/>
 					)}
+
+					{tab === "workflows" && (
+						<WorkflowsTab repoId={repoId} />
+					)}
 				</div>
 			</div>
 
@@ -1107,6 +1123,76 @@ function RequestsTab({ repoRequests, repoRequestsLoading, vouchRequests, vouchRe
 									<Button size="xs" disabled={isVouch ? isDecidingVouch : isDecidingRepo} onClick={() => isVouch ? onDecideVouchRequest(r.id, "approve") : onDecideRepoRequest(r.id, "approve")} className="text-[12px]">{label}</Button>
 								</div>
 							</div>
+						);
+					})}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function WorkflowsTab({ repoId }: { repoId: string | undefined }) {
+	const trpc = useTRPC();
+	const navigate = useNavigate();
+	const { org } = useWorkspace();
+
+	const workflowsQuery = useQuery(
+		trpc.workflows.list.queryOptions(
+			{ repoId: repoId ?? "" },
+			{ enabled: !!repoId },
+		),
+	);
+	const wfList = workflowsQuery.data ?? [];
+
+	return (
+		<div className="flex flex-col gap-3">
+			<div className="flex items-center justify-between">
+				<p className="text-[13px] text-tw-text-secondary">
+					Automation workflows for this repo.
+				</p>
+				<button
+					type="button"
+					onClick={() => navigate({ to: `/${org?.slug}/automations` })}
+					className="text-[12px] text-tw-accent hover:underline"
+				>
+					Open editor
+				</button>
+			</div>
+
+			{workflowsQuery.isPending ? (
+				<div className="py-8 text-center text-tw-text-muted text-[13px]">Loading...</div>
+			) : wfList.length === 0 ? (
+				<div className="py-8 text-center">
+					<p className="text-[13px] text-tw-text-muted mb-2">No workflows yet.</p>
+					<button
+						type="button"
+						onClick={() => navigate({ to: `/${org?.slug}/automations` })}
+						className="text-[12px] text-tw-accent hover:underline"
+					>
+						Create your first workflow
+					</button>
+				</div>
+			) : (
+				<div className="flex flex-col gap-1.5">
+					{wfList.map((wf) => {
+						const nodeCount = (wf.definition as { nodes: unknown[] }).nodes?.length ?? 0;
+						return (
+							<button
+								key={wf.id}
+								type="button"
+								onClick={() => navigate({ to: `/${org?.slug}/automations/${wf.id}` })}
+								className="flex items-center gap-3 p-3 rounded-xl bg-tw-card border border-tw-border-card hover:border-[#FFFFFF1A] transition-colors text-left"
+							>
+								<div className="flex flex-col min-w-0 flex-1">
+									<span className="text-[13px] font-medium text-tw-text-primary truncate">{wf.name}</span>
+									<span className="text-[11px] text-tw-text-muted">
+										{nodeCount} node{nodeCount !== 1 ? "s" : ""} · Updated {new Date(wf.updatedAt).toLocaleDateString()}
+									</span>
+								</div>
+								<span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${wf.enabled ? "bg-tw-success/10 text-tw-success" : "bg-tw-inner text-tw-text-muted"}`}>
+									{wf.enabled ? "Active" : "Draft"}
+								</span>
+							</button>
 						);
 					})}
 				</div>

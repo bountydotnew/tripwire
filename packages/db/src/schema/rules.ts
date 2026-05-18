@@ -87,6 +87,7 @@ export const RULE_KEYS = [
 ] as const;
 export type RuleKey = (typeof RULE_KEYS)[number];
 
+
 export const DEFAULT_RULE_CONFIG: RuleConfig = {
 	aiSlopDetection: { enabled: false, action: "block" },
 	languageRequirement: { enabled: false, action: "block", language: "English" },

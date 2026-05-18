@@ -39,6 +39,8 @@ uniform float uUseMask;
 uniform float uPageLoadProgress;
 uniform float uUsePageLoadAnimation;
 uniform float uBrightness;
+uniform sampler2D uGameTex;
+uniform float uGameMix;
 
 float time;
 
@@ -208,6 +210,12 @@ void main() {
       col.b = getColor(p - ca).b;
     }
 
+    if(uGameMix > 0.0){
+      vec2 gameUv = uv;
+      vec4 game = texture2D(uGameTex, gameUv);
+      col = mix(col * 0.15, game.rgb * 1.5, game.a * uGameMix);
+    }
+
     col *= uTint;
     col *= uBrightness;
 
@@ -259,6 +267,8 @@ interface FaultyTerminalProps {
 	cursorMask?: CursorMask;
 	pageLoadAnimation?: boolean;
 	brightness?: number;
+	gameCanvas?: HTMLCanvasElement | null;
+	gameMix?: number;
 	className?: string;
 	style?: React.CSSProperties;
 }
@@ -282,6 +292,8 @@ export default function FaultyTerminal({
 	cursorMask,
 	pageLoadAnimation = true,
 	brightness = 1,
+	gameCanvas = null,
+	gameMix = 0,
 	className = "",
 	style = {},
 }: FaultyTerminalProps) {
@@ -294,6 +306,10 @@ export default function FaultyTerminal({
 	const rafRef = useRef(0);
 	const loadAnimationStartRef = useRef(0);
 	const timeOffsetRef = useRef(Math.random() * 100);
+	const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
+	const gameMixRef = useRef(0);
+	gameCanvasRef.current = gameCanvas;
+	gameMixRef.current = gameMix;
 
 	const tintVec = useMemo(() => hexToRgb(tint), [tint]);
 	const ditherValue = useMemo(() => (typeof dither === "boolean" ? (dither ? 1 : 0) : dither), [dither]);
@@ -388,6 +404,8 @@ export default function FaultyTerminal({
 				uPageLoadProgress: { value: pageLoadAnimation ? 0 : 1 },
 				uUsePageLoadAnimation: { value: pageLoadAnimation ? 1 : 0 },
 				uBrightness: { value: brightness },
+			uGameTex: { value: new Texture(gl) },
+			uGameMix: { value: 0 },
 			},
 		});
 		programRef.current = program;
@@ -432,6 +450,15 @@ export default function FaultyTerminal({
 				const mu = program.uniforms.uMouse.value as Float32Array;
 				mu[0] = sm.x;
 				mu[1] = sm.y;
+			}
+
+			if (gameCanvasRef.current && gameMixRef.current > 0) {
+				const gameTex = program.uniforms.uGameTex.value as InstanceType<typeof Texture>;
+				gameTex.image = gameCanvasRef.current;
+				gameTex.needsUpdate = true;
+				program.uniforms.uGameMix.value = gameMixRef.current;
+			} else {
+				program.uniforms.uGameMix.value = 0;
 			}
 
 			renderer.render({ scene: mesh });

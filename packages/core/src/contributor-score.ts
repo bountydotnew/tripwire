@@ -41,6 +41,36 @@ export interface ScoreInput {
 	blockedCount: number;
 	allowedCount: number;
 	nearMissCount: number;
+
+	// ─── Change 1: PR substance (split volume from quality) ─────
+	/** Summary of merged PRs with quality weighting. Null = use flat mergedPrCount. */
+	mergedPrSummary?: {
+		total: number;
+		/** Each PR's multiplier summed based on target repo quality tier */
+		qualityWeightedCount: number;
+	} | null;
+
+	// ─── Change 2: Spray detection temporal data ────────────────
+	/** Temporal PR data for spray pattern detection. Null = skip spray checks. */
+	prTemporalData?: {
+		/** Intervals in seconds between consecutive PR creation timestamps */
+		creationIntervals: number[];
+		/** Seconds between PR creation and merge, per PR */
+		timeToMerge: number[];
+		/** Distinct repos targeted across merged PRs */
+		distinctRepoCount: number;
+		/** Max PRs created within any 1-hour sliding window */
+		maxPrsInOneHourWindow: number;
+		/** Distinct repos in the densest 1-hour window */
+		reposInDensestWindow: number;
+	} | null;
+
+	// ─── Change 3: Repo history with timestamps for decay ───────
+	/** Timestamped events for time-decay scoring. Null = fall back to flat counts. */
+	repoEvents?: Array<{
+		type: "allowed" | "blocked" | "near-miss" | "cleared";
+		createdAt: Date;
+	}> | null;
 }
 
 export type ScoreCategory =
@@ -68,9 +98,6 @@ export interface ScoreResult {
 function clamp(value: number, min: number, max: number): number {
 	return Math.min(Math.max(value, min), max);
 }
-
-// ─── Line-item collector ─────────────────────────────────────────
-
 class CategoryBuilder {
 	total = 0;
 	constructor(
@@ -83,9 +110,6 @@ class CategoryBuilder {
 		this.sink.push({ category: this.category, reason, delta });
 	}
 }
-
-// ─── Achievement scoring ─────────────────────────────────────────
-
 const TIER_POINTS: Record<number, number> = {
 	1: 1,
 	2: 2,
@@ -112,9 +136,6 @@ function achievementPoints(a: GitHubAchievement): number {
 	const rarity = RARITY_MULTIPLIER[a.type] ?? 1;
 	return tierPts * rarity;
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────
-
 export function formatAccountAge(days: number): string {
 	if (days < 30) return `${days}d`;
 	if (days < 365) return `${Math.floor(days / 30)}mo`;
@@ -122,9 +143,6 @@ export function formatAccountAge(days: number): string {
 	const months = Math.floor((days % 365) / 30);
 	return months > 0 ? `${years}y ${months}mo` : `${years}y`;
 }
-
-// ─── Category scorers ────────────────────────────────────────────
-
 interface CategoryScore {
 	value: number;
 	lostToCap: number;
@@ -151,11 +169,28 @@ function scoreGlobalReputation(input: ScoreInput, sink: ScoreLineItem[]): Catego
 		f >= 500 ? 8 : f >= 100 ? 6 : f >= 20 ? 4 : f >= 5 ? 2 : 0,
 	);
 
+	// Merged PR signal: split into volume (0-6) + substance (0-6) = 12 max
 	const prs = input.mergedPrCount;
-	b.add(
-		`Merged PRs ${prs}`,
-		prs >= 500 ? 12 : prs >= 200 ? 10 : prs >= 50 ? 8 : prs >= 10 ? 5 : prs >= 1 ? 2 : 0,
-	);
+	if (input.mergedPrSummary) {
+		// Volume: raw count, compressed tiers (0-6)
+		const vol = input.mergedPrSummary.total;
+		b.add(
+			`Merged PR volume (${vol})`,
+			vol >= 500 ? 6 : vol >= 200 ? 5 : vol >= 50 ? 4 : vol >= 10 ? 3 : vol >= 1 ? 1 : 0,
+		);
+		// Substance: quality-weighted count (0-6)
+		const wc = input.mergedPrSummary.qualityWeightedCount;
+		b.add(
+			`Merged PR substance (weighted ${wc.toFixed(1)})`,
+			wc >= 200 ? 6 : wc >= 75 ? 5 : wc >= 25 ? 4 : wc >= 5 ? 3 : wc >= 1 ? 1 : 0,
+		);
+	} else {
+		// Fallback: flat count (backward compat)
+		b.add(
+			`Merged PRs ${prs}`,
+			prs >= 500 ? 12 : prs >= 200 ? 10 : prs >= 50 ? 8 : prs >= 10 ? 5 : prs >= 1 ? 2 : 0,
+		);
+	}
 
 	const repos = input.publicNonForkRepoCount;
 	b.add(
@@ -239,7 +274,76 @@ function scoreCommunitySignals(input: ScoreInput, sink: ScoreLineItem[]): Catego
 	return { value: clamped, lostToCap: Math.max(0, raw - clamped) };
 }
 
+/** Time-decay multiplier: recent events weigh more. */
+function eventDecayMultiplier(createdAt: Date): number {
+	const ageDays = Math.floor((Date.now() - createdAt.getTime()) / 86_400_000);
+	if (ageDays <= 90) return 1.0;
+	if (ageDays <= 180) return 0.5;
+	if (ageDays <= 365) return 0.25;
+	return 0.1;
+}
+
 function scoreRepoHistory(input: ScoreInput, sink: ScoreLineItem[]): number {
+	// If timestamped events are available, use decay-weighted scoring
+	if (input.repoEvents && input.repoEvents.length > 0) {
+		const b = new CategoryBuilder("repoHistory", sink);
+		b.add("Baseline", 10);
+
+		let allowedPts = 0;
+		let blockedPts = 0;
+		let nearMissPts = 0;
+		let allowedCount = 0;
+		let blockedCount = 0;
+		let nearMissCount = 0;
+
+		// cleared events neutralize the most recent block
+		const clearedCount = input.repoEvents.filter((e) => e.type === "cleared").length;
+		let blocksToSkip = clearedCount;
+
+		// Process blocked events newest-first so cleared events cancel the most recent blocks
+		const blockedEvents = input.repoEvents
+			.filter((e) => e.type === "blocked")
+			.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+		for (const event of blockedEvents) {
+			if (blocksToSkip > 0) { blocksToSkip--; continue; }
+			blockedCount++;
+			blockedPts += -3 * eventDecayMultiplier(event.createdAt);
+		}
+
+		for (const event of input.repoEvents) {
+			if (event.type === "allowed") {
+				allowedCount++;
+				allowedPts += 2 * eventDecayMultiplier(event.createdAt);
+			} else if (event.type === "near-miss") {
+				nearMissCount++;
+				nearMissPts += -1 * eventDecayMultiplier(event.createdAt);
+			}
+		}
+
+		const cappedAllowed = Math.min(allowedPts, 10);
+		if (cappedAllowed > 0) {
+			b.add(`${allowedCount} allowed events (decay-weighted +${cappedAllowed.toFixed(1)}, cap 10)`, Math.round(cappedAllowed * 10) / 10);
+		}
+		if (blockedPts < 0) {
+			b.add(`${blockedCount} blocked events (decay-weighted ${blockedPts.toFixed(1)})`, Math.round(blockedPts * 10) / 10);
+		}
+		if (nearMissPts < 0) {
+			b.add(`${nearMissCount} near-miss events (decay-weighted ${nearMissPts.toFixed(1)})`, Math.round(nearMissPts * 10) / 10);
+		}
+		if (clearedCount > 0) {
+			b.add(`${clearedCount} cleared event${clearedCount !== 1 ? "s" : ""} (blocks neutralized)`, 0);
+		}
+
+		const raw = b.total;
+		const clamped = clamp(raw, 0, 20);
+		if (raw !== clamped) {
+			sink.push({ category: "repoHistory", reason: `Clamped to [0, 20] (raw ${raw.toFixed(1)})`, delta: Math.round((clamped - raw) * 10) / 10 });
+		}
+		return clamped;
+	}
+
+	// Fallback: flat counts (backward compat when repoEvents is null/empty)
 	const total = input.blockedCount + input.allowedCount + input.nearMissCount;
 
 	if (total === 0) {
@@ -270,11 +374,7 @@ function scoreRepoHistory(input: ScoreInput, sink: ScoreLineItem[]): number {
 	const raw = b.total;
 	const clamped = clamp(raw, 0, 20);
 	if (raw !== clamped) {
-		sink.push({
-			category: "repoHistory",
-			reason: `Clamped to [0, 20] (raw ${raw})`,
-			delta: clamped - raw,
-		});
+		sink.push({ category: "repoHistory", reason: `Clamped to [0, 20] (raw ${raw})`, delta: clamped - raw });
 	}
 	return clamped;
 }
@@ -310,6 +410,43 @@ function scoreRedFlags(input: ScoreInput, sink: ScoreLineItem[]): number {
 		b.add(`Fork-heavy profile (${input.publicForkRepoCount} forks, ${input.publicNonForkRepoCount} non-fork)`, -1);
 	}
 
+	// ─── Spray detection (requires prTemporalData) ──────────────
+	if (input.prTemporalData) {
+		const td = input.prTemporalData;
+
+		// Red Flag: Temporal Regularity (mechanical cadence)
+		// Bots create PRs on clock-like intervals. Humans are noisy.
+		// CV (coefficient of variation) < 0.15 = suspiciously uniform.
+		if (td.creationIntervals.length >= 10) {
+			const mean = td.creationIntervals.reduce((s, v) => s + v, 0) / td.creationIntervals.length;
+			if (mean > 0) {
+				const variance = td.creationIntervals.reduce((s, v) => s + (v - mean) ** 2, 0) / td.creationIntervals.length;
+				const stddev = Math.sqrt(variance);
+				const cv = stddev / mean;
+				if (cv < 0.15) {
+					b.add(`Suspiciously regular PR cadence (CV ${cv.toFixed(2)} across ${td.creationIntervals.length} PRs)`, -3);
+				}
+			}
+		}
+
+		// Red Flag: Burst Spray
+		// 5+ PRs in 1 hour across 3+ repos = spray, not a legitimate batch.
+		if (td.maxPrsInOneHourWindow >= 5 && td.reposInDensestWindow >= 3) {
+			b.add(`Burst spray: ${td.maxPrsInOneHourWindow} PRs in 1hr across ${td.reposInDensestWindow} repos`, -3);
+		}
+
+		// Red Flag: Auto-Merge Farm Signal
+		// Median time-to-merge under 5 minutes across 10+ PRs = targeting auto-merge repos.
+		if (td.timeToMerge.length >= 10) {
+			const sorted = [...td.timeToMerge].sort((a, b) => a - b);
+			const medianSeconds = sorted[Math.floor(sorted.length / 2)];
+			const medianMinutes = medianSeconds / 60;
+			if (medianMinutes < 5) {
+				b.add(`Median time-to-merge ${medianMinutes.toFixed(1)}min across ${td.timeToMerge.length} PRs (auto-merge farm signal)`, -2);
+			}
+		}
+	}
+
 	const raw = b.total;
 	const clamped = clamp(raw, -10, 0);
 	if (raw !== clamped) {
@@ -321,9 +458,6 @@ function scoreRedFlags(input: ScoreInput, sink: ScoreLineItem[]): number {
 	}
 	return clamped;
 }
-
-// ─── Main ────────────────────────────────────────────────────────
-
 export function computeContributorScore(input: ScoreInput): ScoreResult {
 	const lineItems: ScoreLineItem[] = [];
 

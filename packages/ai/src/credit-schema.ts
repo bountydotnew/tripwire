@@ -67,16 +67,17 @@ export async function computeCostCents(
 	try {
 		const tl = await getTokenlens();
 		const model = await tl.getModelData({ modelId });
-		if (model?.cost) {
-			const inputRate = Number(model.cost.prompt ?? model.cost.input ?? 0);
-			const outputRate = Number(model.cost.completion ?? model.cost.output ?? 0);
+		if (model?.cost && typeof model.cost === "object") {
+			const cost = model.cost as Record<string, unknown>;
+			const inputRate = Number(cost.prompt ?? cost.input ?? 0);
+			const outputRate = Number(cost.completion ?? cost.output ?? 0);
 
 			if (inputRate > 0 || outputRate > 0) {
 				const { rawCostUsd, cents } = computeFromRates(inputRate, outputRate, promptTokens, completionTokens);
 
 				console.log([
 					`[billing:cost] ${modelId}`,
-					`  tokens: ${promptTokens} in / ${completionTokens} out`,
+					`  tokens: ${promptTokens} in / ${completionTokens} out | context: ${promptTokens + completionTokens} total`,
 					`  rates: $${inputRate}/token in, $${outputRate}/token out`,
 					`  provider: $${rawCostUsd.toFixed(6)} | with ${MARKUP}x: ${cents}c`,
 				].join("\n"));
@@ -94,7 +95,7 @@ export async function computeCostCents(
 	if (fallback) {
 		const { rawCostUsd, cents } = computeFromRates(fallback.input, fallback.output, promptTokens, completionTokens);
 		console.warn(
-			`[billing:fallback] ${modelId} | $${rawCostUsd.toFixed(6)} provider | ${cents}c charged (hardcoded rates)`,
+			`[billing:fallback] ${modelId} | ${promptTokens} in / ${completionTokens} out | context: ${promptTokens + completionTokens} | $${rawCostUsd.toFixed(6)} provider | ${cents}c charged (hardcoded rates)`,
 		);
 		return cents;
 	}
@@ -104,7 +105,7 @@ export async function computeCostCents(
 	const safeRates = FALLBACK_RATES["openai/gpt-5.4-mini"]!;
 	const { rawCostUsd, cents } = computeFromRates(safeRates.input, safeRates.output, promptTokens, completionTokens);
 	console.warn(
-		`[billing:fallback] unknown model "${modelId}" | using gpt-5.4-mini rates | $${rawCostUsd.toFixed(6)} | ${cents}c charged`,
+		`[billing:fallback] unknown model "${modelId}" | ${promptTokens} in / ${completionTokens} out | context: ${promptTokens + completionTokens} | using gpt-5.4-mini rates | $${rawCostUsd.toFixed(6)} | ${cents}c charged`,
 	);
 	return cents;
 }

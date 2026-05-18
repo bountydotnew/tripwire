@@ -4,14 +4,16 @@ import {
 	useState,
 	useCallback,
 	useMemo,
-	useEffect,
 	useRef,
 	type ReactNode,
 } from "react";
 import {
 	useChat,
-	fetchServerSentEvents,
-} from "@tanstack/ai-react";
+} from "@ai-sdk/react";
+import {
+	DefaultChatTransport,
+	lastAssistantMessageIsCompleteWithApprovalResponses,
+} from "ai";
 import type { UIMessage, SerializedMessage } from "#/types/chat";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "#/lib/workspace-context";
@@ -66,27 +68,22 @@ interface ChatProviderProps {
 }
 
 export function ChatProvider({ children }: ChatProviderProps) {
-	const [isMounted, setIsMounted] = useState(false);
-
-	useEffect(() => {
-		setIsMounted(true);
-	}, []);
-
-	// During SSR or before hydration, provide default context
-	if (!isMounted) {
-		return (
-			<ChatContext.Provider value={defaultContextValue}>
-				{children}
-			</ChatContext.Provider>
-		);
-	}
-
-	// After hydration, use the real chat provider
 	return <ChatProviderClient>{children}</ChatProviderClient>;
 }
 
 
 const STORAGE_KEY_CONV = "tw.askConversationId";
+const STORAGE_KEY_OPEN = "tw.askOpen";
+
+function getStoredValue(key: string): string | null {
+	return typeof window === "undefined" ? null : window.localStorage.getItem(key);
+}
+
+function setStoredValue(key: string, value: string): void {
+	if (typeof window !== "undefined") {
+		window.localStorage.setItem(key, value);
+	}
+}
 
 function extractTitle(messages: UIMessage[]): string {
 	const firstUser = messages.find((m) => m.role === "user");
@@ -94,7 +91,7 @@ function extractTitle(messages: UIMessage[]): string {
 	const text =
 		firstUser.parts
 			?.filter((p: any) => p.type === "text")
-			.map((p: any) => p.content)
+			.map((p: any) => p.text ?? p.content)
 			.join("") ?? "";
 	return text.slice(0, 80) || "New chat";
 }
@@ -105,7 +102,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [isOpen, setIsOpen] = useState(() => {
-		return localStorage.getItem("tw.askOpen") === "true";
+		return getStoredValue(STORAGE_KEY_OPEN) === "true";
 	});
 	const [chatError, setChatError] = useState<Error | null>(null);
 	const [quotaExhaustedByError, setQuotaExhaustedByError] = useState(false);
@@ -118,10 +115,10 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 
 	// Persist conversation ID so it survives reload
 	const [conversationId, setConversationId] = useState(() => {
-		const stored = localStorage.getItem(STORAGE_KEY_CONV);
+		const stored = getStoredValue(STORAGE_KEY_CONV);
 		if (stored) return stored;
 		const id = crypto.randomUUID();
-		localStorage.setItem(STORAGE_KEY_CONV, id);
+		setStoredValue(STORAGE_KEY_CONV, id);
 		return id;
 	});
 
@@ -136,34 +133,54 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 
 	// Load persisted conversation on mount / when conversationId changes
 	const convQuery = useQuery(trpc.chats.get.queryOptions({ chatId: conversationId }));
+	const persistedMessages = (convQuery.data?.messages as UIMessage[] | undefined) ?? [];
+	const persistedRepoId = convQuery.data?.repoId ?? null;
+	const conversationExists = !!convQuery.data;
+	const hasPersistedMessages = persistedMessages.length > 0;
 
 	// Resolve the effective repoId we'll send: pinned wins over the live workspace.
-	const effectiveRepoId = pinnedRepoId ?? repo?.id;
+	const effectiveRepoId = pinnedRepoId ?? persistedRepoId ?? repo?.id;
 
-	// Create connection adapter with dynamic body
-	const connection = useMemo(
+	const requestBodyRef = useRef({
+		repoId: effectiveRepoId,
+		conversationId,
+		currentPage: currentPath,
+	});
+	requestBodyRef.current = {
+		repoId: effectiveRepoId,
+		conversationId,
+		currentPage: currentPath,
+	};
+
+	// The AI SDK keeps the Chat instance stable, so keep transport stable too
+	// and read request metadata from a ref that updates on every render.
+	const transport = useMemo(
 		() =>
-			fetchServerSentEvents("/api/chat", () => {
-				return {
-					body: {
-						repoId: effectiveRepoId,
-						conversationId,
-						currentPage: currentPath,
-					},
-				};
+			new DefaultChatTransport<UIMessage>({
+				api: "/api/chat",
+				body: () => requestBodyRef.current,
 			}),
-		[effectiveRepoId, conversationId, currentPath],
+		[],
 	);
+
+	// Create conversation + save when AI finishes.
+	const createConv = useMutation(trpc.chats.create.mutationOptions());
+	const saveMessages = useMutation(trpc.chats.saveMessages.mutationOptions());
 
 	const {
 		messages,
 		sendMessage: sendChatMessage,
-		isLoading,
+		status,
 		addToolApprovalResponse,
 		setMessages,
 		error: chatHookError,
-	} = useChat({
-		connection,
+	} = useChat<UIMessage>({
+		id: hasPersistedMessages
+			? `${conversationId}:${convQuery.dataUpdatedAt}`
+			: conversationId,
+		messages: persistedMessages,
+		transport,
+		sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
 		onError: (error) => {
 			if (error.message.includes("429")) {
 				setQuotaExhaustedByError(true);
@@ -173,53 +190,19 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 			console.error("[chat]", error.message);
 			setChatError(error);
 		},
-	});
-
-	// Seed with persisted messages once loaded from DB
-	const didSeed = useRef<string | null>(null);
-	useEffect(() => {
-		if (
-			convQuery.data?.messages &&
-			(convQuery.data.messages as UIMessage[]).length > 0 &&
-			didSeed.current !== conversationId
-		) {
-			didSeed.current = conversationId;
-			createdConvIds.current.add(conversationId);
-			setMessages(convQuery.data.messages as UIMessage[]);
-
-			// Pin to the conversation's recorded repo. Legacy rows with a null
-			// repoId continue to use the current workspace repo (no pinning).
-			const storedRepoId = convQuery.data.repoId ?? null;
-			if (storedRepoId) {
-				setPinnedRepoId(storedRepoId);
-				// Auto-switch the workspace so the rest of the UI reflects the
-				// repo the chat will actually operate on. No-op if it already
-				// matches or if the user doesn't have that repo in their list.
-				if (repo?.id !== storedRepoId) {
-					const target = repos.find((r) => r.id === storedRepoId);
-					if (target) setRepo(target);
-				}
-			}
-		}
-	}, [convQuery.data, conversationId, repo?.id, repos, setRepo]);
-
-	// Create conversation + save on first send, save after AI finishes
-	const createConv = useMutation(trpc.chats.create.mutationOptions());
-	const saveMessages = useMutation(trpc.chats.saveMessages.mutationOptions());
-
-	const wasLoading = useRef(false);
-	useEffect(() => {
-		if (wasLoading.current && !isLoading && messages.length > 0) {
+		onFinish: ({ messages }) => {
+			if (messages.length === 0) return;
 			saveMessages.mutate({
 				chatId: conversationId,
-				messages: messages as SerializedMessage[],
+				repoId: effectiveRepoId,
+				messages: messages as unknown as SerializedMessage[],
 				title: extractTitle(messages),
 			});
 			queryClient.invalidateQueries({ queryKey: trpc.chats.list.queryKey() });
 			refetchCustomer();
-		}
-		wasLoading.current = isLoading;
-	}, [isLoading]);
+		},
+	});
+	const isLoading = status === "submitted" || status === "streaming";
 
 	// Combine hook error with our custom error state
 	const combinedError = chatError || chatHookError || null;
@@ -227,7 +210,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	// Persist isOpen state
 	const updateIsOpen = useCallback((value: boolean) => {
 		setIsOpen(value);
-		localStorage.setItem("tw.askOpen", String(value));
+		setStoredValue(STORAGE_KEY_OPEN, String(value));
 	}, []);
 
 	const open = useCallback(() => updateIsOpen(true), [updateIsOpen]);
@@ -245,7 +228,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 			// Create DB row on first message if we haven't yet. Use the pinned
 			// repo when loading an existing chat; otherwise fall back to the
 			// live workspace repo.
-			if (!createdConvIds.current.has(conversationId)) {
+			if (!conversationExists && !createdConvIds.current.has(conversationId)) {
 				createdConvIds.current.add(conversationId);
 				createConv.mutate(
 					{ id: conversationId, repoId: effectiveRepoId },
@@ -257,10 +240,10 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 				);
 			}
 
-			sendChatMessage(content);
+			void sendChatMessage({ text: content });
 			setTimeout(() => refetchCustomer(), 2000);
 		},
-		[sendChatMessage, isQuotaExhausted, refetchCustomer, conversationId, effectiveRepoId],
+		[conversationExists, sendChatMessage, isQuotaExhausted, refetchCustomer, conversationId, effectiveRepoId],
 	);
 
 	const respondToToolApproval = useCallback(
@@ -279,8 +262,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 		(chatId: string, msgs: UIMessage[]) => {
 			setChatError(null);
 			setConversationId(chatId);
-			localStorage.setItem(STORAGE_KEY_CONV, chatId);
-			didSeed.current = chatId;
+			setStoredValue(STORAGE_KEY_CONV, chatId);
 			createdConvIds.current.add(chatId);
 			setMessages(msgs);
 
@@ -299,7 +281,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 					if (target) setRepo(target);
 				}
 			} else {
-				// Legacy chat with no recorded repo — keep using the live
+				// Legacy chat with no recorded repo; keep using the live
 				// workspace repo (no pinning).
 				setPinnedRepoId(null);
 			}
@@ -310,8 +292,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 	const newChat = useCallback(() => {
 		const id = crypto.randomUUID();
 		setConversationId(id);
-		localStorage.setItem(STORAGE_KEY_CONV, id);
-		didSeed.current = null;
+		setStoredValue(STORAGE_KEY_CONV, id);
 		setMessages([]);
 		setChatError(null);
 		// Fresh chats follow the live workspace repo until they're persisted.

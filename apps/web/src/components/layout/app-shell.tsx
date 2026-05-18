@@ -1,20 +1,34 @@
-import { useState } from "react";
+import { useState, useRef, useMemo, type KeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "#/components/layout/top-nav";
 import { WorkspaceRedirect } from "#/components/layout/workspace-redirect";
 import { WorkspaceProvider, useWorkspace } from "#/lib/workspace-context";
 import { AuthProvider } from '@tripwire/auth/components';
 import { ChatProvider, useAIChat } from '#/components/chat/chat-context';
-import { ChatInput } from "#/components/chat/chat-input";
+import { Button } from "#/components/ui/button";
 import { ChatThread } from "#/components/chat/chat-thread";
 import { useTRPC } from "#/integrations/trpc/react";
 import { UnicodeSpinner } from "#/components/ui/unicode-spinner";
 import { useCustomer } from "autumn-js/react";
 import { useRequestNotifications } from "#/lib/use-request-notifications";
 import Dither from "#/components/Dither";
+import {
+	Context,
+	ContextTrigger,
+	ContextContent,
+	ContextContentHeader,
+	ContextContentBody,
+	ContextContentFooter,
+	ContextInputUsage,
+	ContextOutputUsage,
+} from "#/components/ui/context";
+import { AI_MODEL_ID, getContextWindow } from "@tripwire/ai/model-config";
 import type { UIMessage } from "#/types/chat";
+import { GithubIcon } from "#/components/icons/github";
+import { TripwireLogo } from "../icons/tripwire-logo";
+import { routes } from "#/lib/routes";
 
 export function AppShell() {
 	return (
@@ -30,9 +44,52 @@ export function AppShell() {
 
 function AppShellInner() {
 	useRequestNotifications();
+	// Handles auto-redirects: no org in URL → default workspace, "_" placeholder → first repo
 
-	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted, newChat } = useAIChat();
+	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted, newChat, messages: chatMessages } = useAIChat();
+	const { repos, isLoading: workspaceLoading, orgs } = useWorkspace();
+	const needsInstall = !workspaceLoading && orgs.length > 0 && repos.length === 0;
+
+	// Compute cumulative usage from message metadata, with estimation fallback
+	const chatUsage = useMemo(() => {
+		let inputTokens = 0;
+		let outputTokens = 0;
+		let costUSD = 0;
+		let hasMetadata = false;
+
+		for (const msg of chatMessages) {
+			const meta = (msg as unknown as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+			if (meta?.usage) {
+				hasMetadata = true;
+				const u = meta.usage as Record<string, number>;
+				inputTokens += u.inputTokens ?? 0;
+				outputTokens += u.outputTokens ?? 0;
+			}
+			if (typeof meta?.costUSD === "number") {
+				costUSD += meta.costUSD;
+			}
+		}
+
+		// Fallback: estimate tokens from message text (~4 chars per token)
+		if (!hasMetadata && chatMessages.length > 0) {
+			for (const msg of chatMessages) {
+				const parts = (msg as unknown as Record<string, unknown>).parts as Array<{ type: string; text?: string; content?: string }> | undefined;
+				let charCount = 0;
+				if (parts) {
+					for (const p of parts) {
+						charCount += (p.text ?? p.content ?? "").length;
+					}
+				}
+				const estimated = Math.ceil(charCount / 4);
+				if (msg.role === "user") inputTokens += estimated;
+				else outputTokens += estimated;
+			}
+		}
+
+		return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, costUSD };
+	}, [chatMessages]);
 	const [inputValue, setInputValue] = useState("");
+	const inputRef = useRef<HTMLInputElement>(null);
 
 	const routerState = useRouterState();
 	const currentPath = routerState.location.pathname;
@@ -42,9 +99,16 @@ function AppShellInner() {
 	const showSidePanel = !isHomePage && !isChatRoute && isOpen;
 
 	const handleSubmit = () => {
-		if (!inputValue.trim() || isLoading) return;
+		if (!inputValue.trim() || isLoading || isQuotaExhausted) return;
 		sendMessage(inputValue);
 		setInputValue("");
+	};
+
+	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === "Enter" && !e.shiftKey) {
+			e.preventDefault();
+			handleSubmit();
+		}
 	};
 
 	return (
@@ -57,7 +121,7 @@ function AppShellInner() {
 					style={isChatRoute ? undefined : { boxShadow: "#00000008 0px 1px 4px" }}
 				>
 					<div className="absolute inset-0 overflow-auto">
-						<Outlet />
+						{needsInstall ? <InstallGitHubPrompt /> : <Outlet />}
 					</div>
 				</div>
 
@@ -111,6 +175,26 @@ function AppShellInner() {
 									</span>
 								</div>
 								<div className="flex items-center gap-1.5">
+									<Context
+											usedTokens={chatUsage.totalTokens}
+											maxTokens={getContextWindow(AI_MODEL_ID)}
+											usage={{
+												inputTokens: chatUsage.inputTokens,
+												outputTokens: chatUsage.outputTokens,
+											}}
+											modelId={AI_MODEL_ID}
+											costUSD={chatUsage.costUSD}
+										>
+											<ContextTrigger className="h-6 px-1.5 text-[11px] text-tw-text-muted" />
+											<ContextContent>
+												<ContextContentHeader />
+												<ContextContentBody>
+													<ContextInputUsage />
+													<ContextOutputUsage />
+												</ContextContentBody>
+												<ContextContentFooter />
+											</ContextContent>
+									</Context>
 									<CreditBalancePill />
 									<button
 										onClick={newChat}
@@ -160,15 +244,30 @@ function AppShellInner() {
 							</div>
 
 							<div className="px-2 pb-2 shrink-0 relative z-10">
-								<ChatInput
-									value={inputValue}
-									onChange={setInputValue}
-									onSubmit={handleSubmit}
-									isLoading={isLoading}
-									isDisabled={isQuotaExhausted}
-									placeholder={isQuotaExhausted ? "Out of credits" : "Ask anything..."}
-									actions={
-										<>
+								<div className="flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5">
+									<div className="flex items-center w-full gap-1.5">
+										<input
+											ref={inputRef}
+											type="text"
+											placeholder={isQuotaExhausted ? "Out of credits" : "Ask anything..."}
+											value={inputValue}
+											onChange={(e) => setInputValue(e.target.value)}
+											onKeyDown={handleKeyDown}
+											disabled={isLoading || isQuotaExhausted}
+											className="flex-1 h-9 bg-tw-inner rounded-[10px] px-2.5 text-[14px] text-tw-text-primary placeholder:text-tw-text-tertiary outline-none disabled:opacity-50"
+										/>
+										<button
+											type="button"
+											className="flex items-center justify-center size-9 rounded-[10px] text-tw-text-tertiary hover:text-tw-text-secondary transition-colors"
+										>
+											<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+												<path d="M8 1a2 2 0 0 0-2 2v4a2 2 0 1 0 4 0V3a2 2 0 0 0-2-2Z" />
+												<path d="M4.5 7A.75.75 0 0 0 3 7a5.001 5.001 0 0 0 4.25 4.944V13.5h-1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-1.5v-1.556A5.001 5.001 0 0 0 13 7a.75.75 0 0 0-1.5 0 3.5 3.5 0 1 1-7 0Z" />
+											</svg>
+										</button>
+									</div>
+									<div className="flex items-center justify-between w-full pt-1.5">
+										<div className="flex items-center gap-1">
 											<button
 												type="button"
 												className="flex items-center gap-1 h-7 px-2 rounded-lg text-tw-text-tertiary hover:text-tw-text-secondary hover:bg-tw-hover transition-colors"
@@ -187,9 +286,25 @@ function AppShellInner() {
 												</svg>
 												<span className="text-[12px]">Add context</span>
 											</button>
-										</>
-									}
-								/>
+										</div>
+										<button
+											type="button"
+											onClick={handleSubmit}
+											disabled={!inputValue.trim() || isLoading || isQuotaExhausted}
+											className="flex items-center self-stretch px-1.5 rounded-[10px] justify-center gap-1 bg-[#363639] hover:bg-[#404044] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+										>
+											<span className="text-[14px] leading-none text-center text-tw-text-primary px-0.5">
+												{isLoading ? "..." : "Go"}
+											</span>
+											<span
+												className="flex items-center h-4 rounded-sm justify-center pt-[3px] pb-0 bg-[#222222] px-1"
+												style={{ boxShadow: "#0000001A 0px 1px 1px" }}
+											>
+												<span className="text-[11px] text-center text-tw-text-tertiary leading-none">↵</span>
+											</span>
+										</button>
+									</div>
+								</div>
 							</div>
 						</div>
 					)}
@@ -216,12 +331,12 @@ function CreditBalancePill() {
 
 	return (
 		<span
-			className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums transition-colors ${
+			className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[14px] font-medium tabular-nums transition-colors ${
 				isEmpty
 					? "bg-red-500/10 text-red-400"
 					: isLow
 						? "bg-amber-500/10 text-amber-400"
-						: "bg-[#FAFAFA08] text-tw-text-muted"
+						: "bg-[#FAFAFA08] text-muted-foreground"
 			}`}
 		>
 			${(remaining / 100).toFixed(2)}
@@ -235,10 +350,11 @@ function SidebarRecentChats() {
 	const { loadChat, open } = useAIChat();
 	const [loadingId, setLoadingId] = useState<string | null>(null);
 	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-	const chatsQuery = useQuery(trpc.chats.list.queryOptions({ limit: 3 }));
+	const { repo } = useWorkspace();
+	const chatsQuery = useQuery(trpc.chats.list.queryOptions({ limit: 3, repoId: repo?.id }));
 	const chats = chatsQuery.data ?? [];
 
-	const listQueryKey = trpc.chats.list.queryKey({ limit: 3 });
+	const listQueryKey = trpc.chats.list.queryKey({ limit: 3, repoId: repo?.id });
 	const deleteChat = useMutation(
 		trpc.chats.delete.mutationOptions({
 			onMutate: async ({ chatId }) => {
@@ -327,7 +443,8 @@ function SidebarRecentChats() {
 							exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0, overflow: "hidden" }}
 							transition={{
 								layout: { duration: 0.25, ease: [0.25, 1, 0.5, 1] },
-								exit: { duration: 0.2, ease: [0.25, 1, 0.5, 1] },
+								duration: 0.2,
+								ease: [0.25, 1, 0.5, 1],
 							}}
 							className={`group flex items-center gap-2 w-full px-1.5 py-1.5 rounded-lg text-left ${
 								isLoading
@@ -370,6 +487,33 @@ function SidebarRecentChats() {
 					);
 				})}
 			</AnimatePresence>
+		</div>
+	);
+}
+
+function InstallGitHubPrompt() {
+	return (
+		<div className="flex items-center justify-center h-full">
+			<div className="flex flex-col items-center gap-4 max-w-sm text-center px-4">
+				<div className="flex items-center justify-center size-12">
+					<TripwireLogo className="size-8 text-tw-text-secondary" />
+				</div>
+				<div>
+					<h2 className="text-[15px] font-medium text-tw-text-primary mb-1">Install the GitHub App</h2>
+					<p className="text-[13px] text-tw-text-secondary leading-relaxed">
+						Connect a repository to start using Tripwire. You'll be able to configure rules, run automations, and monitor contributions.
+					</p>
+				</div>
+				<Button variant="default" size="sm">
+				<Link
+					to={routes.api.githubInstall}
+					className="flex gap-2"
+				>
+					<GithubIcon className="size-4 mt-0.5"/>
+					Install GitHub App
+				</Link>
+				</Button>
+			</div>
 		</div>
 	);
 }

@@ -68,36 +68,24 @@ describe("github-api new functions", () => {
 
 	describe("getPrFilesCount", () => {
 		it("should return changed_files from PR endpoint", async () => {
-			const mockFetch = vi.fn()
-				.mockResolvedValueOnce({
-					ok: true,
-					text: () => Promise.resolve(JSON.stringify([])),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					text: () => Promise.resolve(JSON.stringify({ changed_files: 15 })),
-				});
-			global.fetch = mockFetch;
+			global.fetch = vi.fn().mockResolvedValue({
+				ok: true,
+				text: () => Promise.resolve(JSON.stringify({ changed_files: 15 })),
+			});
 
-			const { getPrFilesCount } = await import("./github-api");
+			const { getPrFilesCount } = await import("./user");
 			const count = await getPrFilesCount("test-token", "owner", "repo", 123);
 
 			expect(count).toBe(15);
 		});
 
 		it("should handle PRs with many files", async () => {
-			const mockFetch = vi.fn()
-				.mockResolvedValueOnce({
-					ok: true,
-					text: () => Promise.resolve(JSON.stringify([])),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					text: () => Promise.resolve(JSON.stringify({ changed_files: 500 })),
-				});
-			global.fetch = mockFetch;
+			global.fetch = vi.fn().mockResolvedValue({
+				ok: true,
+				text: () => Promise.resolve(JSON.stringify({ changed_files: 500 })),
+			});
 
-			const { getPrFilesCount } = await import("./github-api");
+			const { getPrFilesCount } = await import("./user");
 			const count = await getPrFilesCount("test-token", "owner", "repo", 456);
 
 			expect(count).toBe(500);

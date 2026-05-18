@@ -4,10 +4,6 @@ import { listTools } from "./definitions/lists";
 import { readTools } from "./definitions/reads";
 import { guideTools } from "./definitions/guides";
 
-/**
- * The full Tripwire tool registry. Each surface (MCP / chat) filters this
- * down via `surfaces` on each tool. Default is "available in both."
- */
 export const tripwireTools: readonly AnyToolDefinition[] = [
 	...ruleTools,
 	...listTools,

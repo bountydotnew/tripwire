@@ -1,17 +1,22 @@
-import type { UIMessage, MessagePart } from "@tanstack/ai-client";
+import { getToolName, isToolUIPart } from "ai";
+import type { UIMessage, MessagePart } from "#/types/chat";
 import type { ActionResultData } from "#/types/chat";
 
-export function getPartKey(part: MessagePart, messageId: string): string {
-	if (part.type === "tool-call") return part.id;
-	if (part.type === "tool-result") return `${messageId}-result-${part.toolCallId}`;
-	if (part.type === "text") return `${messageId}-text`;
-	return `${messageId}-${part.type}`;
+export function getPartKey(part: MessagePart, messageId: string, index?: number): string {
+	const mid = messageId || "msg";
+	if (part.type === "tool-result") {
+		return `${mid}-tool-result-${part.toolCallId ?? part.id ?? index ?? 0}`;
+	}
+	if (isToolPart(part)) {
+		return `${mid}-tool-call-${getToolCallId(part) ?? index ?? 0}`;
+	}
+	return `${mid}-${part.type}-${index ?? 0}`;
 }
 
 export function getTextContent(message: UIMessage): string {
 	const textPart = message.parts?.find((p) => p.type === "text");
 	if (textPart && textPart.type === "text") {
-		return textPart.content;
+		return textPart.text ?? (textPart as { content?: string }).content ?? "";
 	}
 	return "";
 }
@@ -25,6 +30,54 @@ export function formatToolArgs(_toolName: string, args: Record<string, unknown>)
 	if (args.username) return `@${args.username}`;
 	if (args.eventId) return args.eventId as string;
 	return "";
+}
+
+export function isToolPart(part: MessagePart): part is MessagePart & {
+	state?: string;
+	approval?: { id: string; approved?: boolean; reason?: string };
+	input?: unknown;
+	output?: unknown;
+	errorText?: string;
+} {
+	return isToolUIPart(part as Parameters<typeof isToolUIPart>[0])
+		|| part.type === "tool-call"
+		|| part.type === "dynamic-tool"
+		|| part.type.startsWith("tool-");
+}
+
+export function getPartToolName(part: MessagePart): string {
+	if (part.type === "tool-call") return (part as { name?: string }).name ?? "tool";
+	if (part.type === "dynamic-tool") return part.toolName;
+	if (part.type.startsWith("tool-")) {
+		return getToolName(part as Parameters<typeof getToolName>[0]);
+	}
+	return "tool";
+}
+
+export function getToolCallId(part: MessagePart): string | undefined {
+	if ("toolCallId" in part && typeof part.toolCallId === "string") return part.toolCallId;
+	if ("id" in part && typeof part.id === "string") return part.id;
+	return undefined;
+}
+
+export function getToolInput(part: MessagePart): Record<string, unknown> {
+	if ("input" in part && part.input && typeof part.input === "object") {
+		return part.input as Record<string, unknown>;
+	}
+	if ("arguments" in part && typeof part.arguments === "string") {
+		try {
+			return JSON.parse(part.arguments) as Record<string, unknown>;
+		} catch {
+			return {};
+		}
+	}
+	return {};
+}
+
+export function getToolOutput(part: MessagePart): unknown {
+	if ("output" in part) return part.output;
+	if ("content" in part) return part.content;
+	return undefined;
 }
 
 export function parseErrorMessage(message: string): { title: string; detail: string | null } {

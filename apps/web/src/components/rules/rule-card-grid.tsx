@@ -114,24 +114,24 @@ export function RuleCardGrid({
 	};
 	const [actionEditing, setActionEditing] = useState(false);
 	const [numericEditing, setNumericEditing] = useState(false);
-	const [numericDraft, setNumericDraft] = useState(numericConfig?.value ?? 0);
+	const [numericDraft, setNumericDraft] = useState(String(numericConfig?.value ?? 0));
 	const numericInputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
-		if (numericConfig) setNumericDraft(numericConfig.value);
+		if (numericConfig) setNumericDraft(String(numericConfig.value));
 	}, [numericConfig?.value]);
 
 	useEffect(() => {
-		if (numericEditing) numericInputRef.current?.focus();
+		if (numericEditing) { numericInputRef.current?.focus(); numericInputRef.current?.select(); }
 	}, [numericEditing]);
 
 	const commitNumeric = () => {
 		if (!numericConfig) return;
 		const val = Number(numericDraft);
-		if (Number.isFinite(val) && val > 0 && val !== numericConfig.value) {
+		if (numericDraft !== "" && Number.isFinite(val) && val > 0 && val !== numericConfig.value) {
 			numericConfig.onChange(Math.floor(val));
 		} else {
-			setNumericDraft(numericConfig.value);
+			setNumericDraft(String(numericConfig.value));
 		}
 		setNumericEditing(false);
 	};
@@ -231,10 +231,10 @@ export function RuleCardGrid({
 							numericEditing ? (
 								<input
 									ref={numericInputRef}
-									type="number"
-									min={1}
+									type="text"
+									inputMode="numeric"
 									value={numericDraft}
-									onChange={(e) => setNumericDraft(Number(e.target.value))}
+									onChange={(e) => setNumericDraft(e.target.value)}
 									onBlur={commitNumeric}
 									onKeyDown={(e) => {
 										if (e.key === "Enter") {
@@ -242,19 +242,19 @@ export function RuleCardGrid({
 											commitNumeric();
 										} else if (e.key === "Escape") {
 											e.preventDefault();
-											setNumericDraft(numericConfig.value);
+											setNumericDraft(String(numericConfig.value));
 											setNumericEditing(false);
 										}
 									}}
 									onClick={(e) => e.stopPropagation()}
-									className="w-14 px-2 py-0.5 rounded-md text-[11px] font-medium bg-tw-surface text-tw-text-primary border border-tw-accent/40 outline-none text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+									className="w-14 px-2 py-0.5 rounded-md text-[11px] font-medium bg-tw-surface text-tw-text-primary border border-tw-accent/40 outline-none text-center"
 								/>
 							) : (
 								<button
 									type="button"
 									onClick={(e) => {
 										e.stopPropagation();
-										setNumericDraft(numericConfig.value);
+										setNumericDraft(String(numericConfig.value));
 										setNumericEditing(true);
 									}}
 									className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-tw-surface text-tw-text-secondary cursor-pointer hover:bg-tw-hover-light"
@@ -408,9 +408,6 @@ function ScopeOverrideSection({ global, override, onChange }: ScopeOverrideSecti
 		const o = override?.[key];
 		return o !== undefined ? o : global[key];
 	};
-
-	const isOverridden = (key: keyof RepoContentScope): boolean =>
-		override?.[key] !== undefined;
 
 	const handleToggle = (key: keyof RepoContentScope) => {
 		const current = effective(key);

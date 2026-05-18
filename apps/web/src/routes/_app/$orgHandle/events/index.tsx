@@ -4,8 +4,8 @@ import { useTRPC } from "#/integrations/trpc/react";
 import { useWorkspace } from "#/lib/workspace-context";
 import { EmptyState } from "#/components/layout/empty-state";
 import { useEffect, useState, useMemo } from "react";
-import type { EventAction } from "@tripwire/db";
 import { markEventsViewed } from "#/lib/use-events-unread";
+import { routes } from "#/lib/routes";
 
 export const Route = createFileRoute("/_app/$orgHandle/events/")({
 	component: EventsPage,
@@ -29,12 +29,6 @@ type Event = {
 	createdAt: string | Date;
 };
 
-type FilterState = {
-	action: EventAction | null;
-	username: string;
-};
-
-
 const SEVERITY_DOT: Record<string, string> = {
 	success: "bg-tw-success",
 	error: "bg-tw-error",
@@ -42,7 +36,7 @@ const SEVERITY_DOT: Record<string, string> = {
 	info: "bg-tw-accent",
 };
 
-const ACTION_LABELS: Record<string, string> = {
+const ACTION_LABELS = {
 	pipeline_allowed: "Allowed",
 	pipeline_blocked: "Blocked",
 	pr_closed: "PR Closed",
@@ -57,21 +51,20 @@ const ACTION_LABELS: Record<string, string> = {
 	whitelist_removed: "Whitelist −",
 	blacklist_added: "Blacklist +",
 	blacklist_removed: "Blacklist −",
+} as const;
+
+type FilterAction = keyof typeof ACTION_LABELS;
+
+type FilterState = {
+	action: FilterAction | null;
+	username: string;
 };
 
+import { RULE_META } from "@tripwire/db";
 const RULE_NAMES: Record<string, string> = {
-	requireProfilePicture: "Profile Picture",
-	accountAge: "Account Age",
-	minMergedPrs: "Min Merged PRs",
-	languageRequirement: "Language",
-	aiSlopDetection: "AI Slop Detection",
-	maxPrsPerDay: "Max PRs/Day",
-	maxFilesChanged: "Max Files Changed",
-	repoActivityMinimum: "Repo Activity",
-	requireProfileReadme: "Profile README",
-	vouchedUsersOnly: "Vouched Users Only",
-	aiHoneypot: "AI Honeypot",
+	...Object.fromEntries(Object.entries(RULE_META).map(([k, v]) => [k, v.name])),
 	blacklist: "Blacklist",
+	requireProfilePicture: "Profile Picture", // legacy
 };
 
 const CONTENT_TYPE_LABELS: Record<string, string> = {
@@ -80,6 +73,11 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
 	comment: "Comment",
 };
 
+function getActionLabel(action: string): string {
+	return action in ACTION_LABELS
+		? ACTION_LABELS[action as keyof typeof ACTION_LABELS]
+		: action;
+}
 
 function timeAgo(dateStr: string | Date): string {
 	const seconds = Math.floor(
@@ -107,7 +105,7 @@ const NON_CLICKABLE_ACTIONS = new Set([
 
 function EventRow({ event }: { event: Event }) {
 	const dotColor = SEVERITY_DOT[event.severity ?? "info"] ?? SEVERITY_DOT.info;
-	const actionLabel = ACTION_LABELS[event.action] ?? event.action;
+	const actionLabel = getActionLabel(event.action);
 	const isClickable = !NON_CLICKABLE_ACTIONS.has(event.action);
 
 	const content = (
@@ -359,7 +357,7 @@ function EventsPage() {
 				description="Connect your GitHub repositories to start tracking activity."
 				action={{
 					label: "Install GitHub App",
-					href: "/api/github/install",
+					href: routes.api.githubInstall,
 				}}
 			/>
 		)

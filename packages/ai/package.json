@@ -5,17 +5,16 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./approval-token": "./src/approval-token.ts",
 		"./credit-middleware": "./src/credit-middleware.ts",
 		"./credit-schema": "./src/credit-schema.ts",
 		"./prompt": "./src/prompt.ts",
-		"./components": "./src/components/index.ts"
+		"./components": "./src/components/index.ts",
+		"./model-config": "./src/model-config.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@tanstack/ai": "^0.13.0",
 		"@tripwire/auth": "workspace:*",
 		"@tripwire/env": "workspace:*",
 		"autumn-js": "^1.2.12",

@@ -350,7 +350,7 @@ export const eventsRouter = {
 				.orderBy(sql`count(*) desc`)
 				.limit(50);
 
-			return rows.filter((r) => r.username !== null);
+			return rows.filter((r) => r.username !== null && !r.username.endsWith("[bot]") && !r.username.endsWith("bot"));
 		}),
 
 	/** Get event counts grouped by action type for tab badges */

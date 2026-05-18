@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useWorkspace } from "#/lib/workspace-context";
 import { Button } from "#/components/ui/button";
+import { routes } from "#/lib/routes";
 
 export const Route = createFileRoute("/_app/$orgHandle/integrations")({
 	component: IntegrationsPage,
@@ -8,8 +9,6 @@ export const Route = createFileRoute("/_app/$orgHandle/integrations")({
 
 function IntegrationsPage() {
 	const { repos, repo, setRepo, isLoading } = useWorkspace();
-
-	const installUrl = "/api/github/install";
 
 	return (
 		<div className="p-6 max-w-2xl mx-auto">
@@ -40,11 +39,16 @@ function IntegrationsPage() {
 							</div>
 						</div>
 					</div>
-					<Button size="xs" variant="outline" asChild className="shrink-0 bg-white text-black border-[#CDCDCD] hover:bg-white/90">
-						<a href={installUrl} target="_blank" rel="noopener noreferrer">
-							{repos.length > 0 ? "Manage" : "Install"}
-						</a>
-					</Button>
+					<Button
+						size="xs"
+						variant="outline"
+						className="shrink-0 bg-white text-black border-[#CDCDCD] hover:bg-white/90"
+						render={(
+							<a href={routes.api.githubInstall} target="_blank" rel="noopener noreferrer">
+								{repos.length > 0 ? "Manage" : "Install"}
+							</a>
+						)}
+					/>
 				</div>
 			</div>
 

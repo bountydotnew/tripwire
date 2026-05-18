@@ -27,8 +27,6 @@ import {
 
 const ruleIdEnum = z.enum(RULE_KEYS);
 
-// ─── Read: full rule config ──────────────────────────────────────
-
 const getRepoRules = defineTool({
 	name: "get_repo_rules",
 	description:
@@ -75,8 +73,6 @@ function getRuleDetail(
 	if (ruleId === "repoActivityMinimum" && rule.minRepos != null) return `${rule.minRepos} repos`;
 	return undefined;
 }
-
-// ─── Mutations: toggle + action ──────────────────────────────────
 
 const toggleRule = defineTool({
 	name: "toggle_rule",
@@ -125,9 +121,6 @@ const updateRuleAction = defineTool({
 		});
 	},
 });
-
-// ─── Typed per-rule value setters ────────────────────────────────
-
 const setMinMergedPrs = defineTool({
 	name: "set_min_merged_prs",
 	description:
@@ -220,8 +213,6 @@ const setLanguageRequirement = defineTool({
 			},
 		}),
 });
-
-// ─── Scope tools ─────────────────────────────────────────────────
 
 const setContentScope = defineTool({
 	name: "set_content_scope",
@@ -324,9 +315,6 @@ const clearRuleScope = defineTool({
 		});
 	},
 });
-
-// ─── MCP-only: copy rules between repos ──────────────────────────
-
 const copyRules = defineTool({
 	name: "copy_rules",
 	description:
@@ -418,8 +406,6 @@ const copyRules = defineTool({
 	},
 });
 
-// Quiet the silently-suppressed-via-default unused warnings while keeping
-// the chatRender on get_repo_rules typed without crashing strict noUnusedLocals.
 void DEFAULT_RULE_CONFIG;
 
 export const ruleTools: AnyToolDefinition[] = [

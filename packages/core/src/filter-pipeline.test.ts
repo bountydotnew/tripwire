@@ -1,22 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as githubApi from "@tripwire/github";
 
-// Mock the GitHub API module
-vi.mock("./github-api", () => ({
-	getInstallationToken: vi.fn().mockResolvedValue("mock-token"),
-	closePullRequest: vi.fn().mockResolvedValue(null),
-	closeIssue: vi.fn().mockResolvedValue(null),
-	deleteComment: vi.fn().mockResolvedValue(null),
-	getUser: vi.fn(),
-	getMergedPrCount: vi.fn(),
-	countUserPrsToday: vi.fn(),
-	getPrFilesCount: vi.fn(),
-	getUserPublicRepoCount: vi.fn(),
-	hasProfileReadme: vi.fn(),
-}));
+// Mock the GitHub API module while preserving non-mocked exports.
+vi.mock("@tripwire/github", async () => {
+	const actual = await vi.importActual("@tripwire/github");
+	return {
+		...actual,
+		getInstallationToken: vi.fn().mockResolvedValue("mock-token"),
+		closePullRequest: vi.fn().mockResolvedValue(null),
+		closeIssue: vi.fn().mockResolvedValue(null),
+		deleteComment: vi.fn().mockResolvedValue(null),
+		getUser: vi.fn(),
+		getMergedPrCount: vi.fn(),
+		countUserPrsToday: vi.fn(),
+		getPrFilesCount: vi.fn(),
+		getUserPublicRepoCount: vi.fn(),
+		hasProfileReadme: vi.fn(),
+	};
+});
 
-// Mock the database
-vi.mock("@tripwire/db", () => ({
+// Mock the database: re-export all real schema/config values and mock only
+// the client module used by pipeline code.
+vi.mock("@tripwire/db", async () => {
+	const actual = await vi.importActual("@tripwire/db");
+	return {
+		...actual,
+	};
+});
+
+vi.mock("@tripwire/db/client", () => ({
 	db: {
 		select: vi.fn().mockReturnThis(),
 		from: vi.fn().mockReturnThis(),

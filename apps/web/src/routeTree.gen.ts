@@ -47,11 +47,13 @@ import { Route as AppOrgHandleRulesRouteImport } from './routes/_app/$orgHandle/
 import { Route as AppOrgHandleIntegrationsRouteImport } from './routes/_app/$orgHandle/integrations'
 import { Route as AppOrgHandleInsightsRouteImport } from './routes/_app/$orgHandle/insights'
 import { Route as AppOrgHandleHomeRouteImport } from './routes/_app/$orgHandle/home'
-import { Route as AppOrgHandleAutomationsRouteImport } from './routes/_app/$orgHandle/automations'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceSplatRouteImport } from './routes/[.well-known]/oauth-protected-resource/$'
 import { Route as Char91DotwellKnownChar93OauthAuthorizationServerSplatRouteImport } from './routes/[.well-known]/oauth-authorization-server/$'
 import { Route as AppOrgHandleEventsIndexRouteImport } from './routes/_app/$orgHandle/events/index'
+import { Route as AppOrgHandleAutomationsIndexRouteImport } from './routes/_app/$orgHandle/automations/index'
 import { Route as AppOrgHandleEventsEventIdRouteImport } from './routes/_app/$orgHandle/events/$eventId'
+import { Route as AppOrgHandleAutomationsPreviewRouteImport } from './routes/_app/$orgHandle/automations/preview'
+import { Route as AppOrgHandleAutomationsAutomationIdRouteImport } from './routes/_app/$orgHandle/automations/$automationId'
 
 const VouchedRoute = VouchedRouteImport.update({
   id: '/vouched',
@@ -245,11 +247,6 @@ const AppOrgHandleHomeRoute = AppOrgHandleHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AppOrgHandleRoute,
 } as any)
-const AppOrgHandleAutomationsRoute = AppOrgHandleAutomationsRouteImport.update({
-  id: '/automations',
-  path: '/automations',
-  getParentRoute: () => AppOrgHandleRoute,
-} as any)
 const Char91DotwellKnownChar93OauthProtectedResourceSplatRoute =
   Char91DotwellKnownChar93OauthProtectedResourceSplatRouteImport.update({
     id: '/$',
@@ -267,10 +264,28 @@ const AppOrgHandleEventsIndexRoute = AppOrgHandleEventsIndexRouteImport.update({
   path: '/events/',
   getParentRoute: () => AppOrgHandleRoute,
 } as any)
+const AppOrgHandleAutomationsIndexRoute =
+  AppOrgHandleAutomationsIndexRouteImport.update({
+    id: '/automations/',
+    path: '/automations/',
+    getParentRoute: () => AppOrgHandleRoute,
+  } as any)
 const AppOrgHandleEventsEventIdRoute =
   AppOrgHandleEventsEventIdRouteImport.update({
     id: '/events/$eventId',
     path: '/events/$eventId',
+    getParentRoute: () => AppOrgHandleRoute,
+  } as any)
+const AppOrgHandleAutomationsPreviewRoute =
+  AppOrgHandleAutomationsPreviewRouteImport.update({
+    id: '/automations/preview',
+    path: '/automations/preview',
+    getParentRoute: () => AppOrgHandleRoute,
+  } as any)
+const AppOrgHandleAutomationsAutomationIdRoute =
+  AppOrgHandleAutomationsAutomationIdRouteImport.update({
+    id: '/automations/$automationId',
+    path: '/automations/$automationId',
     getParentRoute: () => AppOrgHandleRoute,
   } as any)
 
@@ -293,7 +308,6 @@ export interface FileRoutesByFullPath {
   '/oauth/consent': typeof OauthConsentRoute
   '/.well-known/oauth-authorization-server/$': typeof Char91DotwellKnownChar93OauthAuthorizationServerSplatRoute
   '/.well-known/oauth-protected-resource/$': typeof Char91DotwellKnownChar93OauthProtectedResourceSplatRoute
-  '/$orgHandle/automations': typeof AppOrgHandleAutomationsRoute
   '/$orgHandle/home': typeof AppOrgHandleHomeRoute
   '/$orgHandle/insights': typeof AppOrgHandleInsightsRoute
   '/$orgHandle/integrations': typeof AppOrgHandleIntegrationsRoute
@@ -315,7 +329,10 @@ export interface FileRoutesByFullPath {
   '/api/v1/vouched': typeof ApiV1VouchedRoute
   '/request/$owner/$repo': typeof RequestOwnerRepoRoute
   '/events/': typeof AppEventsIndexRoute
+  '/$orgHandle/automations/$automationId': typeof AppOrgHandleAutomationsAutomationIdRoute
+  '/$orgHandle/automations/preview': typeof AppOrgHandleAutomationsPreviewRoute
   '/$orgHandle/events/$eventId': typeof AppOrgHandleEventsEventIdRoute
+  '/$orgHandle/automations/': typeof AppOrgHandleAutomationsIndexRoute
   '/$orgHandle/events/': typeof AppOrgHandleEventsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -337,7 +354,6 @@ export interface FileRoutesByTo {
   '/oauth/consent': typeof OauthConsentRoute
   '/.well-known/oauth-authorization-server/$': typeof Char91DotwellKnownChar93OauthAuthorizationServerSplatRoute
   '/.well-known/oauth-protected-resource/$': typeof Char91DotwellKnownChar93OauthProtectedResourceSplatRoute
-  '/$orgHandle/automations': typeof AppOrgHandleAutomationsRoute
   '/$orgHandle/home': typeof AppOrgHandleHomeRoute
   '/$orgHandle/insights': typeof AppOrgHandleInsightsRoute
   '/$orgHandle/integrations': typeof AppOrgHandleIntegrationsRoute
@@ -359,7 +375,10 @@ export interface FileRoutesByTo {
   '/api/v1/vouched': typeof ApiV1VouchedRoute
   '/request/$owner/$repo': typeof RequestOwnerRepoRoute
   '/events': typeof AppEventsIndexRoute
+  '/$orgHandle/automations/$automationId': typeof AppOrgHandleAutomationsAutomationIdRoute
+  '/$orgHandle/automations/preview': typeof AppOrgHandleAutomationsPreviewRoute
   '/$orgHandle/events/$eventId': typeof AppOrgHandleEventsEventIdRoute
+  '/$orgHandle/automations': typeof AppOrgHandleAutomationsIndexRoute
   '/$orgHandle/events': typeof AppOrgHandleEventsIndexRoute
 }
 export interface FileRoutesById {
@@ -383,7 +402,6 @@ export interface FileRoutesById {
   '/oauth/consent': typeof OauthConsentRoute
   '/.well-known/oauth-authorization-server/$': typeof Char91DotwellKnownChar93OauthAuthorizationServerSplatRoute
   '/.well-known/oauth-protected-resource/$': typeof Char91DotwellKnownChar93OauthProtectedResourceSplatRoute
-  '/_app/$orgHandle/automations': typeof AppOrgHandleAutomationsRoute
   '/_app/$orgHandle/home': typeof AppOrgHandleHomeRoute
   '/_app/$orgHandle/insights': typeof AppOrgHandleInsightsRoute
   '/_app/$orgHandle/integrations': typeof AppOrgHandleIntegrationsRoute
@@ -405,7 +423,10 @@ export interface FileRoutesById {
   '/api/v1/vouched': typeof ApiV1VouchedRoute
   '/request/$owner/$repo': typeof RequestOwnerRepoRoute
   '/_app/events/': typeof AppEventsIndexRoute
+  '/_app/$orgHandle/automations/$automationId': typeof AppOrgHandleAutomationsAutomationIdRoute
+  '/_app/$orgHandle/automations/preview': typeof AppOrgHandleAutomationsPreviewRoute
   '/_app/$orgHandle/events/$eventId': typeof AppOrgHandleEventsEventIdRoute
+  '/_app/$orgHandle/automations/': typeof AppOrgHandleAutomationsIndexRoute
   '/_app/$orgHandle/events/': typeof AppOrgHandleEventsIndexRoute
 }
 export interface FileRouteTypes {
@@ -429,7 +450,6 @@ export interface FileRouteTypes {
     | '/oauth/consent'
     | '/.well-known/oauth-authorization-server/$'
     | '/.well-known/oauth-protected-resource/$'
-    | '/$orgHandle/automations'
     | '/$orgHandle/home'
     | '/$orgHandle/insights'
     | '/$orgHandle/integrations'
@@ -451,7 +471,10 @@ export interface FileRouteTypes {
     | '/api/v1/vouched'
     | '/request/$owner/$repo'
     | '/events/'
+    | '/$orgHandle/automations/$automationId'
+    | '/$orgHandle/automations/preview'
     | '/$orgHandle/events/$eventId'
+    | '/$orgHandle/automations/'
     | '/$orgHandle/events/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -473,7 +496,6 @@ export interface FileRouteTypes {
     | '/oauth/consent'
     | '/.well-known/oauth-authorization-server/$'
     | '/.well-known/oauth-protected-resource/$'
-    | '/$orgHandle/automations'
     | '/$orgHandle/home'
     | '/$orgHandle/insights'
     | '/$orgHandle/integrations'
@@ -495,7 +517,10 @@ export interface FileRouteTypes {
     | '/api/v1/vouched'
     | '/request/$owner/$repo'
     | '/events'
+    | '/$orgHandle/automations/$automationId'
+    | '/$orgHandle/automations/preview'
     | '/$orgHandle/events/$eventId'
+    | '/$orgHandle/automations'
     | '/$orgHandle/events'
   id:
     | '__root__'
@@ -518,7 +543,6 @@ export interface FileRouteTypes {
     | '/oauth/consent'
     | '/.well-known/oauth-authorization-server/$'
     | '/.well-known/oauth-protected-resource/$'
-    | '/_app/$orgHandle/automations'
     | '/_app/$orgHandle/home'
     | '/_app/$orgHandle/insights'
     | '/_app/$orgHandle/integrations'
@@ -540,7 +564,10 @@ export interface FileRouteTypes {
     | '/api/v1/vouched'
     | '/request/$owner/$repo'
     | '/_app/events/'
+    | '/_app/$orgHandle/automations/$automationId'
+    | '/_app/$orgHandle/automations/preview'
     | '/_app/$orgHandle/events/$eventId'
+    | '/_app/$orgHandle/automations/'
     | '/_app/$orgHandle/events/'
   fileRoutesById: FileRoutesById
 }
@@ -833,13 +860,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrgHandleHomeRouteImport
       parentRoute: typeof AppOrgHandleRoute
     }
-    '/_app/$orgHandle/automations': {
-      id: '/_app/$orgHandle/automations'
-      path: '/automations'
-      fullPath: '/$orgHandle/automations'
-      preLoaderRoute: typeof AppOrgHandleAutomationsRouteImport
-      parentRoute: typeof AppOrgHandleRoute
-    }
     '/.well-known/oauth-protected-resource/$': {
       id: '/.well-known/oauth-protected-resource/$'
       path: '/$'
@@ -861,6 +881,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrgHandleEventsIndexRouteImport
       parentRoute: typeof AppOrgHandleRoute
     }
+    '/_app/$orgHandle/automations/': {
+      id: '/_app/$orgHandle/automations/'
+      path: '/automations'
+      fullPath: '/$orgHandle/automations/'
+      preLoaderRoute: typeof AppOrgHandleAutomationsIndexRouteImport
+      parentRoute: typeof AppOrgHandleRoute
+    }
     '/_app/$orgHandle/events/$eventId': {
       id: '/_app/$orgHandle/events/$eventId'
       path: '/events/$eventId'
@@ -868,26 +895,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrgHandleEventsEventIdRouteImport
       parentRoute: typeof AppOrgHandleRoute
     }
+    '/_app/$orgHandle/automations/preview': {
+      id: '/_app/$orgHandle/automations/preview'
+      path: '/automations/preview'
+      fullPath: '/$orgHandle/automations/preview'
+      preLoaderRoute: typeof AppOrgHandleAutomationsPreviewRouteImport
+      parentRoute: typeof AppOrgHandleRoute
+    }
+    '/_app/$orgHandle/automations/$automationId': {
+      id: '/_app/$orgHandle/automations/$automationId'
+      path: '/automations/$automationId'
+      fullPath: '/$orgHandle/automations/$automationId'
+      preLoaderRoute: typeof AppOrgHandleAutomationsAutomationIdRouteImport
+      parentRoute: typeof AppOrgHandleRoute
+    }
   }
 }
 
 interface AppOrgHandleRouteChildren {
-  AppOrgHandleAutomationsRoute: typeof AppOrgHandleAutomationsRoute
   AppOrgHandleHomeRoute: typeof AppOrgHandleHomeRoute
   AppOrgHandleInsightsRoute: typeof AppOrgHandleInsightsRoute
   AppOrgHandleIntegrationsRoute: typeof AppOrgHandleIntegrationsRoute
   AppOrgHandleRulesRoute: typeof AppOrgHandleRulesRoute
+  AppOrgHandleAutomationsAutomationIdRoute: typeof AppOrgHandleAutomationsAutomationIdRoute
+  AppOrgHandleAutomationsPreviewRoute: typeof AppOrgHandleAutomationsPreviewRoute
   AppOrgHandleEventsEventIdRoute: typeof AppOrgHandleEventsEventIdRoute
+  AppOrgHandleAutomationsIndexRoute: typeof AppOrgHandleAutomationsIndexRoute
   AppOrgHandleEventsIndexRoute: typeof AppOrgHandleEventsIndexRoute
 }
 
 const AppOrgHandleRouteChildren: AppOrgHandleRouteChildren = {
-  AppOrgHandleAutomationsRoute: AppOrgHandleAutomationsRoute,
   AppOrgHandleHomeRoute: AppOrgHandleHomeRoute,
   AppOrgHandleInsightsRoute: AppOrgHandleInsightsRoute,
   AppOrgHandleIntegrationsRoute: AppOrgHandleIntegrationsRoute,
   AppOrgHandleRulesRoute: AppOrgHandleRulesRoute,
+  AppOrgHandleAutomationsAutomationIdRoute:
+    AppOrgHandleAutomationsAutomationIdRoute,
+  AppOrgHandleAutomationsPreviewRoute: AppOrgHandleAutomationsPreviewRoute,
   AppOrgHandleEventsEventIdRoute: AppOrgHandleEventsEventIdRoute,
+  AppOrgHandleAutomationsIndexRoute: AppOrgHandleAutomationsIndexRoute,
   AppOrgHandleEventsIndexRoute: AppOrgHandleEventsIndexRoute,
 }
 

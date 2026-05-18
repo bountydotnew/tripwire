@@ -30,7 +30,7 @@ const navItems: NavItem[] = [
 	{ key: "home", path: "home", label: "Home", Icon: HomeNavIcon },
 	{ key: "rules", path: "rules", label: "Rules", Icon: RulesNavIcon, badgeKey: "rules" },
 	{ key: "insights", path: "insights", label: "Insights", Icon: InsightsNavIcon, badgeKey: "insights" },
-	{ key: "automations", path: "automations", label: "Workflows", Icon: WorkflowsNavIcon },
+	{ key: "automations", path: "automations", label: "Automations", Icon: WorkflowsNavIcon },
 	{ key: "events", path: "events", label: "Events", Icon: EventsNavIcon, badgeKey: "events" },
 	{ key: "integrations", path: "integrations", label: "Integrations", Icon: IntegrationsNavIcon },
 ];
