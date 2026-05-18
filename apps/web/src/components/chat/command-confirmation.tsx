@@ -1,3 +1,4 @@
+import { AlertCircle, Info } from "lucide-react";
 import type { MutationConfirmation } from "#/lib/chat-commands";
 
 interface CommandConfirmationProps {
@@ -20,35 +21,16 @@ export function CommandConfirmation({
 	const confirmClasses = confirmation.danger
 		? "bg-tw-error text-white hover:bg-tw-error/90"
 		: "bg-tw-text-primary text-[#0D0D0F] hover:opacity-90";
+	const Icon = confirmation.danger ? AlertCircle : Info;
 
 	return (
 		<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2 mb-1.5 border border-tw-border/60">
 			<div className="flex items-start gap-2">
-				{confirmation.danger ? (
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 14 14"
-						fill="none"
-						className="text-tw-error shrink-0 mt-0.5"
-					>
-						<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
-						<path d="M7 4v3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-						<circle cx="7" cy="9.5" r="0.75" fill="currentColor" />
-					</svg>
-				) : (
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 14 14"
-						fill="none"
-						className="text-tw-text-muted shrink-0 mt-0.5"
-					>
-						<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
-						<path d="M7 4v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-						<circle cx="7" cy="9.5" r="0.75" fill="currentColor" />
-					</svg>
-				)}
+				<Icon
+					size={14}
+					strokeWidth={1.6}
+					className={`${confirmation.danger ? "text-tw-error" : "text-tw-text-muted"} shrink-0 mt-0.5`}
+				/>
 				<div className="flex-1 min-w-0">
 					<div className="text-[13px] text-tw-text-primary font-medium leading-tight">
 						{confirmation.title}
