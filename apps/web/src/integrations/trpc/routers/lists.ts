@@ -184,6 +184,31 @@ export const whitelistRouter = {
 				.filter((c) => !whitelisted.has(c.login.toLowerCase()))
 				.map((c) => ({ username: c.login, avatarUrl: c.avatarUrl, contributions: c.contributions }));
 		}),
+
+	mentions: authedProcedure
+		.input(z.object({ repoId: z.string().uuid() }))
+		.query(async ({ input, ctx }) => {
+			await assertRepoOwner(ctx.user.id, input.repoId);
+
+			const [whitelisted, blacklisted] = await Promise.all([
+				db
+					.select({
+						githubUsername: whitelistEntries.githubUsername,
+						avatarUrl: whitelistEntries.avatarUrl,
+					})
+					.from(whitelistEntries)
+					.where(eq(whitelistEntries.repoId, input.repoId)),
+				db
+					.select({
+						githubUsername: blacklistEntries.githubUsername,
+						avatarUrl: blacklistEntries.avatarUrl,
+					})
+					.from(blacklistEntries)
+					.where(eq(blacklistEntries.repoId, input.repoId)),
+			]);
+
+			return { whitelisted, blacklisted };
+		}),
 } satisfies TRPCRouterRecord;
 
 export const blacklistRouter = {

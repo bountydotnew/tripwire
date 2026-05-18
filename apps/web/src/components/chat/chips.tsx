@@ -3,16 +3,16 @@ import type { ReactNode } from "react";
 export function UserMentionChip({ username }: { username: string }) {
 	return (
 		<span
-			className="inline-flex items-center gap-1 rounded-[5px] px-1 py-[1px] bg-[#2A2A2A]"
+			className="inline-flex items-center gap-1 rounded-md px-1 py-[1.5px] bg-[#212328] border border-[#2B303B] shadow-[0_0_8px_rgba(59,130,246,0.15)]"
 			style={{ verticalAlign: "-0.2em" }}
 		>
 			<img
 				src={`https://github.com/${username}.png?size=28`}
 				alt=""
-				className="w-3.5 h-3.5 rounded-full bg-[#3a3a3e]"
+				className="w-3.5 h-3.5 rounded-full bg-[#3a3a3e] ring-1 ring-white/10"
 			/>
-			<span className="text-[12px] leading-tight text-[#FAFAFA] font-medium">
-				@{username}
+			<span className="text-[12px] leading-tight text-blue-200 font-medium px-0.5">
+				{username}
 			</span>
 		</span>
 	);

@@ -331,8 +331,8 @@ function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessagePr
 function UserMessage({ content }: { content: string }) {
 	return (
 		<div className="flex justify-end px-1">
-			<div className="max-w-[86%] px-3 py-2 rounded-2xl rounded-tr-sm bg-[#252528] text-[13px] leading-[19px] text-tw-text-primary">
-				{content}
+			<div className="max-w-[86%] px-3 py-2 rounded-2xl rounded-tr-sm bg-[#252528] text-[13px] leading-[19px] text-tw-text-primary whitespace-pre-wrap">
+				{renderInlineText(content)}
 			</div>
 		</div>
 	);
