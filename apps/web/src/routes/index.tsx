@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState, useCallback } from "react";
 import { buildSeoMeta, canonicalLink } from "#/lib/seo";
 import { authClient } from "@tripwire/auth/client";
 import { LandingHeader } from "#/components/landing/header";
+import { useSpaceInvaders } from "#/components/landing/space-invaders";
 import FaultyTerminal from "#/components/landing/faulty-terminal";
 import {
 	TRIPWIRE_EYE_OUTER_PATH,
@@ -54,54 +56,81 @@ export const Route = createFileRoute("/")({
 
 function LandingPage() {
 	const { data: session } = authClient.useSession();
+	const [gameActive, setGameActive] = useState(false);
+	const [transitioning, setTransitioning] = useState(false);
+
+	const exitGame = useCallback(() => {
+		setGameActive(false);
+		setTransitioning(false);
+	}, []);
+
+	const gameCanvas = useSpaceInvaders(gameActive, exitGame);
+
+	useEffect(() => {
+		if (gameActive || transitioning) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key.startsWith("Arrow")) {
+				setTransitioning(true);
+				setTimeout(() => setGameActive(true), 600);
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [gameActive, transitioning]);
 
 	return (
 		<div className="[font-synthesis:none] flex w-full min-h-screen flex-col items-center justify-center bg-black antialiased relative overflow-hidden">
-			{/* Terminal background */}
+			{/* Terminal — the game renders INSIDE it via the gameCanvas texture */}
 			<div className="absolute inset-0 z-0">
 				<FaultyTerminal
 					scale={3.0}
 					digitSize={1.2}
 					scanlineIntensity={0.5}
-					glitchAmount={5}
+					glitchAmount={transitioning ? 30 : 5}
 					flickerAmount={1}
-					noiseAmp={1}
-					chromaticAberration={0}
+					noiseAmp={gameActive ? 0.4 : 1}
+					chromaticAberration={transitioning ? 5 : 0}
 					dither={0}
 					curvature={0.05}
 					tint="#A7EF9E"
-					mouseReact
+					mouseReact={!gameActive}
 					mouseStrength={0.5}
 					cursorMask={EYE_CURSOR_MASK}
-					brightness={0.3}
+					brightness={gameActive ? 0.5 : 0.3}
+					gameCanvas={gameCanvas}
+					gameMix={gameActive ? 1 : 0}
 				/>
 			</div>
 
-			{/* Content */}
-			<div className="relative z-10 flex w-full md:max-w-[95vw] w-full min-h-screen flex-col">
+			{/* Landing content — fades out when game activates */}
+			<div
+				className="relative z-10 flex w-full md:max-w-[95vw] w-full min-h-screen flex-col transition-all duration-500"
+				style={{
+					opacity: transitioning || gameActive ? 0 : 1,
+					transform: transitioning ? "scale(0.96)" : "scale(1)",
+					filter: transitioning ? "blur(12px) brightness(2)" : "none",
+					pointerEvents: gameActive ? "none" : "auto",
+				}}
+			>
 				<LandingHeader session={session} />
 				<div className="flex w-full flex-1 gap-3 justify-center items-center flex-col px-4">
 					<h1 className="text-tw-text-primary font-sans font-medium text-lg">
 						catch slop before it catches up with you
 					</h1>
 					{session ? (
-						<>
-							<Link
-								to="/home"
-								className="flex items-center h-7 px-2.5 rounded-lg text-[14px] font-medium text-black bg-white shadow-sm hover:bg-white/90 transition-colors"
-							>
-								get started
-							</Link>
-						</>
+						<Link
+							to="/home"
+							className="flex items-center h-7 px-2.5 rounded-lg text-[14px] font-medium text-black bg-white shadow-sm hover:bg-white/90 transition-colors"
+						>
+							get started
+						</Link>
 					) : (
-						<>
-							<Link
-								to="/login"
-								className="flex items-center h-7 px-2.5 rounded-lg text-[14px] font-medium text-black bg-white shadow-sm hover:bg-white/90 transition-colors"
-							>
-								login
-							</Link>
-						</>
+						<Link
+							to="/login"
+							className="flex items-center h-7 px-2.5 rounded-lg text-[14px] font-medium text-black bg-white shadow-sm hover:bg-white/90 transition-colors"
+						>
+							login
+						</Link>
 					)}
 				</div>
 			</div>

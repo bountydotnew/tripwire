@@ -62,7 +62,7 @@ function AutomationsPage() {
 				onSuccess: (wf) => {
 					setIsCreating(false);
 					setNewName("");
-					queryClient.invalidateQueries({ queryKey: trpc.workflows.list.queryKey({ repoId: repo!.id }) });
+					if (repo?.id) queryClient.invalidateQueries({ queryKey: trpc.workflows.list.queryKey({ repoId: repo.id }) });
 					navigate({ to: `/${orgHandle}/automations/${wf.id}` });
 				},
 			},
@@ -78,7 +78,7 @@ function AutomationsPage() {
 			{ id },
 			{
 				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: trpc.workflows.list.queryKey({ repoId: repo!.id }) });
+					if (repo?.id) queryClient.invalidateQueries({ queryKey: trpc.workflows.list.queryKey({ repoId: repo.id }) });
 				},
 			},
 		);
@@ -107,7 +107,7 @@ function AutomationsPage() {
 		setPendingToggles(new Map());
 		setSaving(false);
 		setSaved(true);
-		queryClient.invalidateQueries({ queryKey: trpc.workflows.list.queryKey({ repoId: repo!.id }) });
+		if (repo?.id) queryClient.invalidateQueries({ queryKey: trpc.workflows.list.queryKey({ repoId: repo.id }) });
 		setTimeout(() => setSaved(false), 2000);
 	};
 
@@ -118,15 +118,6 @@ function AutomationsPage() {
 	// Resolve displayed enabled state (pending overrides server)
 	const getEffectiveEnabled = (wf: { id: string; enabled: boolean }) =>
 		pendingToggles.has(wf.id) ? pendingToggles.get(wf.id)! : wf.enabled;
-
-	// No repo selected
-	if (!repo) {
-		return (
-			<div className="flex items-center justify-center h-full">
-				<p className="text-tw-text-secondary text-sm">Select a repository to manage automations.</p>
-			</div>
-		);
-	}
 
 	// List + Reports view
 	return (

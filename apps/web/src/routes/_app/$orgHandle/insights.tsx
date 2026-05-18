@@ -15,6 +15,7 @@ import {
 	ResponsiveContainer,
 	Tooltip,
 } from "recharts";
+import { routes } from "#/lib/routes";
 
 export const Route = createFileRoute("/_app/$orgHandle/insights")({
 	component: InsightsPage,
@@ -129,7 +130,7 @@ function InsightsPage() {
 				description="Connect your GitHub repositories to start tracking spam activity and protection metrics."
 				action={{
 					label: "Install GitHub App",
-					href: "/api/github/install",
+					href: routes.api.githubInstall,
 				}}
 			/>
 		);

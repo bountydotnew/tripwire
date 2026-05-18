@@ -5,6 +5,7 @@ import { useWorkspace } from "#/lib/workspace-context";
 import { EmptyState } from "#/components/layout/empty-state";
 import { useEffect, useState, useMemo } from "react";
 import { markEventsViewed } from "#/lib/use-events-unread";
+import { routes } from "#/lib/routes";
 
 export const Route = createFileRoute("/_app/$orgHandle/events/")({
 	component: EventsPage,
@@ -356,7 +357,7 @@ function EventsPage() {
 				description="Connect your GitHub repositories to start tracking activity."
 				action={{
 					label: "Install GitHub App",
-					href: "/api/github/install",
+					href: routes.api.githubInstall,
 				}}
 			/>
 		)

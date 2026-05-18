@@ -1,12 +1,13 @@
 import { useState, useRef, useMemo, type KeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "#/components/layout/top-nav";
 import { WorkspaceRedirect } from "#/components/layout/workspace-redirect";
 import { WorkspaceProvider, useWorkspace } from "#/lib/workspace-context";
 import { AuthProvider } from '@tripwire/auth/components';
 import { ChatProvider, useAIChat } from '#/components/chat/chat-context';
+import { Button } from "#/components/ui/button";
 import { ChatThread } from "#/components/chat/chat-thread";
 import { useTRPC } from "#/integrations/trpc/react";
 import { UnicodeSpinner } from "#/components/ui/unicode-spinner";
@@ -25,6 +26,9 @@ import {
 } from "#/components/ui/context";
 import { AI_MODEL_ID, getContextWindow } from "@tripwire/ai/model-config";
 import type { UIMessage } from "#/types/chat";
+import { GithubIcon } from "#/components/icons/github";
+import { TripwireLogo } from "../icons/tripwire-logo";
+import { routes } from "#/lib/routes";
 
 export function AppShell() {
 	return (
@@ -43,6 +47,8 @@ function AppShellInner() {
 	// Handles auto-redirects: no org in URL → default workspace, "_" placeholder → first repo
 
 	const { isOpen, toggle, close, sendMessage, isLoading, isQuotaExhausted, newChat, messages: chatMessages } = useAIChat();
+	const { repos, isLoading: workspaceLoading, orgs } = useWorkspace();
+	const needsInstall = !workspaceLoading && orgs.length > 0 && repos.length === 0;
 
 	// Compute cumulative usage from message metadata, with estimation fallback
 	const chatUsage = useMemo(() => {
@@ -115,7 +121,7 @@ function AppShellInner() {
 					style={isChatRoute ? undefined : { boxShadow: "#00000008 0px 1px 4px" }}
 				>
 					<div className="absolute inset-0 overflow-auto">
-						<Outlet />
+						{needsInstall ? <InstallGitHubPrompt /> : <Outlet />}
 					</div>
 				</div>
 
@@ -481,6 +487,33 @@ function SidebarRecentChats() {
 					);
 				})}
 			</AnimatePresence>
+		</div>
+	);
+}
+
+function InstallGitHubPrompt() {
+	return (
+		<div className="flex items-center justify-center h-full">
+			<div className="flex flex-col items-center gap-4 max-w-sm text-center px-4">
+				<div className="flex items-center justify-center size-12">
+					<TripwireLogo className="size-8 text-tw-text-secondary" />
+				</div>
+				<div>
+					<h2 className="text-[15px] font-medium text-tw-text-primary mb-1">Install the GitHub App</h2>
+					<p className="text-[13px] text-tw-text-secondary leading-relaxed">
+						Connect a repository to start using Tripwire. You'll be able to configure rules, run automations, and monitor contributions.
+					</p>
+				</div>
+				<Button variant="default" size="sm">
+				<Link
+					to={routes.api.githubInstall}
+					className="flex gap-2"
+				>
+					<GithubIcon className="size-4 mt-0.5"/>
+					Install GitHub App
+				</Link>
+				</Button>
+			</div>
 		</div>
 	);
 }
