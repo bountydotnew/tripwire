@@ -20,6 +20,7 @@ import { useWorkspace } from "#/lib/workspace-context";
 import { useRouterState } from "@tanstack/react-router";
 import { useCustomer } from "autumn-js/react";
 import { useTRPC } from "#/integrations/trpc/react";
+import { extractChatTitle } from "#/lib/chat-persistence";
 
 
 interface ChatContextValue {
@@ -30,6 +31,7 @@ interface ChatContextValue {
 	error: Error | null;
 	isQuotaExhausted: boolean;
 	conversationId: string;
+	repoId: string | undefined;
 
 	// Actions
 	sendMessage: (content: string) => void;
@@ -40,6 +42,8 @@ interface ChatContextValue {
 	clearChat: () => void;
 	loadChat: (chatId: string, messages: UIMessage[]) => void;
 	newChat: () => void;
+	appendOptimisticMessage: (message: UIMessage) => void;
+	replaceOptimisticMessage: (id: string, message: UIMessage) => void;
 }
 
 // Default no-op context for SSR
@@ -50,6 +54,7 @@ const defaultContextValue: ChatContextValue = {
 	error: null,
 	isQuotaExhausted: false,
 	conversationId: "",
+	repoId: undefined,
 	sendMessage: () => {},
 	respondToToolApproval: () => {},
 	open: () => {},
@@ -58,6 +63,8 @@ const defaultContextValue: ChatContextValue = {
 	clearChat: () => {},
 	loadChat: () => {},
 	newChat: () => {},
+	appendOptimisticMessage: () => {},
+	replaceOptimisticMessage: () => {},
 };
 
 const ChatContext = createContext<ChatContextValue>(defaultContextValue);
@@ -83,17 +90,6 @@ function setStoredValue(key: string, value: string): void {
 	if (typeof window !== "undefined") {
 		window.localStorage.setItem(key, value);
 	}
-}
-
-function extractTitle(messages: UIMessage[]): string {
-	const firstUser = messages.find((m) => m.role === "user");
-	if (!firstUser) return "New chat";
-	const text =
-		firstUser.parts
-			?.filter((p: any) => p.type === "text")
-			.map((p: any) => p.text ?? p.content)
-			.join("") ?? "";
-	return text.slice(0, 80) || "New chat";
 }
 
 function ChatProviderClient({ children }: ChatProviderProps) {
@@ -196,7 +192,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 				chatId: conversationId,
 				repoId: effectiveRepoId,
 				messages: messages as unknown as SerializedMessage[],
-				title: extractTitle(messages),
+				title: extractChatTitle(messages),
 			});
 			queryClient.invalidateQueries({ queryKey: trpc.chats.list.queryKey() });
 			refetchCustomer();
@@ -299,6 +295,20 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 		setPinnedRepoId(null);
 	}, [setMessages]);
 
+	const appendOptimisticMessage = useCallback(
+		(message: UIMessage) => {
+			setMessages((prev) => [...prev, message]);
+		},
+		[setMessages],
+	);
+
+	const replaceOptimisticMessage = useCallback(
+		(id: string, message: UIMessage) => {
+			setMessages((prev) => prev.map((m) => (m.id === id ? message : m)));
+		},
+		[setMessages],
+	);
+
 	const value: ChatContextValue = {
 		messages,
 		isLoading,
@@ -306,6 +316,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 		error: isQuotaExhausted ? null : combinedError,
 		isQuotaExhausted,
 		conversationId,
+		repoId: effectiveRepoId,
 		sendMessage,
 		respondToToolApproval,
 		open,
@@ -314,6 +325,8 @@ function ChatProviderClient({ children }: ChatProviderProps) {
 		clearChat,
 		loadChat,
 		newChat,
+		appendOptimisticMessage,
+		replaceOptimisticMessage,
 	};
 
 	return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

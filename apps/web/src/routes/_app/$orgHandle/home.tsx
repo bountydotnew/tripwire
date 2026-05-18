@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type KeyboardEvent } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { EventGroupCard } from "#/components/home/event-group-card";
@@ -8,6 +8,9 @@ import { useAuth } from '@tripwire/auth/components';
 import { useWorkspace, useWorkspacePath } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
 import { TripwireLogo } from "#/components/icons/tripwire-logo";
+import { CommandPalette } from "#/components/chat/command-palette";
+import type { SlashCommand } from "#/lib/chat-commands";
+import { useSlashCommandInput } from "#/components/chat/use-slash-command-input";
 
 export const Route = createFileRoute("/_app/$orgHandle/home")({
 	component: HomePage,
@@ -225,27 +228,48 @@ function HomeFloatingBar() {
 		message: string;
 		processing: boolean;
 	} | null>(null);
+	const inputRef = useRef<HTMLInputElement>(null);
 	const navigate = useNavigate();
 	const { repo } = useWorkspace();
 	const trpc = useTRPC();
 	const createChat = useMutation(trpc.chats.create.mutationOptions());
 
-	const handleSubmit = async () => {
-		if (!inputValue.trim()) return;
+	const handleSubmit = async (forcedValue?: string) => {
+		const nextValue = forcedValue ?? inputValue;
+		if (!nextValue.trim()) return;
 		const chatId = crypto.randomUUID();
-		const message = inputValue.trim();
+		const message = nextValue.trim();
 		setInputValue("");
 
 		await createChat.mutateAsync({ id: chatId, repoId: repo?.id });
 		setPreviewChat({ id: chatId, message, processing: true });
 	};
 
-	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			handleSubmit();
+	const acceptPaletteSelection = async (cmd: SlashCommand) => {
+		const value = inputValue.trim();
+		const exactCommand = value === cmd.command || value.startsWith(`${cmd.command} `);
+		const args = exactCommand ? value.slice(cmd.command.length).trim() : "";
+
+		if (cmd.requiresArg && !args) {
+			setInputValue(`${cmd.command} `);
+			setPaletteIndex(0);
+			return;
 		}
+
+		const raw = exactCommand ? value : cmd.command;
+		setInputValue(raw);
+		setPaletteIndex(0);
+		await handleSubmit(raw);
 	};
+
+	const { paletteCommands, paletteIndex, setPaletteIndex, showPalette, handleInputChange, handleKeyDown } =
+		useSlashCommandInput({
+			inputValue,
+			setInputValue,
+			onSubmit: () => void handleSubmit(),
+			onSelectCommand: acceptPaletteSelection,
+			inputRef,
+		});
 
 	const handleGoToChat = () => {
 		if (!previewChat) return;
@@ -293,17 +317,26 @@ function HomeFloatingBar() {
 
 			{/* Input bar */}
 			<div
-				className="flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5 w-full"
+				className="relative flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5 w-full"
 				style={{
 					boxShadow: "0 8px 24px #00000040, 0 1px 2px #0000001a",
 				}}
 			>
+				{showPalette && (
+					<CommandPalette
+						commands={paletteCommands}
+						selectedIndex={paletteIndex}
+						onSelect={acceptPaletteSelection}
+						onHover={setPaletteIndex}
+					/>
+				)}
 				<div className="flex items-center w-full gap-1.5">
 					<input
+						ref={inputRef}
 						type="text"
-						placeholder="Ask anything..."
+						placeholder="Ask anything, or type / for commands..."
 						value={inputValue}
-						onChange={(e) => setInputValue(e.target.value)}
+						onChange={handleInputChange}
 						onKeyDown={handleKeyDown}
 						disabled={createChat.isPending}
 						className="flex-1 h-9 bg-tw-inner rounded-[10px] px-2.5 text-[14px] text-tw-text-primary placeholder:text-tw-text-tertiary outline-none disabled:opacity-50"
@@ -361,7 +394,7 @@ function HomeFloatingBar() {
 					</div>
 					<button
 						type="button"
-						onClick={handleSubmit}
+						onClick={() => handleSubmit()}
 						disabled={!inputValue.trim() || createChat.isPending}
 						className="flex items-center self-stretch px-1.5 rounded-[10px] justify-center gap-1 bg-[#363639] hover:bg-[#404044] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 					>

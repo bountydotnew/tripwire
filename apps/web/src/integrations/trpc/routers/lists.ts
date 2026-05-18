@@ -146,7 +146,7 @@ export const whitelistRouter = {
 				.where(
 					and(
 						eq(whitelistEntries.repoId, input.repoId),
-						eq(whitelistEntries.githubUsername, input.githubUsername),
+						sql`lower(${whitelistEntries.githubUsername}) = lower(${input.githubUsername})`,
 					),
 				);
 
@@ -277,7 +277,7 @@ export const blacklistRouter = {
 				.where(
 					and(
 						eq(blacklistEntries.repoId, input.repoId),
-						eq(blacklistEntries.githubUsername, input.githubUsername),
+						sql`lower(${blacklistEntries.githubUsername}) = lower(${input.githubUsername})`,
 					),
 				);
 

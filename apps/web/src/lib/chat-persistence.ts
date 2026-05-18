@@ -34,7 +34,15 @@ export function mergeMessagesPreservingResults(
 type MessageLike = {
 	id?: string;
 	role?: string;
+	parts?: Array<{ type?: string; text?: string; content?: string }>;
 };
+
+export function extractChatTitle(messages: unknown[]): string {
+	const firstUser = messages.find(isUserMessage) as MessageLike | undefined;
+	if (!firstUser) return "New chat";
+	const text = getMessageText(firstUser);
+	return text.slice(0, 80) || "New chat";
+}
 
 function isUserMessage(message: unknown): boolean {
 	return (message as MessageLike | undefined)?.role === "user";
@@ -43,6 +51,13 @@ function isUserMessage(message: unknown): boolean {
 function getMessageId(message: unknown): string | undefined {
 	const id = (message as MessageLike | undefined)?.id;
 	return typeof id === "string" ? id : undefined;
+}
+
+function getMessageText(message: unknown): string {
+	return (message as MessageLike | undefined)?.parts
+		?.filter((p) => p.type === "text")
+		.map((p) => p.text ?? p.content ?? "")
+		.join("") ?? "";
 }
 
 function clone<T>(value: T): T {

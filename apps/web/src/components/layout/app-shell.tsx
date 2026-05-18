@@ -1,4 +1,9 @@
-import { useState, useRef, useMemo, type KeyboardEvent } from "react";
+import { useState, useRef, useMemo } from "react";
+import { parseCommand, type SlashCommand } from "#/lib/chat-commands";
+import { useSlashCommandRunner } from "#/lib/use-chat-command-runner";
+import { CommandPalette } from "#/components/chat/command-palette";
+import { CommandConfirmation } from "#/components/chat/command-confirmation";
+import { useSlashCommandInput } from "#/components/chat/use-slash-command-input";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -89,7 +94,11 @@ function AppShellInner() {
 		return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, costUSD };
 	}, [chatMessages]);
 	const [inputValue, setInputValue] = useState("");
+	const [mutationLoading, setMutationLoading] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
+
+	const { runCommand, runMutation, cancelMutation, pendingConfirmation } =
+		useSlashCommandRunner();
 
 	const routerState = useRouterState();
 	const currentPath = routerState.location.pathname;
@@ -98,16 +107,70 @@ function AppShellInner() {
 
 	const showSidePanel = !isHomePage && !isChatRoute && isOpen;
 
-	const handleSubmit = () => {
-		if (!inputValue.trim() || isLoading || isQuotaExhausted) return;
+	const handleSubmit = async () => {
+		const value = inputValue.trim();
+		if (!value || isLoading || isQuotaExhausted || mutationLoading) return;
+
+		// Slash command? Route through the command runner.
+		const parsed = parseCommand(value);
+		if (parsed) {
+			setInputValue("");
+			const result = await runCommand(parsed);
+			if (result.kind === "error") {
+				// Re-populate the input with a hint so the user can fix it.
+				setInputValue(value);
+				console.warn("[chat-command]", result.message);
+			}
+			return;
+		}
+
 		sendMessage(inputValue);
 		setInputValue("");
 	};
 
-	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			handleSubmit();
+	const acceptPaletteSelection = async (cmd: SlashCommand) => {
+		const value = inputValue.trim();
+		const exactCommand = value === cmd.command || value.startsWith(`${cmd.command} `);
+		const args = exactCommand ? value.slice(cmd.command.length).trim() : "";
+
+		// If the command needs an argument and the user has not typed it yet,
+		// complete the command text instead of executing an invalid command.
+		if (cmd.requiresArg && !args) {
+			setInputValue(`${cmd.command} `);
+			setPaletteIndex(0);
+			inputRef.current?.focus();
+			return;
+		}
+
+		const raw = exactCommand ? value : cmd.command;
+		const parsed = parseCommand(raw);
+		if (!parsed) return;
+
+		setInputValue("");
+		setPaletteIndex(0);
+		const result = await runCommand(parsed);
+		if (result.kind === "error") {
+			setInputValue(raw);
+			console.warn("[chat-command]", result.message);
+		}
+	};
+
+	const { paletteCommands, paletteIndex, setPaletteIndex, showPalette, handleInputChange, handleKeyDown } =
+		useSlashCommandInput({
+			inputValue,
+			setInputValue,
+			onSubmit: handleSubmit,
+			onSelectCommand: acceptPaletteSelection,
+			inputRef,
+		});
+
+	const handleConfirmMutation = async () => {
+		if (!pendingConfirmation) return;
+		setMutationLoading(true);
+		try {
+			await runMutation(pendingConfirmation);
+		} finally {
+			setMutationLoading(false);
 		}
 	};
 
@@ -236,7 +299,16 @@ function AppShellInner() {
 							</div>
 
 							<div className="flex-1 min-h-0 overflow-auto px-2 pb-2 relative z-10">
-								<ChatThread />
+								<ChatThread
+									footer={pendingConfirmation && (
+										<CommandConfirmation
+											confirmation={pendingConfirmation}
+											onConfirm={handleConfirmMutation}
+											onCancel={cancelMutation}
+											isLoading={mutationLoading}
+										/>
+									)}
+								/>
 							</div>
 
 							<div className="relative z-10">
@@ -244,16 +316,24 @@ function AppShellInner() {
 							</div>
 
 							<div className="px-2 pb-2 shrink-0 relative z-10">
-								<div className="flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5">
+								<div className="relative flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5">
+									{showPalette && (
+										<CommandPalette
+											commands={paletteCommands}
+											selectedIndex={paletteIndex}
+											onSelect={acceptPaletteSelection}
+											onHover={setPaletteIndex}
+										/>
+									)}
 									<div className="flex items-center w-full gap-1.5">
 										<input
 											ref={inputRef}
 											type="text"
-											placeholder={isQuotaExhausted ? "Out of credits" : "Ask anything..."}
+											placeholder={isQuotaExhausted ? "Out of credits" : "Ask anything, or type / for commands..."}
 											value={inputValue}
-											onChange={(e) => setInputValue(e.target.value)}
+											onChange={handleInputChange}
 											onKeyDown={handleKeyDown}
-											disabled={isLoading || isQuotaExhausted}
+											disabled={isLoading || isQuotaExhausted || mutationLoading}
 											className="flex-1 h-9 bg-tw-inner rounded-[10px] px-2.5 text-[14px] text-tw-text-primary placeholder:text-tw-text-tertiary outline-none disabled:opacity-50"
 										/>
 										<button
@@ -290,7 +370,7 @@ function AppShellInner() {
 										<button
 											type="button"
 											onClick={handleSubmit}
-											disabled={!inputValue.trim() || isLoading || isQuotaExhausted}
+											disabled={!inputValue.trim() || isLoading || isQuotaExhausted || mutationLoading}
 											className="flex items-center self-stretch px-1.5 rounded-[10px] justify-center gap-1 bg-[#363639] hover:bg-[#404044] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 										>
 											<span className="text-[14px] leading-none text-center text-tw-text-primary px-0.5">

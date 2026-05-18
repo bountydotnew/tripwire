@@ -1,11 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ChatThread } from "#/components/chat/chat-thread";
 import { usePersistedChat } from "#/components/chat/use-persisted-chat";
 import { useWorkspace } from "#/lib/workspace-context";
 import { useTRPC } from "#/integrations/trpc/react";
 import type { UIMessage } from "#/types/chat";
+import { CommandPalette } from "#/components/chat/command-palette";
+import { parseCommand, type SlashCommand } from "#/lib/chat-commands";
+import { useSlashCommandRunner } from "#/lib/use-chat-command-runner";
+import { CommandConfirmation } from "#/components/chat/command-confirmation";
+import { useSlashCommandInput } from "#/components/chat/use-slash-command-input";
 
 export const Route = createFileRoute("/_app/chat/$chatId")({
 	component: ChatPage,
@@ -37,27 +42,98 @@ function ChatPage() {
 	});
 
 	const didSendInitial = useRef(false);
+	const [inputValue, setInputValue] = useState("");
+	const [mutationLoading, setMutationLoading] = useState(false);
+	const inputRef = useRef<HTMLInputElement>(null);
+	const { runCommand, runMutation, cancelMutation, pendingConfirmation } =
+		useSlashCommandRunner({
+			chatId,
+			appendOptimisticMessage: chat.appendOptimisticMessage,
+			replaceOptimisticMessage: chat.replaceOptimisticMessage,
+			clearChat: chat.clearChat,
+			newChat: () => {
+				const nextChatId = crypto.randomUUID();
+				navigate({
+					to: "/chat/$chatId",
+					params: { chatId: nextChatId },
+				});
+			},
+			repoId: chat.repoId,
+		});
+
 	useEffect(() => {
 		if (!initialMessage || didSendInitial.current || convQuery.isPending || chat.messages.length > 0) return;
 		didSendInitial.current = true;
+		const parsed = parseCommand(initialMessage.trim());
+		if (parsed) {
+			void runCommand(parsed);
+			return;
+		}
 		void chat.sendMessage(initialMessage);
-	}, [initialMessage, convQuery.isPending, chat.messages.length, chat.sendMessage]);
+	}, [initialMessage, convQuery.isPending, chat.messages.length, chat.sendMessage, runCommand]);
 
-	const [inputValue, setInputValue] = useState("");
-	const inputRef = useRef<HTMLInputElement>(null);
+	const handleSubmit = async () => {
+		const value = inputValue.trim();
+		if (!value || chat.isLoading || chat.isQuotaExhausted || mutationLoading) return;
 
-	const handleSubmit = () => {
-		if (!inputValue.trim() || chat.isLoading || chat.isQuotaExhausted) return;
+		const parsed = parseCommand(value);
+		if (parsed) {
+			setInputValue("");
+			const result = await runCommand(parsed);
+			if (result.kind === "error") {
+				setInputValue(value);
+				console.warn("[chat-command]", result.message);
+			}
+			return;
+		}
+
 		chat.sendMessage(inputValue);
 		setInputValue("");
 	};
 
-	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			handleSubmit();
+	const acceptPaletteSelection = async (cmd: SlashCommand) => {
+		const value = inputValue.trim();
+		const exactCommand = value === cmd.command || value.startsWith(`${cmd.command} `);
+		const args = exactCommand ? value.slice(cmd.command.length).trim() : "";
+
+		if (cmd.requiresArg && !args) {
+			setInputValue(`${cmd.command} `);
+			setPaletteIndex(0);
+			inputRef.current?.focus();
+			return;
+		}
+
+		const raw = exactCommand ? value : cmd.command;
+		const parsed = parseCommand(raw);
+		if (!parsed) return;
+
+		setInputValue("");
+		setPaletteIndex(0);
+		const result = await runCommand(parsed);
+		if (result.kind === "error") {
+			setInputValue(raw);
+			console.warn("[chat-command]", result.message);
 		}
 	};
+
+	const handleConfirmMutation = async () => {
+		if (!pendingConfirmation) return;
+		setMutationLoading(true);
+		try {
+			await runMutation(pendingConfirmation);
+		} finally {
+			setMutationLoading(false);
+		}
+	};
+
+	const { paletteCommands, paletteIndex, setPaletteIndex, showPalette, handleInputChange, handleKeyDown } =
+		useSlashCommandInput({
+			inputValue,
+			setInputValue,
+			onSubmit: handleSubmit,
+			onSelectCommand: acceptPaletteSelection,
+			inputRef,
+		});
 
 	const title = convQuery.data?.title ?? "New chat";
 
@@ -92,6 +168,14 @@ function ChatPage() {
 					isLoading={chat.isLoading}
 					error={chat.error}
 					isQuotaExhausted={chat.isQuotaExhausted}
+					footer={pendingConfirmation && (
+						<CommandConfirmation
+							confirmation={pendingConfirmation}
+							onConfirm={handleConfirmMutation}
+							onCancel={cancelMutation}
+							isLoading={mutationLoading}
+						/>
+					)}
 					respondToToolApproval={(id, approved) =>
 						chat.addToolApprovalResponse({ id, approved })
 					}
@@ -100,18 +184,26 @@ function ChatPage() {
 
 			{/* Input bar — same as home floating bar */}
 			<div className="w-full max-w-[560px] px-3 pb-4 pt-2 shrink-0">
-				<div className="flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5">
+				<div className="relative flex flex-col items-start gap-0 rounded-2xl bg-tw-card p-1.5">
+					{showPalette && (
+						<CommandPalette
+							commands={paletteCommands}
+							selectedIndex={paletteIndex}
+							onSelect={acceptPaletteSelection}
+							onHover={setPaletteIndex}
+						/>
+					)}
 					<div className="flex items-center w-full gap-1.5">
 						<input
 							ref={inputRef}
 							type="text"
 							placeholder={
-								chat.isQuotaExhausted ? "Out of credits" : "Ask anything..."
+								chat.isQuotaExhausted ? "Out of credits" : "Ask anything, or type / for commands..."
 							}
 							value={inputValue}
-							onChange={(e) => setInputValue(e.target.value)}
+							onChange={handleInputChange}
 							onKeyDown={handleKeyDown}
-							disabled={chat.isLoading || chat.isQuotaExhausted}
+							disabled={chat.isLoading || chat.isQuotaExhausted || mutationLoading}
 							className="flex-1 h-9 bg-tw-inner rounded-[10px] px-2.5 text-[14px] text-tw-text-primary placeholder:text-tw-text-tertiary outline-none disabled:opacity-50"
 						/>
 						<button
@@ -149,7 +241,7 @@ function ChatPage() {
 							type="button"
 							onClick={handleSubmit}
 							disabled={
-								!inputValue.trim() || chat.isLoading || chat.isQuotaExhausted
+								!inputValue.trim() || chat.isLoading || chat.isQuotaExhausted || mutationLoading
 							}
 							className="flex items-center self-stretch px-1.5 rounded-[10px] justify-center gap-1 bg-[#363639] hover:bg-[#404044] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 						>

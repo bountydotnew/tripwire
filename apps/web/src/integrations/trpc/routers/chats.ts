@@ -4,7 +4,14 @@ import { authedProcedure } from "../init";
 import { db } from "@tripwire/db/client";
 import { conversations } from "@tripwire/db";
 import type { TRPCRouterRecord } from "@trpc/server";
-import { mergeMessagesPreservingResults } from "#/lib/chat-persistence";
+import { extractChatTitle, mergeMessagesPreservingResults } from "#/lib/chat-persistence";
+import { parseCommand } from "#/lib/chat-commands";
+import { assertRepoOwner } from "#/integrations/trpc/init";
+import {
+	filterToolsForSurface,
+	runToolForChat,
+	tripwireTools,
+} from "@tripwire/tools";
 
 export const chatsRouter = {
 	create: authedProcedure
@@ -91,6 +98,165 @@ export const chatsRouter = {
 				});
 		}),
 
+	runSlashCommand: authedProcedure
+		.input(
+			z.object({
+				chatId: z.string().uuid(),
+				repoId: z.string().uuid().optional(),
+				raw: z.string(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const parsed = parseCommand(input.raw);
+			if (!parsed) {
+				throw new Error("Unknown slash command");
+			}
+
+			const { command, args, raw } = parsed;
+			if (command.requiresArg && !args) {
+				throw new Error(command.example ? `Usage: ${command.example}` : `${command.command} requires an argument.`);
+			}
+
+			const [existing] = await db
+				.select({ repoId: conversations.repoId, messages: conversations.messages })
+				.from(conversations)
+				.where(
+					and(
+						eq(conversations.id, input.chatId),
+						eq(conversations.userId, ctx.user.id),
+					),
+				)
+				.limit(1);
+
+			const repoId = existing?.repoId ?? input.repoId;
+			const existingMessages = Array.isArray(existing?.messages) ? existing.messages : [];
+			const userMessage = makeUserMessage(raw);
+			let appended: unknown[] = [userMessage];
+
+			if (command.kind === "client") {
+				if (command.command === "/clear") {
+					await upsertMessages(input.chatId, ctx.user.id, repoId, [], "New chat");
+					return { messages: [], replace: true };
+				}
+				if (command.command === "/new") {
+					return { messages: [], replace: false, newChat: true };
+				}
+				if (command.command === "/help") {
+					appended = [...appended, helpMessage()];
+				}
+			} else if (command.kind === "read") {
+				if (!command.tool || !command.buildArgs) {
+					throw new Error("Command misconfigured");
+				}
+
+				const chatTools = filterToolsForSurface(tripwireTools, "chat");
+				const tool = chatTools.find((t) => t.name === command.tool);
+				if (!tool) throw new Error(`Tool "${command.tool}" not found`);
+				if (!tool.directInvokable) throw new Error(`Tool "${command.tool}" is not directly invokable`);
+
+				let resolvedRepoId = repoId;
+				if (tool.needsRepo !== false) {
+					if (!resolvedRepoId) throw new Error("Select a repository before running this command.");
+					await assertRepoOwner(ctx.user.id, resolvedRepoId);
+				}
+
+				const toolArgs = command.buildArgs(args);
+				const parsedArgs = tool.inputSchema.safeParse(toolArgs);
+				if (!parsedArgs.success) throw new Error(parsedArgs.error.message);
+
+				try {
+					const spec = await runToolForChat(tool, parsedArgs.data, {
+						userId: ctx.user.id,
+						userName: ctx.user.name ?? ctx.user.email ?? undefined,
+						repoId: resolvedRepoId,
+					});
+					appended = [
+						...appended,
+						makeToolMessage({
+							toolName: command.tool,
+							args: toolArgs,
+							state: "output-available",
+							output: spec,
+						}),
+					];
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					appended = [
+						...appended,
+						makeToolMessage({
+							toolName: command.tool,
+							args: toolArgs,
+							state: "output-error",
+							errorText: message,
+						}),
+					];
+				}
+			} else {
+				return { messages: [userMessage], replace: false, needsConfirmation: true };
+			}
+
+			const nextMessages = [...existingMessages, ...appended];
+			await upsertMessages(
+				input.chatId,
+				ctx.user.id,
+				repoId,
+				nextMessages,
+				extractChatTitle(nextMessages),
+			);
+
+			return { messages: appended, replace: false };
+		}),
+
+	appendSlashMessages: authedProcedure
+		.input(
+			z.object({
+				chatId: z.string().uuid(),
+				repoId: z.string().uuid().optional(),
+				messages: z.array(z.any()),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const [existing] = await db
+				.select({ repoId: conversations.repoId, messages: conversations.messages })
+				.from(conversations)
+				.where(
+					and(
+						eq(conversations.id, input.chatId),
+						eq(conversations.userId, ctx.user.id),
+					),
+				)
+				.limit(1);
+
+			const knownIds = new Set(
+				(Array.isArray(existing?.messages) ? existing.messages : [])
+					.map((message) => (message as MessageLike).id)
+					.filter((id): id is string => typeof id === "string"),
+			);
+			if (input.messages.length === 0) {
+				await upsertMessages(
+					input.chatId,
+					ctx.user.id,
+					existing?.repoId ?? input.repoId,
+					[],
+					"New chat",
+				);
+				return;
+			}
+			const append = input.messages.filter((message) => {
+				const id = (message as MessageLike).id;
+				return !id || !knownIds.has(id);
+			});
+			const existingMessages = Array.isArray(existing?.messages) ? existing.messages : [];
+			const nextMessages = [...existingMessages, ...append];
+			await upsertMessages(
+				input.chatId,
+				ctx.user.id,
+				existing?.repoId ?? input.repoId,
+				nextMessages,
+				extractChatTitle(nextMessages),
+			);
+		}),
+
 	list: authedProcedure
 		.input(
 			z.object({
@@ -130,3 +296,99 @@ export const chatsRouter = {
 				);
 		}),
 } satisfies TRPCRouterRecord;
+
+type MessageLike = {
+	id?: string;
+	role?: string;
+	parts?: Array<{ type?: string; text?: string; content?: string }>;
+};
+
+function makeUserMessage(text: string) {
+	return {
+		id: crypto.randomUUID(),
+		role: "user",
+		parts: [{ type: "text", text }],
+	};
+}
+
+function makeToolMessage(opts: {
+	toolName: string;
+	args: Record<string, unknown>;
+	state: "output-available" | "output-error";
+	output?: unknown;
+	errorText?: string;
+}) {
+	return {
+		id: crypto.randomUUID(),
+		role: "assistant",
+		parts: [
+			{
+				type: `tool-${opts.toolName}`,
+				toolCallId: crypto.randomUUID(),
+				state: opts.state,
+				input: opts.args,
+				...(opts.output !== undefined ? { output: opts.output } : {}),
+				...(opts.errorText ? { errorText: opts.errorText } : {}),
+			},
+		],
+	};
+}
+
+function helpMessage() {
+	return {
+		id: crypto.randomUUID(),
+		role: "assistant",
+		parts: [
+			{
+				type: "text",
+				text: [
+					"**Slash commands**",
+					"",
+					"**Read**",
+					"- `/rules` - Show moderation rules",
+					"- `/lists` - Show whitelist and blacklist",
+					"- `/events` - Show recent activity",
+					"- `/lookup @user` - Investigate a contributor",
+					"- `/check @user` - Check list status",
+					"",
+					"**Moderation**",
+					"- `/block @user` - Add to blacklist",
+					"- `/unblock @user` - Remove from blacklist",
+					"- `/allow @user` - Add to whitelist",
+					"- `/disallow @user` - Remove from whitelist",
+					"",
+					"**Chat**",
+					"- `/clear` - Clear conversation",
+					"- `/new` - Start a new chat",
+				].join("\n"),
+			},
+		],
+	};
+}
+
+async function upsertMessages(
+	chatId: string,
+	userId: string,
+	repoId: string | undefined | null,
+	messages: unknown[],
+	title: string,
+) {
+	await db
+		.insert(conversations)
+		.values({
+			id: chatId,
+			userId,
+			repoId: repoId ?? null,
+			messages,
+			title,
+		})
+		.onConflictDoUpdate({
+			target: conversations.id,
+			set: {
+				messages,
+				...(title ? { title } : {}),
+				updatedAt: new Date(),
+			},
+			setWhere: eq(conversations.userId, userId),
+		});
+}

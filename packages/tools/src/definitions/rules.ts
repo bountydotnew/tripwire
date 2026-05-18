@@ -31,6 +31,7 @@ const getRepoRules = defineTool({
 	name: "get_repo_rules",
 	description:
 		"Get the full moderation rule configuration for the current repo — every rule with its enabled flag, action, type-specific fields, and any scopeOverride.",
+	directInvokable: true,
 	inputSchema: z.object({}),
 	handler: async (_args, ctx) => {
 		const repoId = requireRepoId(ctx);
