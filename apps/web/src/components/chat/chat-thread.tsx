@@ -50,6 +50,7 @@ interface ChatThreadProps {
   error?: Error | null
   isQuotaExhausted?: boolean
   respondToToolApproval?: (approvalId: string, approved: boolean) => void
+  footer?: ReactNode
 }
 
 export function ChatThread(props: ChatThreadProps = {}) {
@@ -60,6 +61,7 @@ export function ChatThread(props: ChatThreadProps = {}) {
   const isQuotaExhausted = props.isQuotaExhausted ?? ctx.isQuotaExhausted
   const respondToToolApproval =
     props.respondToToolApproval ?? ctx.respondToToolApproval
+  const footer = props.footer
 
   const avatarMap = useMemo(() => {
     const out: Record<string, boolean> = {}
@@ -78,6 +80,14 @@ export function ChatThread(props: ChatThreadProps = {}) {
   }
 
   if (messages.length === 0 && !error) {
+    if (footer) {
+      return (
+        <div className="flex flex-col gap-3 pt-1 pb-2">
+          <EmptyState />
+          {footer}
+        </div>
+      )
+    }
     return <EmptyState />
   }
 
@@ -103,6 +113,7 @@ export function ChatThread(props: ChatThreadProps = {}) {
           />
         </div>
       ))}
+      {footer}
       {isLoading && <LoadingIndicator />}
       {error && <ErrorMessage message={error.message} />}
     </div>

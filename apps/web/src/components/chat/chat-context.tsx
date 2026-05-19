@@ -38,6 +38,8 @@ interface ChatContextValue {
   error: Error | null
   isQuotaExhausted: boolean
   conversationId: string
+  /** Effective repo for this chat (pinned / persisted / workspace). */
+  repoId: string | undefined
   workflowContext: WorkflowContext | null
 
   // Actions
@@ -50,6 +52,8 @@ interface ChatContextValue {
   loadChat: (chatId: string, messages: UIMessage[]) => void
   newChat: () => void
   setWorkflowContext: (ctx: WorkflowContext | null) => void
+  appendOptimisticMessage: (message: UIMessage) => void
+  replaceOptimisticMessage: (id: string, message: UIMessage) => void
 }
 
 const defaultContextValue: ChatContextValue = {
@@ -59,6 +63,7 @@ const defaultContextValue: ChatContextValue = {
   error: null,
   isQuotaExhausted: false,
   conversationId: "",
+  repoId: undefined,
   workflowContext: null,
   sendMessage: () => {},
   respondToToolApproval: () => {},
@@ -69,6 +74,8 @@ const defaultContextValue: ChatContextValue = {
   loadChat: () => {},
   newChat: () => {},
   setWorkflowContext: () => {},
+  appendOptimisticMessage: () => {},
+  replaceOptimisticMessage: () => {},
 }
 
 const ChatContext = createContext<ChatContextValue>(defaultContextValue)
@@ -295,6 +302,20 @@ function ChatProviderClient({ children }: ChatProviderProps) {
     setChatError(null)
   }, [setMessages])
 
+  const appendOptimisticMessage = useCallback(
+    (message: UIMessage) => {
+      setMessages((prev) => [...prev, message])
+    },
+    [setMessages]
+  )
+
+  const replaceOptimisticMessage = useCallback(
+    (id: string, message: UIMessage) => {
+      setMessages((prev) => prev.map((m) => (m.id === id ? message : m)))
+    },
+    [setMessages]
+  )
+
   const loadChat = useCallback(
     (chatId: string, msgs: UIMessage[]) => {
       setChatError(null)
@@ -343,6 +364,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
     error: isQuotaExhausted ? null : combinedError,
     isQuotaExhausted,
     conversationId,
+    repoId: effectiveRepoId,
     workflowContext,
     sendMessage,
     respondToToolApproval,
@@ -353,6 +375,8 @@ function ChatProviderClient({ children }: ChatProviderProps) {
     loadChat,
     newChat,
     setWorkflowContext,
+    appendOptimisticMessage,
+    replaceOptimisticMessage,
   }
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>

@@ -107,10 +107,30 @@ export function usePersistedChat({
     [sendChatMessage, isQuotaExhausted]
   )
 
+  const appendOptimisticMessage = useCallback(
+    (message: UIMessage) => {
+      setMessages((prev) => [...prev, message])
+    },
+    [setMessages]
+  )
+
+  const replaceOptimisticMessage = useCallback(
+    (id: string, message: UIMessage) => {
+      setMessages((prev) => prev.map((m) => (m.id === id ? message : m)))
+    },
+    [setMessages]
+  )
+
+  const clearChat = useCallback(() => {
+    setMessages([])
+    setChatError(null)
+  }, [setMessages])
+
   const error = chatError || chatHookError || null
 
   return {
     chatId,
+    repoId,
     messages,
     isLoading,
     error: isQuotaExhausted ? null : error,
@@ -118,5 +138,8 @@ export function usePersistedChat({
     sendMessage,
     addToolApprovalResponse,
     setMessages,
+    appendOptimisticMessage,
+    replaceOptimisticMessage,
+    clearChat,
   }
 }
