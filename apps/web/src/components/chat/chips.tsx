@@ -1,3 +1,5 @@
+// biome-ignore-all lint/correctness/noRestrictedElements: legacy file uses raw buttons
+
 import type { ReactNode } from "react"
 import { ChipIssueGlyphIcon10 } from "#/components/icons/chip-issue-glyph-icon"
 

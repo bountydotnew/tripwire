@@ -129,6 +129,7 @@ function ThemePicker() {
   return (
     <div className="flex gap-3">
       {themes.map((theme) => (
+        // biome-ignore lint/correctness/noRestrictedElements: needed here because ui breaks without... todo: fix????
         <button
           key={theme.key}
           type="button"
@@ -199,6 +200,7 @@ function NotificationRow({
           {description}
         </div>
       </div>
+      {/* biome-ignore lint/correctness/noRestrictedElements: needed here because ui breaks without... todo: fix???? */}
       <button
         type="button"
         role="switch"

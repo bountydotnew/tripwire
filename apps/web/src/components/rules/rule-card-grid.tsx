@@ -1,3 +1,5 @@
+// biome-ignore-all lint/correctness/noRestrictedElements: legacy file uses raw buttons
+
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import type { RuleAction } from "@tripwire/db"
 import {

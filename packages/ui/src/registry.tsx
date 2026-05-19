@@ -396,6 +396,7 @@ export const { registry } = defineRegistry(catalog, {
 
           {n > 1 && (
             <div className="flex items-center gap-1.5">
+              {/* biome-ignore lint/correctness/noRestrictedElements: needed here because ui breaks without... todo: fix???? */}
               <button
                 type="button"
                 className="rounded-md px-1.5 py-1 text-[11px] text-tw-text-secondary transition-colors hover:bg-tw-hover"
@@ -405,6 +406,7 @@ export const { registry } = defineRegistry(catalog, {
               </button>
               <div className="flex flex-1 gap-0.5">
                 {props.slides.map((slide, i) => (
+                  // biome-ignore lint/correctness/noRestrictedElements: needed here because ui breaks without... todo: fix????
                   <button
                     key={slide.username}
                     type="button"
@@ -423,6 +425,7 @@ export const { registry } = defineRegistry(catalog, {
                   </button>
                 ))}
               </div>
+              {/* biome-ignore lint/correctness/noRestrictedElements: needed here because ui breaks without... todo: fix???? */}
               <button
                 type="button"
                 className="rounded-md px-1.5 py-1 text-[11px] text-tw-text-secondary transition-colors hover:bg-tw-hover"

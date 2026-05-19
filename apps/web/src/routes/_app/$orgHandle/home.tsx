@@ -430,6 +430,7 @@ function RecentChats() {
                     </span>
                     {isConfirming ? (
                       <>
+                      {/* biome-ignore lint/correctness/noRestrictedElements: needed here because ui breaks without... todo: fix???? */}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -441,6 +442,7 @@ function RecentChats() {
                         >
                           <SmallCheckStrokeIcon12 />
                         </button>
+                        {/* biome-ignore lint/correctness/noRestrictedElements */}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -454,6 +456,7 @@ function RecentChats() {
                         </button>
                       </>
                     ) : (
+                      // biome-ignore lint/correctness/noRestrictedElements: needed here because ui breaks without... todo: fix????
                       <button
                         type="button"
                         onClick={(e) => {

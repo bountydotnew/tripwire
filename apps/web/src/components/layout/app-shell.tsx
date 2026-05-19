@@ -3,7 +3,7 @@ import { parseCommand } from "#/lib/chat-commands"
 import { useSlashCommandRunner } from "#/lib/use-chat-command-runner"
 import { CommandConfirmation } from "#/components/chat/command-confirmation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Link, Outlet, useRouterState } from "@tanstack/react-router"
+import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { TopNav } from "#/components/layout/top-nav"
 import { WorkspaceRedirect } from "#/components/layout/workspace-redirect"
@@ -37,6 +37,7 @@ import {
   ChatBubbleOutlineIcon12,
   StrokeXIcon10Muted,
 } from "#/components/icons/app-chrome-icons"
+import { ExpandChatIcon14 } from "#/components/icons/expand-chat-icon"
 import { TripwireLogo } from "../icons/tripwire-logo"
 import { routes } from "#/lib/routes"
 import { uiMessagesFromStored } from "#/lib/conversation-stored"
@@ -65,8 +66,13 @@ function AppShellInner() {
     isLoading,
     isQuotaExhausted,
     newChat,
+    conversationId,
+    repoId: chatRepoId,
     messages: chatMessages,
   } = useAIChat()
+  const navigate = useNavigate()
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
   const { repos, isLoading: workspaceLoading, orgs } = useWorkspace()
   const [mutationLoading, setMutationLoading] = useState(false)
 
@@ -233,6 +239,30 @@ function AppShellInner() {
                     </ContextContent>
                   </Context>
                   <CreditBalancePill />
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      queryClient.setQueryData(
+                        trpc.chats.get.queryKey({ chatId: conversationId }),
+                        {
+                          id: conversationId,
+                          userId: "",
+                          repoId: chatRepoId ?? null,
+                          title: null,
+                          messages: chatMessages as unknown as Record<string, unknown>[],
+                          createdAt: new Date(),
+                          updatedAt: new Date(),
+                        }
+                      )
+                      close()
+                      navigate({ to: "/chat/$chatId", params: { chatId: conversationId } })
+                    }}
+                    type="button"
+                    className="flex size-6 items-center justify-center rounded-md transition-colors hover:bg-tw-hover"
+                    title="Open in full screen"
+                  >
+                    <ExpandChatIcon14 className="text-[#9F9FA9]" />
+                  </Button>
                   <Button
                     variant="ghost"
                     onClick={newChat}
