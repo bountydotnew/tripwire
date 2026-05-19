@@ -10,22 +10,13 @@ import { useCustomer } from "autumn-js/react"
 import { useTRPC } from "#/integrations/trpc/react"
 import { useRouterState } from "@tanstack/react-router"
 
+import { extractChatTitle } from "#/lib/extract-chat-title"
+
 interface UsePersistedChatOptions {
   chatId: string
   initialMessages?: UIMessage[]
   initialMessagesVersion?: number
   repoId?: string
-}
-
-function extractTitle(messages: UIMessage[]): string {
-  const firstUser = messages.find((m) => m.role === "user")
-  if (!firstUser) return "New chat"
-  const text =
-    firstUser.parts
-      ?.filter((p: any) => p.type === "text")
-      .map((p: any) => p.text ?? p.content)
-      .join("") ?? ""
-  return text.slice(0, 80) || "New chat"
 }
 
 export function usePersistedChat({
@@ -100,7 +91,7 @@ export function usePersistedChat({
         chatId,
         repoId,
         messages: messages as unknown as SerializedMessage[],
-        title: extractTitle(messages),
+        title: extractChatTitle(messages),
       })
       refetchCustomer()
     },

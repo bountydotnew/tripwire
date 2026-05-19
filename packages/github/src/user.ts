@@ -297,7 +297,9 @@ export async function fetchUserAchievements(
     const achievements: GitHubAchievement[] = []
 
     for (const card of cards) {
-      const type = (card as any).dataset?.achievementSlug
+      const type = (
+        card as unknown as { dataset?: { achievementSlug?: string } }
+      ).dataset?.achievementSlug
       if (!type) continue
       const tierLabel = card
         .querySelector(".achievement-tier-label")

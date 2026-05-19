@@ -46,8 +46,8 @@ export function registerMcpTools(
           }
 
           const ctx: ToolContext = { userId, repoId }
-          // biome-ignore lint/suspicious/noExplicitAny: cast safe; zod has validated handlerArgs
-          const output = await tool.handler(handlerArgs as any, ctx)
+          const args = tool.inputSchema.parse(handlerArgs)
+          const output = await tool.handler(args, ctx)
 
           return {
             content: [

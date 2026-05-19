@@ -5,6 +5,7 @@ import { db } from "@tripwire/db/client"
 import { conversations } from "@tripwire/db"
 import type { TRPCRouterRecord } from "@trpc/server"
 import { mergeMessagesPreservingResults } from "#/lib/chat-persistence"
+import { asConversationStoredMessages } from "#/lib/conversation-stored"
 
 export const chatsRouter = {
   create: authedProcedure
@@ -77,13 +78,13 @@ export const chatsRouter = {
           id: input.chatId,
           userId: ctx.user.id,
           repoId: input.repoId ?? null,
-          messages: merged,
+          messages: asConversationStoredMessages(merged),
           title: input.title ?? "New chat",
         })
         .onConflictDoUpdate({
           target: conversations.id,
           set: {
-            messages: merged,
+            messages: asConversationStoredMessages(merged),
             ...(input.title ? { title: input.title } : {}),
             updatedAt: new Date(),
           },

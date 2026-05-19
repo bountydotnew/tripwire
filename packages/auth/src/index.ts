@@ -187,7 +187,6 @@ export const auth = betterAuth({
         consentPage: "/oauth/consent",
       },
     }),
-    //@ts-ignore
     dash({
       apiKey: env.BETTER_AUTH_API_KEY,
     }),

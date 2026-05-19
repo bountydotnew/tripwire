@@ -7,6 +7,10 @@ You are a professional software engineer. All code must follow best practices: a
 - **Comments**: Use JSDoc for exported functions/types only. No ASCII divider comments (`// ─── Section ───`). No decorative multi-line doc comments.
 - **Styling**: Never use local classnames on componenets unless you really need to. Keep all styling to global tokens.
 - **Package Manager**: Use `pnpm`, not `npm` or `yarn`.
+- **Lint**:
+  - **Repo root** (`pnpm lint`): runs **ESLint** on the monorepo (`eslint.config.js`), then **`pnpm --filter @tripwire/web lint`** (**Biome** rules for `apps/web` only — structural/import restrictions such as restricted elements).
+  - **`apps/web` alone**: `pnpm --filter @tripwire/web lint` is Biome only; use root `pnpm lint` before CI-style checks.
+  - ESLint ignores generated and tooling dirs: `node_modules`, `dist`, `.output`, `.turbo`, `.claude`, `.cursor`, `.tanstack`, `.nitro`, `.vinxi`, `**/routeTree.gen.ts`, etc.
 - **Server/Client Boundary**: Never import `@tripwire/db` or `@tripwire/core` barrels in client code. Use subpath imports (`@tripwire/db/schema/rule-meta`, `@tripwire/core/rules/signal-registry`, `@tripwire/core/workflow-registry`) for pure-data modules. `import type` is always safe.
 - **No Effects for Prop Sync**: Never use `useEffect` to sync props to state. Use `key` props to remount, derived state, or controlled components.
 

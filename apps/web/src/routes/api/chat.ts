@@ -4,6 +4,7 @@ import {
   convertToModelMessages,
   stepCountIs,
   streamText,
+  type UIMessage,
 } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { useRequest as getNitroRequest } from "nitro/context"
@@ -17,13 +18,46 @@ import { buildSystemPrompt } from "@tripwire/ai"
 import { createContext, assertRepoOwner } from "#/integrations/trpc/init"
 import { autumn } from "@tripwire/auth/autumn"
 import { db } from "@tripwire/db/client"
-import { conversations, organizations, repositories } from "@tripwire/db"
+import {
+  conversations,
+  organizations,
+  repositories,
+  type ConversationStoredMessage,
+} from "@tripwire/db"
 import { and, eq } from "drizzle-orm"
 import type { ProviderError } from "#/types/chat"
+import { asConversationStoredMessages } from "#/lib/conversation-stored"
 import {
   mergeClientMessagesWithStored,
   sanitizeMessages,
 } from "#/lib/chat-server"
+
+function isCustomerNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false
+  const e = err as Record<string, unknown>
+  const body = e.body as Record<string, unknown> | undefined
+  const msg = typeof e.message === "string" ? e.message : ""
+  return (
+    e.statusCode === 404 ||
+    e.code === "customer_not_found" ||
+    body?.code === "customer_not_found" ||
+    msg.includes("not found")
+  )
+}
+
+type AutumnQuotaCheck = Awaited<ReturnType<typeof autumn.check>>
+
+function chatApiErrorFields(error: unknown): {
+  errMsg: string
+  provider?: string
+  raw?: unknown
+} {
+  const pe = error as ProviderError & { message?: string }
+  const errMsg = pe?.error?.message ?? pe?.message ?? "Unknown error"
+  const provider = pe?.error?.metadata?.provider_name
+  const raw = pe?.error?.metadata?.raw
+  return { errMsg, provider, raw }
+}
 
 function getRequestLog(): RequestLogger | undefined {
   try {
@@ -73,13 +107,8 @@ async function checkQuota(userId: string) {
       featureId: "ai_credits",
       withPreview: true,
     })
-  } catch (checkErr: any) {
-    const isNotFound =
-      checkErr?.statusCode === 404 ||
-      checkErr?.code === "customer_not_found" ||
-      checkErr?.body?.code === "customer_not_found" ||
-      String(checkErr?.message).includes("not found")
-    if (!isNotFound) throw checkErr
+  } catch (checkErr: unknown) {
+    if (!isCustomerNotFoundError(checkErr)) throw checkErr
     await autumn.customers.getOrCreate({ customerId: userId })
     return autumn.check({
       customerId: userId,
@@ -98,7 +127,7 @@ export const Route = createFileRoute("/api/chat")({
         const user = ctx.user
 
         try {
-          let quota: any
+          let quota: AutumnQuotaCheck
           try {
             quota = await checkQuota(user.id)
           } catch (checkErr) {
@@ -115,7 +144,11 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           if (!quota?.allowed) {
-            const code = quota?.code ?? "usage_limit"
+            const quotaRecord = quota as Record<string, unknown>
+            const code =
+              typeof quotaRecord.code === "string"
+                ? quotaRecord.code
+                : "usage_limit"
             return jsonError(
               429,
               {
@@ -143,7 +176,11 @@ export const Route = createFileRoute("/api/chat")({
           // chat. New chats race with trpc.chats.create so the row may not exist
           // yet; only block when the row exists and is owned by a different user.
           let existingConversation:
-            | { userId: string; repoId: string | null; messages: any[] }
+            | {
+                userId: string
+                repoId: string | null
+                messages: ConversationStoredMessage[]
+              }
             | undefined
           if (conversationId && typeof conversationId === "string") {
             const [existing] = await db
@@ -219,7 +256,10 @@ export const Route = createFileRoute("/api/chat")({
           if (typeof conversationId === "string" && existingConversation) {
             await db
               .update(conversations)
-              .set({ messages: mergedMessages, updatedAt: new Date() })
+              .set({
+                messages: asConversationStoredMessages(mergedMessages),
+                updatedAt: new Date(),
+              })
               .where(
                 and(
                   eq(conversations.id, conversationId),
@@ -239,15 +279,19 @@ export const Route = createFileRoute("/api/chat")({
 
           if (process.env.NODE_ENV !== "production") {
             const summary = messages
-              .map((m: any, i: number) => {
+              .map((m: UIMessage, i: number) => {
                 const parts =
                   m.parts
-                    ?.map((p: any) => {
-                      const id = p.toolCallId || p.id
+                    ?.map((p) => {
+                      const pt = p as Record<string, unknown>
+                      const id = pt.toolCallId ?? pt.id
                       const idStr = id ? `(${String(id).slice(0, 8)})` : ""
-                      const nameStr = p.name ? `:${p.name}` : ""
-                      const stateStr = p.state ? `[${p.state}]` : ""
-                      return `${p.type}${idStr}${nameStr}${stateStr}`
+                      const nameStr =
+                        typeof pt.name === "string" ? `:${pt.name}` : ""
+                      const stateStr =
+                        typeof pt.state === "string" ? `[${pt.state}]` : ""
+                      const ty = typeof pt.type === "string" ? pt.type : "?"
+                      return `${ty}${idStr}${nameStr}${stateStr}`
                     })
                     .join(", ") ?? "no-parts"
                 return `  [${i}] ${m.role}: ${parts}`
@@ -308,7 +352,7 @@ export const Route = createFileRoute("/api/chat")({
             messageMetadata: ({ part }) => {
               if (part.type === "finish") {
                 return {
-                  usage: (part as Record<string, unknown>).usage,
+                  usage: part.totalUsage,
                   modelId: aiModel,
                 }
               }
@@ -322,13 +366,13 @@ export const Route = createFileRoute("/api/chat")({
                   id: conversationId,
                   userId: user.id,
                   repoId: resolvedRepoId,
-                  messages: finishedMessages,
+                  messages: asConversationStoredMessages(finishedMessages),
                   title: "New chat",
                 })
                 .onConflictDoUpdate({
                   target: conversations.id,
                   set: {
-                    messages: finishedMessages,
+                    messages: asConversationStoredMessages(finishedMessages),
                     repoId: resolvedRepoId,
                     updatedAt: new Date(),
                   },
@@ -340,11 +384,8 @@ export const Route = createFileRoute("/api/chat")({
             },
             consumeSseStream: consumeStream,
           })
-        } catch (error: any) {
-          const errMsg =
-            error?.error?.message || error?.message || "Unknown error"
-          const provider = error?.error?.metadata?.provider_name
-          const raw = error?.error?.metadata?.raw
+        } catch (error: unknown) {
+          const { errMsg, provider, raw } = chatApiErrorFields(error)
           console.error(
             `[Chat API] ${provider ? provider + ": " : ""}${errMsg}`,
             raw ? `\n${raw}` : ""

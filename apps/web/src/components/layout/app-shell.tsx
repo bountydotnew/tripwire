@@ -26,7 +26,6 @@ import {
   ContextOutputUsage,
 } from "#/components/ui/context"
 import { AI_MODEL_ID, getContextWindow } from "@tripwire/ai/model-config"
-import type { UIMessage } from "#/types/chat"
 import { GithubIcon } from "#/components/icons/github"
 import { TripwireAskGlyphIcon18 } from "#/components/icons/tripwire-ask-glyph-icon"
 import {
@@ -37,6 +36,7 @@ import {
 } from "#/components/icons/app-chrome-icons"
 import { TripwireLogo } from "../icons/tripwire-logo"
 import { routes } from "#/lib/routes"
+import { uiMessagesFromStored } from "#/lib/conversation-stored"
 
 export function AppShell() {
   return (
@@ -340,7 +340,7 @@ function SidebarRecentChats() {
         trpc.chats.get.queryOptions({ chatId })
       )
       if (conv?.messages) {
-        loadChat(chatId, conv.messages as UIMessage[])
+        loadChat(chatId, uiMessagesFromStored(conv.messages))
         open()
       }
     } finally {

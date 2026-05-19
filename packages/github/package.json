@@ -9,6 +9,7 @@
     "./install-state": "./src/install-state.ts",
     "./verify-webhook": "./src/verify-webhook.ts",
     "./repo-files": "./src/repo-files.ts",
+    "./user": "./src/user.ts",
     "./public": "./src/public.ts",
     "./data-factory": "./src/data-factory.ts"
   },

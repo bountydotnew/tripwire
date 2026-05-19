@@ -9,6 +9,9 @@ import {
 import { user } from "./auth"
 import { repositories } from "./installations"
 
+/** JSON-serialized UI messages stored on `conversations.messages`. */
+export type ConversationStoredMessage = Record<string, unknown>
+
 /**
  * AI chat conversations — persisted chats with full message history.
  */
@@ -23,8 +26,10 @@ export const conversations = pgTable(
       onDelete: "set null",
     }),
     title: text("title"),
-    // biome-ignore lint/suspicious/noExplicitAny: stored chat message payload is open-shape
-    messages: jsonb("messages").$type<any[]>().notNull().default([]),
+    messages: jsonb("messages")
+      .$type<ConversationStoredMessage[]>()
+      .notNull()
+      .default([]),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

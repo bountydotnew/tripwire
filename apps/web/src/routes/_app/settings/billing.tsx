@@ -18,7 +18,11 @@ function BillingSettingsPage() {
 
   // Extract plan info from Autumn customer
   const subscription = customer?.subscriptions?.find(
-    (s: any) => s.status === "active"
+    (s) =>
+      typeof s === "object" &&
+      s !== null &&
+      "status" in s &&
+      (s as { status?: string }).status === "active"
   )
   const planId = subscription?.planId ?? "free"
   const planName = planId === "pro" ? "Pro" : "Free"

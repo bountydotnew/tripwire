@@ -3,15 +3,28 @@ import tsparser from "@typescript-eslint/parser"
 
 export default [
   {
-    files: ["**/*.ts", "**/*.tsx"],
     ignores: [
       "node_modules/**",
+      "**/node_modules/**",
       "dist/**",
+      "**/dist/**",
       ".output/**",
+      "**/.output/**",
       ".tanstack/**",
+      "**/.tanstack/**",
       ".vinxi/**",
-      "apps/web/src/routeTree.gen.ts",
+      ".nitro/**",
+      ".turbo/**",
+      ".claude/**",
+      "**/.claude/**",
+      ".cursor/**",
+      "**/.cursor/**",
+      "coverage/**",
+      "**/routeTree.gen.ts",
     ],
+  },
+  {
+    files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parser: tsparser,
     },
@@ -29,6 +42,12 @@ export default [
           minimumDescriptionLength: 10,
         },
       ],
+    },
+  },
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ]

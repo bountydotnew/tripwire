@@ -122,8 +122,12 @@ export function defineTool<TShape extends z.ZodRawShape, TOutput>(
   return def
 }
 
-/** Erased form used by adapters that iterate over a heterogeneous tool array. */
-// biome-ignore lint/suspicious/noExplicitAny: registry holds heterogeneous tools
+/**
+ * Erased form used by adapters that iterate over a heterogeneous tool array.
+ * TS variance keeps concrete `ToolDefinition<ConcreteShape, …>` from assigning to
+ * `ToolDefinition<ZodRawShape, unknown>`; widening here is intentional.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous tools in one registry
 export type AnyToolDefinition = ToolDefinition<any, any>
 
 // Mutation handlers can return whatever they want, but most return

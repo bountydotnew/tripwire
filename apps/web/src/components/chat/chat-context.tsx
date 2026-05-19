@@ -24,6 +24,7 @@ import {
   broadcastRuleMutation,
   extractRuleIdsFromMessages,
 } from "#/lib/workflow-events"
+import { extractChatTitle } from "#/lib/extract-chat-title"
 
 export interface WorkflowContext {
   workflowId: string
@@ -91,17 +92,6 @@ function setStoredValue(key: string, value: string): void {
   if (typeof window !== "undefined") {
     window.localStorage.setItem(key, value)
   }
-}
-
-function extractTitle(messages: UIMessage[]): string {
-  const firstUser = messages.find((m) => m.role === "user")
-  if (!firstUser) return "New chat"
-  const text =
-    firstUser.parts
-      ?.filter((p: any) => p.type === "text")
-      .map((p: any) => p.text ?? p.content)
-      .join("") ?? ""
-  return text.slice(0, 80) || "New chat"
 }
 
 function ChatProviderClient({ children }: ChatProviderProps) {
@@ -214,7 +204,7 @@ function ChatProviderClient({ children }: ChatProviderProps) {
         chatId: conversationId,
         repoId: effectiveRepoId,
         messages: messages as unknown as SerializedMessage[],
-        title: extractTitle(messages),
+        title: extractChatTitle(messages),
       })
       queryClient.invalidateQueries({ queryKey: trpc.chats.list.queryKey() })
       refetchCustomer()

@@ -72,7 +72,7 @@ export type MutableRuleConfig = {
 /** Error shape from upstream providers (OpenRouter, OpenAI, etc.) */
 export interface ProviderError {
   error?: {
-    metadata?: { raw?: unknown }
+    metadata?: { raw?: unknown; provider_name?: string }
     message?: string
   }
   message?: string

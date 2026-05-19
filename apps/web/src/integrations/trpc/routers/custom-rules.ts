@@ -19,6 +19,7 @@ import {
   customRuleDefinitionSchema,
 } from "@tripwire/core"
 import { getUserPlanId } from "#/lib/plan"
+import type { GitHubUserGraphQL } from "@tripwire/github/user"
 
 import type { TRPCRouterRecord } from "@trpc/server"
 import type { CustomRuleDefinition } from "@tripwire/db"
@@ -363,7 +364,9 @@ export const customRulesRouter = {
           undefined,
           null,
           cached?.graphqlJson
-            ? { graphql: cached.graphqlJson as any }
+            ? {
+                graphql: cached.graphqlJson as unknown as GitHubUserGraphQL,
+              }
             : undefined
         )
 
