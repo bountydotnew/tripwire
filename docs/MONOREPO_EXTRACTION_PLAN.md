@@ -57,6 +57,7 @@ db ──┬──> auth ──┐
 ```
 
 Reasoning:
+
 - `db` has the schema. Everything that touches Postgres needs it.
 - `auth` configures Better-Auth and pulls user/session models from `db`.
 - `github` is pure API client code; takes a token, returns data. No DB.
@@ -72,6 +73,7 @@ Reasoning:
 ### Phase 1: `@tripwire/db`
 
 **Move:**
+
 - `apps/web/src/db/index.ts` → `packages/db/src/connection.ts`
 - `apps/web/src/db/schema.ts` → `packages/db/src/schema.ts`
 - `apps/web/drizzle/` → leave with web for now (migrations execute against
@@ -79,13 +81,15 @@ Reasoning:
   migrations independently).
 
 **Exports:**
+
 ```ts
 // packages/db/src/index.ts
-export * from "./schema";
-export { db } from "./connection";
+export * from "./schema"
+export { db } from "./connection"
 ```
 
 **Package config:**
+
 ```json
 {
   "name": "@tripwire/db",
@@ -101,6 +105,7 @@ export { db } from "./connection";
 ```
 
 **Migration in apps/web:**
+
 - `#/db` → `@tripwire/db` (single find-replace)
 - `#/db/schema` → `@tripwire/db`
 - Drizzle config now reads schema from `../../packages/db/src/schema.ts`.
@@ -110,9 +115,11 @@ export { db } from "./connection";
 ### Phase 2: `@tripwire/auth`
 
 **Move:**
+
 - `apps/web/src/lib/auth.ts` → `packages/auth/src/index.ts`
 
 **Exports:**
+
 - `auth` (Better-Auth instance)
 - Plus the GitHub installation and Autumn plugin config it currently does.
 
@@ -133,9 +140,11 @@ handler — verify SSR flows still work.
 ### Phase 3: `@tripwire/github`
 
 **Move:**
+
 - `apps/web/src/lib/github/` → `packages/github/src/`
 
 **Files:**
+
 - `github-api.ts` (the main helpers)
 - `filter-pipeline.ts` (if it's pure)
 - All `*.test.ts`
@@ -152,6 +161,7 @@ etc. functions.
 ### Phase 4: `@tripwire/core`
 
 **Move:**
+
 - `apps/web/src/lib/events.ts` → `packages/core/src/events.ts`
 - `apps/web/src/lib/reputation.ts` → `packages/core/src/reputation.ts`
 - `apps/web/src/lib/rules/` → `packages/core/src/rules/`
@@ -165,6 +175,7 @@ etc. functions.
 `getRuleConfigChanges`, etc.
 
 **Migration:**
+
 - `#/lib/events` → `@tripwire/core`
 - `#/lib/reputation` → `@tripwire/core`
 - `#/lib/rules/config-schema` → `@tripwire/core`
@@ -178,9 +189,11 @@ is injected.
 ### Phase 5: `@tripwire/tools`
 
 **Move:**
+
 - `apps/web/src/lib/tools/` → `packages/tools/src/`
 
 **Already a well-bounded module.** Its deps:
+
 - `@tripwire/db` (schema types)
 - `@tripwire/core` (logEvent, rule helpers, reset, score)
 - `@tripwire/github` (lookup_user helpers)
@@ -198,6 +211,7 @@ this phase only works after 1–4 are done.
 ### Phase 6: `@tripwire/ui`
 
 **Move:**
+
 - `apps/web/src/lib/ai/ui-catalog.ts` → `packages/ui/src/catalog.ts`
 - `apps/web/src/lib/ai/ui-registry.tsx` → `packages/ui/src/registry.tsx`
 - `apps/web/src/components/ui/` (base primitives) → `packages/ui/src/components/`
@@ -223,6 +237,7 @@ needs careful testing.
 ## Per-phase verification
 
 After each phase:
+
 1. `pnpm install` — workspace links the new package.
 2. `pnpm --filter @tripwire/web typecheck` — same 21 pre-existing errors,
    no new ones.

@@ -1,10 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { createContext } from "#/integrations/trpc/init";
-import {
-	INSTALL_STATE_COOKIE,
-	signInstallState,
-} from '@tripwire/github';
-import { env } from "@tripwire/env/client";
+import { createFileRoute } from "@tanstack/react-router"
+import { createContext } from "#/integrations/trpc/init"
+import { INSTALL_STATE_COOKIE, signInstallState } from "@tripwire/github"
+import { env } from "@tripwire/env/client"
 
 /**
  * Initiates a GitHub App install with a signed `state` parameter.
@@ -19,45 +16,45 @@ import { env } from "@tripwire/env/client";
  *   7. The callback verifies cookie === query state AND signature.
  */
 async function handler({ request }: { request: Request }) {
-	const ctx = await createContext({ headers: request.headers });
-	if (!ctx.user) {
-		return new Response(null, {
-			status: 302,
-			headers: { Location: "/login?next=/integrations" },
-		});
-	}
+  const ctx = await createContext({ headers: request.headers })
+  if (!ctx.user) {
+    return new Response(null, {
+      status: 302,
+      headers: { Location: "/login?next=/integrations" },
+    })
+  }
 
-	const appSlug = env.VITE_GITHUB_APP_SLUG ?? "tripwire-dev";
-	const { value, cookieMaxAge } = signInstallState(ctx.user.id);
-	const isProd = process.env.NODE_ENV === "production";
+  const appSlug = env.VITE_GITHUB_APP_SLUG ?? "tripwire-dev"
+  const { value, cookieMaxAge } = signInstallState(ctx.user.id)
+  const isProd = process.env.NODE_ENV === "production"
 
-	const cookieAttrs = [
-		`${INSTALL_STATE_COOKIE}=${value}`,
-		"Path=/",
-		"HttpOnly",
-		"SameSite=Lax",
-		`Max-Age=${cookieMaxAge}`,
-	];
-	if (isProd) cookieAttrs.push("Secure");
+  const cookieAttrs = [
+    `${INSTALL_STATE_COOKIE}=${value}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${cookieMaxAge}`,
+  ]
+  if (isProd) cookieAttrs.push("Secure")
 
-	const installUrl = new URL(
-		`https://github.com/apps/${appSlug}/installations/new`,
-	);
-	installUrl.searchParams.set("state", value);
+  const installUrl = new URL(
+    `https://github.com/apps/${appSlug}/installations/new`
+  )
+  installUrl.searchParams.set("state", value)
 
-	const headers = new Headers({
-		Location: installUrl.toString(),
-		"Set-Cookie": cookieAttrs.join("; "),
-		"Cache-Control": "no-store",
-	});
+  const headers = new Headers({
+    Location: installUrl.toString(),
+    "Set-Cookie": cookieAttrs.join("; "),
+    "Cache-Control": "no-store",
+  })
 
-	return new Response(null, { status: 302, headers });
+  return new Response(null, { status: 302, headers })
 }
 
 export const Route = createFileRoute("/api/github/install")({
-	server: {
-		handlers: {
-			GET: handler,
-		},
-	},
-});
+  server: {
+    handlers: {
+      GET: handler,
+    },
+  },
+})

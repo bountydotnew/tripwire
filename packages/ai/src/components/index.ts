@@ -4,4 +4,4 @@
 // client) live in the consuming app — see apps/web/src/components/chat/.
 // Anything here is portable React code.
 
-export * from "./thinking-phrases";
+export * from "./thinking-phrases"

@@ -1,7 +1,7 @@
-import { initTRPC, TRPCError } from '@trpc/server'
-import superjson from 'superjson'
-import { EvlogError } from 'evlog'
-import { auth } from '@tripwire/auth'
+import { initTRPC, TRPCError } from "@trpc/server"
+import superjson from "superjson"
+import { EvlogError } from "evlog"
+import { auth } from "@tripwire/auth"
 
 // Repo/event/request/org ownership checks live in @tripwire/core so the
 // tool registry can use them without importing tRPC. They throw EvlogError;
@@ -11,14 +11,16 @@ export {
   assertRepoOwner,
   assertEventOwner,
   assertRequestOwner,
-} from '@tripwire/core'
+} from "@tripwire/core"
 
 export interface TRPCContext {
   headers: Headers
   user: { id: string; name: string; email: string; role?: string | null } | null
 }
 
-export async function createContext(opts: { headers: Headers }): Promise<TRPCContext> {
+export async function createContext(opts: {
+  headers: Headers
+}): Promise<TRPCContext> {
   // Validate session using Better Auth
   const session = await auth.api.getSession({
     headers: opts.headers,
@@ -60,8 +62,8 @@ export const publicProcedure = t.procedure
 const authMiddleware = t.middleware(async ({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'You must be logged in to perform this action',
+      code: "UNAUTHORIZED",
+      message: "You must be logged in to perform this action",
     })
   }
   return next({
@@ -78,14 +80,14 @@ export const authedProcedure = t.procedure.use(authMiddleware)
 const adminMiddleware = t.middleware(async ({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'You must be logged in to perform this action',
+      code: "UNAUTHORIZED",
+      message: "You must be logged in to perform this action",
     })
   }
-  if (ctx.user.role !== 'admin') {
+  if (ctx.user.role !== "admin") {
     throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'This action requires admin privileges',
+      code: "FORBIDDEN",
+      message: "This action requires admin privileges",
     })
   }
   return next({

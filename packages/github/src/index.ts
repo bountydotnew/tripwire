@@ -6,8 +6,8 @@
 // and is available via the "./data-factory" subpath export, NOT re-exported
 // here, to avoid pulling DB deps into client bundles.
 
-export * from "./github-api";
-export * from "./public";
-export * from "./install-state";
-export * from "./verify-webhook";
-export * from "./repo-files";
+export * from "./github-api"
+export * from "./public"
+export * from "./install-state"
+export * from "./verify-webhook"
+export * from "./repo-files"

@@ -1,63 +1,68 @@
-import { Renderer, Program, Mesh, Triangle, Texture } from "ogl";
-import { useEffect, useRef } from "react";
+import { Renderer, Program, Mesh, Triangle, Texture } from "ogl"
+import { useEffect, useRef } from "react"
 
 function hexToVec3(hex: string): [number, number, number] {
-	const h = hex.replace("#", "");
-	return [
-		parseInt(h.slice(0, 2), 16) / 255,
-		parseInt(h.slice(2, 4), 16) / 255,
-		parseInt(h.slice(4, 6), 16) / 255,
-	];
+  const h = hex.replace("#", "")
+  return [
+    parseInt(h.slice(0, 2), 16) / 255,
+    parseInt(h.slice(2, 4), 16) / 255,
+    parseInt(h.slice(4, 6), 16) / 255,
+  ]
 }
 
 function generateNoiseTexture(size = 256) {
-	const data = new Uint8Array(size * size * 4);
+  const data = new Uint8Array(size * size * 4)
 
-	function hash(x: number, y: number, s: number) {
-		let n = x * 374761393 + y * 668265263 + s * 1274126177;
-		n = Math.imul(n ^ (n >>> 13), 1274126177);
-		return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
-	}
+  function hash(x: number, y: number, s: number) {
+    let n = x * 374761393 + y * 668265263 + s * 1274126177
+    n = Math.imul(n ^ (n >>> 13), 1274126177)
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296
+  }
 
-	function noise(px: number, py: number, freq: number, seed: number) {
-		const fx = (px / size) * freq;
-		const fy = (py / size) * freq;
-		const ix = Math.floor(fx);
-		const iy = Math.floor(fy);
-		const tx = fx - ix;
-		const ty = fy - iy;
-		const w = freq | 0;
-		const v00 = hash(((ix % w) + w) % w, ((iy % w) + w) % w, seed);
-		const v10 = hash((((ix + 1) % w) + w) % w, ((iy % w) + w) % w, seed);
-		const v01 = hash(((ix % w) + w) % w, (((iy + 1) % w) + w) % w, seed);
-		const v11 = hash((((ix + 1) % w) + w) % w, (((iy + 1) % w) + w) % w, seed);
-		return v00 * (1 - tx) * (1 - ty) + v10 * tx * (1 - ty) + v01 * (1 - tx) * ty + v11 * tx * ty;
-	}
+  function noise(px: number, py: number, freq: number, seed: number) {
+    const fx = (px / size) * freq
+    const fy = (py / size) * freq
+    const ix = Math.floor(fx)
+    const iy = Math.floor(fy)
+    const tx = fx - ix
+    const ty = fy - iy
+    const w = freq | 0
+    const v00 = hash(((ix % w) + w) % w, ((iy % w) + w) % w, seed)
+    const v10 = hash((((ix + 1) % w) + w) % w, ((iy % w) + w) % w, seed)
+    const v01 = hash(((ix % w) + w) % w, (((iy + 1) % w) + w) % w, seed)
+    const v11 = hash((((ix + 1) % w) + w) % w, (((iy + 1) % w) + w) % w, seed)
+    return (
+      v00 * (1 - tx) * (1 - ty) +
+      v10 * tx * (1 - ty) +
+      v01 * (1 - tx) * ty +
+      v11 * tx * ty
+    )
+  }
 
-	for (let y = 0; y < size; y++) {
-		for (let x = 0; x < size; x++) {
-			let v = 0;
-			let amp = 0.4;
-			let totalAmp = 0;
-			for (let o = 0; o < 8; o++) {
-				const f = 32 * (1 << o);
-				v += amp * noise(x, y, f, o * 31);
-				totalAmp += amp;
-				amp *= 0.65;
-			}
-			v /= totalAmp;
-			v = (v - 0.5) * 2.2 + 0.5;
-			v = Math.max(0, Math.min(1, v));
-			const val = Math.round(v * 255);
-			const i = (y * size + x) * 4;
-			data[i] = val;
-			data[i + 1] = val;
-			data[i + 2] = val;
-			data[i + 3] = 255;
-		}
-	}
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let v = 0
+      let amp = 0.4
+      let totalAmp = 0
+      for (let o = 0; o < 8; o++) {
+        const f = 32 * (1 << o)
+        v += amp * noise(x, y, f, o * 31)
+        totalAmp += amp
+        amp *= 0.65
+      }
+      v /= totalAmp
+      v = (v - 0.5) * 2.2 + 0.5
+      v = Math.max(0, Math.min(1, v))
+      const val = Math.round(v * 255)
+      const i = (y * size + x) * 4
+      data[i] = val
+      data[i + 1] = val
+      data[i + 2] = val
+      data[i + 3] = 255
+    }
+  }
 
-	return data;
+  return data
 }
 
 const vertexShader = `
@@ -68,7 +73,7 @@ void main() {
   vUv = uv;
   gl_Position = vec4(position, 0, 1);
 }
-`;
+`
 
 const fragmentShader = `
 precision highp float;
@@ -146,130 +151,151 @@ void main() {
 
   gl_FragColor = vec4(color, 1.0);
 }
-`;
+`
 
 interface EvilEyeProps {
-	eyeColor?: string;
-	intensity?: number;
-	pupilSize?: number;
-	irisWidth?: number;
-	glowIntensity?: number;
-	scale?: number;
-	noiseScale?: number;
-	pupilFollow?: number;
-	flameSpeed?: number;
-	backgroundColor?: string;
+  eyeColor?: string
+  intensity?: number
+  pupilSize?: number
+  irisWidth?: number
+  glowIntensity?: number
+  scale?: number
+  noiseScale?: number
+  pupilFollow?: number
+  flameSpeed?: number
+  backgroundColor?: string
 }
 
 export default function EvilEye({
-	eyeColor = "#FF6F37",
-	intensity = 1.5,
-	pupilSize = 0.6,
-	irisWidth = 0.25,
-	glowIntensity = 0.35,
-	scale = 0.8,
-	noiseScale = 1.0,
-	pupilFollow = 1.0,
-	flameSpeed = 1.0,
-	backgroundColor = "#000000",
+  eyeColor = "#FF6F37",
+  intensity = 1.5,
+  pupilSize = 0.6,
+  irisWidth = 0.25,
+  glowIntensity = 0.35,
+  scale = 0.8,
+  noiseScale = 1.0,
+  pupilFollow = 1.0,
+  flameSpeed = 1.0,
+  backgroundColor = "#000000",
 }: EvilEyeProps) {
-	const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
 
-	useEffect(() => {
-		if (!containerRef.current) return;
-		const container = containerRef.current;
-		const renderer = new Renderer({ alpha: true, premultipliedAlpha: false });
-		const gl = renderer.gl;
-		gl.clearColor(0, 0, 0, 0);
+  useEffect(() => {
+    if (!containerRef.current) return
+    const container = containerRef.current
+    const renderer = new Renderer({ alpha: true, premultipliedAlpha: false })
+    const gl = renderer.gl
+    gl.clearColor(0, 0, 0, 0)
 
-		const noiseData = generateNoiseTexture(256);
-		const noiseTexture = new Texture(gl, {
-			image: noiseData,
-			width: 256,
-			height: 256,
-			generateMipmaps: false,
-			flipY: false,
-		});
-		noiseTexture.minFilter = gl.LINEAR;
-		noiseTexture.magFilter = gl.LINEAR;
-		noiseTexture.wrapS = gl.REPEAT;
-		noiseTexture.wrapT = gl.REPEAT;
+    const noiseData = generateNoiseTexture(256)
+    const noiseTexture = new Texture(gl, {
+      image: noiseData,
+      width: 256,
+      height: 256,
+      generateMipmaps: false,
+      flipY: false,
+    })
+    noiseTexture.minFilter = gl.LINEAR
+    noiseTexture.magFilter = gl.LINEAR
+    noiseTexture.wrapS = gl.REPEAT
+    noiseTexture.wrapT = gl.REPEAT
 
-		const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+    const mouse = { x: 0, y: 0, tx: 0, ty: 0 }
 
-		function onMouseMove(e: MouseEvent) {
-			const rect = container.getBoundingClientRect();
-			mouse.tx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-			mouse.ty = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-		}
+    function onMouseMove(e: MouseEvent) {
+      const rect = container.getBoundingClientRect()
+      mouse.tx = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      mouse.ty = -(((e.clientY - rect.top) / rect.height) * 2 - 1)
+    }
 
-		function onMouseLeave() {
-			mouse.tx = 0;
-			mouse.ty = 0;
-		}
+    function onMouseLeave() {
+      mouse.tx = 0
+      mouse.ty = 0
+    }
 
-		container.addEventListener("mousemove", onMouseMove);
-		container.addEventListener("mouseleave", onMouseLeave);
+    container.addEventListener("mousemove", onMouseMove)
+    container.addEventListener("mouseleave", onMouseLeave)
 
-		let program: Program;
+    let program: Program
 
-		function resize() {
-			renderer.setSize(container.offsetWidth, container.offsetHeight);
-			if (program) {
-				program.uniforms.uResolution.value = [gl.canvas.width, gl.canvas.height, gl.canvas.width / gl.canvas.height];
-			}
-		}
-		window.addEventListener("resize", resize);
-		resize();
+    function resize() {
+      renderer.setSize(container.offsetWidth, container.offsetHeight)
+      if (program) {
+        program.uniforms.uResolution.value = [
+          gl.canvas.width,
+          gl.canvas.height,
+          gl.canvas.width / gl.canvas.height,
+        ]
+      }
+    }
+    window.addEventListener("resize", resize)
+    resize()
 
-		const geometry = new Triangle(gl);
-		program = new Program(gl, {
-			vertex: vertexShader,
-			fragment: fragmentShader,
-			uniforms: {
-				uTime: { value: 0 },
-				uResolution: { value: [gl.canvas.width, gl.canvas.height, gl.canvas.width / gl.canvas.height] },
-				uNoiseTexture: { value: noiseTexture },
-				uPupilSize: { value: pupilSize },
-				uIrisWidth: { value: irisWidth },
-				uGlowIntensity: { value: glowIntensity },
-				uIntensity: { value: intensity },
-				uScale: { value: scale },
-				uNoiseScale: { value: noiseScale },
-				uMouse: { value: [0, 0] },
-				uPupilFollow: { value: pupilFollow },
-				uFlameSpeed: { value: flameSpeed },
-				uEyeColor: { value: hexToVec3(eyeColor) },
-				uBgColor: { value: hexToVec3(backgroundColor) },
-			},
-		});
+    const geometry = new Triangle(gl)
+    program = new Program(gl, {
+      vertex: vertexShader,
+      fragment: fragmentShader,
+      uniforms: {
+        uTime: { value: 0 },
+        uResolution: {
+          value: [
+            gl.canvas.width,
+            gl.canvas.height,
+            gl.canvas.width / gl.canvas.height,
+          ],
+        },
+        uNoiseTexture: { value: noiseTexture },
+        uPupilSize: { value: pupilSize },
+        uIrisWidth: { value: irisWidth },
+        uGlowIntensity: { value: glowIntensity },
+        uIntensity: { value: intensity },
+        uScale: { value: scale },
+        uNoiseScale: { value: noiseScale },
+        uMouse: { value: [0, 0] },
+        uPupilFollow: { value: pupilFollow },
+        uFlameSpeed: { value: flameSpeed },
+        uEyeColor: { value: hexToVec3(eyeColor) },
+        uBgColor: { value: hexToVec3(backgroundColor) },
+      },
+    })
 
-		const mesh = new Mesh(gl, { geometry, program });
-		container.appendChild(gl.canvas);
+    const mesh = new Mesh(gl, { geometry, program })
+    container.appendChild(gl.canvas)
 
-		let animationFrameId: number;
+    let animationFrameId: number
 
-		function update(time: number) {
-			animationFrameId = requestAnimationFrame(update);
-			mouse.x += (mouse.tx - mouse.x) * 0.05;
-			mouse.y += (mouse.ty - mouse.y) * 0.05;
-			program.uniforms.uMouse.value = [mouse.x, mouse.y];
-			program.uniforms.uTime.value = time * 0.001;
-			renderer.render({ scene: mesh });
-		}
-		animationFrameId = requestAnimationFrame(update);
+    function update(time: number) {
+      animationFrameId = requestAnimationFrame(update)
+      mouse.x += (mouse.tx - mouse.x) * 0.05
+      mouse.y += (mouse.ty - mouse.y) * 0.05
+      program.uniforms.uMouse.value = [mouse.x, mouse.y]
+      program.uniforms.uTime.value = time * 0.001
+      renderer.render({ scene: mesh })
+    }
+    animationFrameId = requestAnimationFrame(update)
 
-		return () => {
-			cancelAnimationFrame(animationFrameId);
-			window.removeEventListener("resize", resize);
-			container.removeEventListener("mousemove", onMouseMove);
-			container.removeEventListener("mouseleave", onMouseLeave);
-			if (gl.canvas.parentNode === container) {
-				container.removeChild(gl.canvas);
-			}
-			gl.getExtension("WEBGL_lose_context")?.loseContext();
-		};
-	}, [eyeColor, intensity, pupilSize, irisWidth, glowIntensity, scale, noiseScale, pupilFollow, flameSpeed, backgroundColor]);
+    return () => {
+      cancelAnimationFrame(animationFrameId)
+      window.removeEventListener("resize", resize)
+      container.removeEventListener("mousemove", onMouseMove)
+      container.removeEventListener("mouseleave", onMouseLeave)
+      if (gl.canvas.parentNode === container) {
+        container.removeChild(gl.canvas)
+      }
+      gl.getExtension("WEBGL_lose_context")?.loseContext()
+    }
+  }, [
+    eyeColor,
+    intensity,
+    pupilSize,
+    irisWidth,
+    glowIntensity,
+    scale,
+    noiseScale,
+    pupilFollow,
+    flameSpeed,
+    backgroundColor,
+  ])
 
-	return <div ref={containerRef} className="w-full h-full" />;
+  return <div ref={containerRef} className="h-full w-full" />
 }

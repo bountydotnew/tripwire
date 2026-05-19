@@ -1,63 +1,65 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
-import { createMiddleware } from "@tanstack/react-start";
-import { evlogErrorHandler } from "evlog/nitro/v3";
-import RootProvider from "#/integrations/tanstack-query/root-provider";
-import { AutumnProvider } from "autumn-js/react";
-import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
-import { ToastProvider, AnchoredToastProvider } from "#/components/ui/toast";
-import appCss from "../styles.css?url";
+import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import { createMiddleware } from "@tanstack/react-start"
+import { evlogErrorHandler } from "evlog/nitro/v3"
+import RootProvider from "#/integrations/tanstack-query/root-provider"
+import { AutumnProvider } from "autumn-js/react"
+import { NuqsAdapter } from "nuqs/adapters/tanstack-router"
+import { ToastProvider, AnchoredToastProvider } from "#/components/ui/toast"
+import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
-	server: {
-		middleware: [createMiddleware().server(evlogErrorHandler)],
-	},
-	head: () => ({
-		meta: [
-			{ charSet: "utf-8" },
-			{
-				name: "viewport",
-				content: "width=device-width, initial-scale=1",
-			},
-			{ title: "Tripwire" },
-		],
-		links: [
-			{ rel: "icon", type: "image/png", href: "/favicon.png" },
-			{ rel: "preconnect", href: "https://fonts.googleapis.com" },
-			{
-				rel: "preconnect",
-				href: "https://fonts.gstatic.com",
-				crossOrigin: "anonymous",
-			},
-			{
-				rel: "stylesheet",
-				href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;520;600;700&display=swap",
-			},
-			{ rel: "stylesheet", href: appCss },
-		],
-	}),
-	shellComponent: RootDocument,
-});
+  server: {
+    middleware: [createMiddleware().server(evlogErrorHandler)],
+  },
+  head: () => ({
+    meta: [
+      { charSet: "utf-8" },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1",
+      },
+      { title: "Tripwire" },
+    ],
+    links: [
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;520;600;700&display=swap",
+      },
+      { rel: "stylesheet", href: appCss },
+    ],
+  }),
+  shellComponent: RootDocument,
+})
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-	return (
-		<html lang="en" suppressHydrationWarning>
-			<head>
-				<HeadContent />
-			</head>
-			<body>
-				<RootProvider>
-					<NuqsAdapter>
-						<AutumnProvider useBetterAuth>
-							<ToastProvider>
-								<AnchoredToastProvider>
-									{children}
-								</AnchoredToastProvider>
-							</ToastProvider>
-						</AutumnProvider>
-					</NuqsAdapter>
-				</RootProvider>
-				<Scripts />
-			</body>
-		</html>
-	);
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          crossOrigin="anonymous"
+          src="//unpkg.com/react-scan/dist/auto.global.js"
+        ></script>
+        <HeadContent />
+      </head>
+      <body>
+        <RootProvider>
+          <NuqsAdapter>
+            <AutumnProvider useBetterAuth>
+              <ToastProvider>
+                <AnchoredToastProvider>{children}</AnchoredToastProvider>
+              </ToastProvider>
+            </AutumnProvider>
+          </NuqsAdapter>
+        </RootProvider>
+        <Scripts />
+      </body>
+    </html>
+  )
 }

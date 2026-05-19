@@ -1,5 +1,5 @@
-import { definePlugin as defineNitroPlugin } from "nitro";
-import { startTelemetry } from "../../src/instrumentation";
+import { definePlugin as defineNitroPlugin } from "nitro"
+import { startTelemetry } from "../../src/instrumentation"
 
 /**
  * Boot the OpenTelemetry Node SDK as soon as the Nitro server starts.
@@ -7,5 +7,5 @@ import { startTelemetry } from "../../src/instrumentation";
  * can wrap HTTP, fetch, drizzle, etc.
  */
 export default defineNitroPlugin(() => {
-	startTelemetry();
-});
+  startTelemetry()
+})

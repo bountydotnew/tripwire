@@ -1,27 +1,38 @@
 {
-	"name": "tripwire",
-	"private": true,
-	"type": "module",
-	"packageManager": "pnpm@10.18.1",
-	"scripts": {
-		"postinstall": "node scripts/fix-nitro-windows-paths.mjs",
-		"dev": "turbo run dev",
-		"build": "turbo run build",
-		"test": "turbo run test",
-		"typecheck": "turbo run typecheck",
-		"lint": "turbo run lint",
-		"clean": "turbo run clean && rm -rf node_modules .turbo",
-		"db:generate": "pnpm --filter @tripwire/web db:generate",
-		"db:migrate": "pnpm --filter @tripwire/web db:migrate",
-		"db:push": "pnpm --filter @tripwire/web db:push",
-		"db:pull": "pnpm --filter @tripwire/web db:pull",
-		"db:studio": "pnpm --filter @tripwire/web db:studio"
-	},
-	"devDependencies": {
-		"turbo": "^2.5.10",
-		"typescript": "^5.7.2"
-	},
-	"pnpm": {
-		"onlyBuiltDependencies": ["esbuild", "lightningcss"]
-	}
+  "name": "tripwire",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.1",
+  "scripts": {
+    "postinstall": "node scripts/fix-nitro-windows-paths.mjs",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint . && pnpm --filter @tripwire/web lint",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "db:generate": "pnpm --filter @tripwire/web db:generate",
+    "db:migrate": "pnpm --filter @tripwire/web db:migrate",
+    "db:push": "pnpm --filter @tripwire/web db:push",
+    "db:pull": "pnpm --filter @tripwire/web db:pull",
+    "db:studio": "pnpm --filter @tripwire/web db:studio"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
+    "@typescript-eslint/parser": "^8.59.4",
+    "eslint": "^10.4.0",
+    "prettier": "^3.8.3",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "turbo": "^2.5.10",
+    "typescript": "^5.7.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss"
+    ]
+  }
 }

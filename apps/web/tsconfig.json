@@ -1,13 +1,13 @@
 {
-	"extends": "../../tsconfig.base.json",
-	"include": ["**/*.ts", "**/*.tsx"],
-	"exclude": ["node_modules", ".output", ".tanstack", "dist"],
-	"compilerOptions": {
-		"types": ["vite/client"],
-		"baseUrl": ".",
-		"paths": {
-			"#/*": ["./src/*"],
-			"@/*": ["./src/*"]
-		}
-	}
+  "extends": "../../tsconfig.base.json",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", ".output", ".tanstack", "dist"],
+  "compilerOptions": {
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "#/*": ["./src/*"],
+      "@/*": ["./src/*"]
+    }
+  }
 }

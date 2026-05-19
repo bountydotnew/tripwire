@@ -14,34 +14,34 @@
  * contradictions that make the "bug" unsolvable).
  */
 
-import { eq, and, sql } from "drizzle-orm";
-import { db } from "@tripwire/db/client";
+import { eq, and, sql } from "drizzle-orm"
+import { db } from "@tripwire/db/client"
 import {
-	fakeBountyConfigs,
-	fakeBounties,
-	fakeBountyCatches,
-	repositories,
-	organizations,
-} from "@tripwire/db";
+  fakeBountyConfigs,
+  fakeBounties,
+  fakeBountyCatches,
+  repositories,
+  organizations,
+} from "@tripwire/db"
 import {
-	getInstallationToken,
-	addComment,
-	closePullRequest,
-	githubApi,
-} from "@tripwire/github";
-import { logEvent } from "./events";
+  getInstallationToken,
+  addComment,
+  closePullRequest,
+  githubApi,
+} from "@tripwire/github"
+import { logEvent } from "./events"
 
 // ─── Issue templates ──────────────────────────────────────────
 
 interface BountyTemplate {
-	title: string;
-	body: string;
+  title: string
+  body: string
 }
 
 const BOUNTY_TEMPLATES: BountyTemplate[] = [
-	{
-		title: "Fix race condition in concurrent request handler",
-		body: `## Description
+  {
+    title: "Fix race condition in concurrent request handler",
+    body: `## Description
 
 We're seeing intermittent failures in the request handler when processing concurrent requests. The issue appears when two requests arrive within the same event loop tick and both attempt to acquire the shared resource lock.
 
@@ -62,10 +62,10 @@ Approximately 1 in 500 requests fails with a timeout when under concurrent load.
 
 ## Bounty
 Looking for someone to identify and fix the root cause. The fix should handle the edge case without introducing additional latency for non-contended requests.`,
-	},
-	{
-		title: "Optimize database query performance for large datasets",
-		body: `## Problem
+  },
+  {
+    title: "Optimize database query performance for large datasets",
+    body: `## Problem
 
 The dashboard query that aggregates user statistics is taking 8-12 seconds on datasets over 100k rows. We need to bring this under 500ms.
 
@@ -85,10 +85,10 @@ The query joins three tables and uses a window function for ranking. The executi
 
 ## Reward
 Substantial bounty for a clean, well-tested solution that meets all requirements.`,
-	},
-	{
-		title: "Implement retry logic for flaky external API integration",
-		body: `## Context
+  },
+  {
+    title: "Implement retry logic for flaky external API integration",
+    body: `## Context
 
 Our integration with the external notification service intermittently returns 503 errors. We need robust retry logic that handles:
 
@@ -109,10 +109,10 @@ The API sometimes returns 200 with an error body (legacy behavior). These should
 
 ## Bounty
 Open to contributors. Please include tests covering all the scenarios above.`,
-	},
-	{
-		title: "Fix timezone handling in scheduled task processor",
-		body: `## Bug report
+  },
+  {
+    title: "Fix timezone handling in scheduled task processor",
+    body: `## Bug report
 
 Tasks scheduled across DST transitions are executing at the wrong time. A task scheduled for "every day at 9:00 AM EST" shifts by one hour during daylight saving transitions.
 
@@ -131,10 +131,10 @@ The scheduler's cron parser is custom-built and doesn't support standard cron ex
 
 ## Bounty
 Available for contributors familiar with timezone edge cases.`,
-	},
-	{
-		title: "Resolve memory leak in WebSocket connection pool",
-		body: `## Issue
+  },
+  {
+    title: "Resolve memory leak in WebSocket connection pool",
+    body: `## Issue
 
 The WebSocket server's connection pool grows unbounded under certain conditions. Memory usage increases by ~50MB/hour when clients frequently disconnect and reconnect.
 
@@ -152,11 +152,11 @@ The WebSocket server's connection pool grows unbounded under certain conditions.
 
 ## Reward
 Bounty for identifying the exact leak source and providing a minimal fix with a regression test.`,
-	},
-];
+  },
+]
 
 function pickTemplate(): BountyTemplate {
-	return BOUNTY_TEMPLATES[Math.floor(Math.random() * BOUNTY_TEMPLATES.length)];
+  return BOUNTY_TEMPLATES[Math.floor(Math.random() * BOUNTY_TEMPLATES.length)]
 }
 
 // ─── Core functions ───────────────────────────────────────────
@@ -165,79 +165,76 @@ function pickTemplate(): BountyTemplate {
  * Create a new fake bounty issue in the repo.
  */
 export async function createFakeBounty(repoId: string): Promise<{
-	issueNumber: number;
-	title: string;
+  issueNumber: number
+  title: string
 } | null> {
-	const [repo] = await db
-		.select({
-			fullName: repositories.fullName,
-			orgId: repositories.orgId,
-		})
-		.from(repositories)
-		.where(eq(repositories.id, repoId))
-		.limit(1);
-	if (!repo) return null;
+  const [repo] = await db
+    .select({
+      fullName: repositories.fullName,
+      orgId: repositories.orgId,
+    })
+    .from(repositories)
+    .where(eq(repositories.id, repoId))
+    .limit(1)
+  if (!repo) return null
 
-	const [org] = await db
-		.select({ installationId: organizations.githubInstallationId })
-		.from(organizations)
-		.where(eq(organizations.id, repo.orgId))
-		.limit(1);
-	if (!org) return null;
+  const [org] = await db
+    .select({ installationId: organizations.githubInstallationId })
+    .from(organizations)
+    .where(eq(organizations.id, repo.orgId))
+    .limit(1)
+  if (!org) return null
 
-	const [config] = await db
-		.select()
-		.from(fakeBountyConfigs)
-		.where(eq(fakeBountyConfigs.repoId, repoId))
-		.limit(1);
-	if (!config?.enabled) return null;
+  const [config] = await db
+    .select()
+    .from(fakeBountyConfigs)
+    .where(eq(fakeBountyConfigs.repoId, repoId))
+    .limit(1)
+  if (!config?.enabled) return null
 
-	// Check active count
-	const [activeCount] = await db
-		.select({ count: sql<number>`count(*)::int` })
-		.from(fakeBounties)
-		.where(
-			and(
-				eq(fakeBounties.repoId, repoId),
-				eq(fakeBounties.status, "active"),
-			),
-		);
-	if ((activeCount?.count ?? 0) >= config.maxActive) return null;
+  // Check active count
+  const [activeCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(fakeBounties)
+    .where(
+      and(eq(fakeBounties.repoId, repoId), eq(fakeBounties.status, "active"))
+    )
+  if ((activeCount?.count ?? 0) >= config.maxActive) return null
 
-	const template = pickTemplate();
-	const token = await getInstallationToken(org.installationId);
-	const [owner, repoName] = repo.fullName.split("/");
+  const template = pickTemplate()
+  const token = await getInstallationToken(org.installationId)
+  const [owner, repoName] = repo.fullName.split("/")
 
-	// Create the issue on GitHub
-	const issue = await githubApi(`/repos/${owner}/${repoName}/issues`, token, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			title: template.title,
-			body: template.body,
-			labels: config.issueLabels,
-		}),
-	});
+  // Create the issue on GitHub
+  const issue = await githubApi(`/repos/${owner}/${repoName}/issues`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: template.title,
+      body: template.body,
+      labels: config.issueLabels,
+    }),
+  })
 
-	if (!issue?.number) return null;
+  if (!issue?.number) return null
 
-	// Record in DB
-	await db.insert(fakeBounties).values({
-		repoId,
-		githubIssueNumber: issue.number,
-		title: template.title,
-		body: template.body,
-	});
+  // Record in DB
+  await db.insert(fakeBounties).values({
+    repoId,
+    githubIssueNumber: issue.number,
+    title: template.title,
+    body: template.body,
+  })
 
-	await logEvent({
-		repoId,
-		action: "pipeline_logged",
-		severity: "info",
-		description: `Fake bounty issue #${issue.number} created: ${template.title}`,
-		metadata: { fakeBounty: true, issueNumber: issue.number },
-	});
+  await logEvent({
+    repoId,
+    action: "pipeline_logged",
+    severity: "info",
+    description: `Fake bounty issue #${issue.number} created: ${template.title}`,
+    metadata: { fakeBounty: true, issueNumber: issue.number },
+  })
 
-	return { issueNumber: issue.number, title: template.title };
+  return { issueNumber: issue.number, title: template.title }
 }
 
 /**
@@ -245,38 +242,38 @@ export async function createFakeBounty(repoId: string): Promise<{
  * Returns the matching bounty if found.
  */
 export async function checkFakeBountyReference(
-	repoId: string,
-	contentText: string,
+  repoId: string,
+  contentText: string
 ): Promise<{ bountyId: string; issueNumber: number } | null> {
-	// Get all active fake bounties for this repo
-	const bounties = await db
-		.select()
-		.from(fakeBounties)
-		.where(
-			and(
-				eq(fakeBounties.repoId, repoId),
-				eq(fakeBounties.status, "active"),
-			),
-		);
+  // Get all active fake bounties for this repo
+  const bounties = await db
+    .select()
+    .from(fakeBounties)
+    .where(
+      and(eq(fakeBounties.repoId, repoId), eq(fakeBounties.status, "active"))
+    )
 
-	if (bounties.length === 0) return null;
+  if (bounties.length === 0) return null
 
-	// Check if content references any fake bounty issue number
-	for (const bounty of bounties) {
-		const patterns = [
-			new RegExp(`#${bounty.githubIssueNumber}\\b`),
-			new RegExp(`(?:fix|fixes|close|closes|resolve|resolves)\\s+#${bounty.githubIssueNumber}\\b`, "i"),
-			new RegExp(`issue\\s+#?${bounty.githubIssueNumber}\\b`, "i"),
-		];
+  // Check if content references any fake bounty issue number
+  for (const bounty of bounties) {
+    const patterns = [
+      new RegExp(`#${bounty.githubIssueNumber}\\b`),
+      new RegExp(
+        `(?:fix|fixes|close|closes|resolve|resolves)\\s+#${bounty.githubIssueNumber}\\b`,
+        "i"
+      ),
+      new RegExp(`issue\\s+#?${bounty.githubIssueNumber}\\b`, "i"),
+    ]
 
-		for (const pattern of patterns) {
-			if (pattern.test(contentText)) {
-				return { bountyId: bounty.id, issueNumber: bounty.githubIssueNumber };
-			}
-		}
-	}
+    for (const pattern of patterns) {
+      if (pattern.test(contentText)) {
+        return { bountyId: bounty.id, issueNumber: bounty.githubIssueNumber }
+      }
+    }
+  }
 
-	return null;
+  return null
 }
 
 /**
@@ -284,64 +281,70 @@ export async function checkFakeBountyReference(
  * Sends decline message and records the catch.
  */
 export async function handleFakeBountyCatch(opts: {
-	repoId: string;
-	bountyId: string;
-	githubUsername: string;
-	githubUserId?: number;
-	githubRef: string;
-	refType: "pr" | "comment" | "issue";
-	prNumber?: number;
-	installationId: number;
-	repoFullName: string;
+  repoId: string
+  bountyId: string
+  githubUsername: string
+  githubUserId?: number
+  githubRef: string
+  refType: "pr" | "comment" | "issue"
+  prNumber?: number
+  installationId: number
+  repoFullName: string
 }): Promise<void> {
-	const [config] = await db
-		.select()
-		.from(fakeBountyConfigs)
-		.where(eq(fakeBountyConfigs.repoId, opts.repoId))
-		.limit(1);
-	if (!config) return;
+  const [config] = await db
+    .select()
+    .from(fakeBountyConfigs)
+    .where(eq(fakeBountyConfigs.repoId, opts.repoId))
+    .limit(1)
+  if (!config) return
 
-	const token = await getInstallationToken(opts.installationId);
-	const [owner, repoName] = opts.repoFullName.split("/");
+  const token = await getInstallationToken(opts.installationId)
+  const [owner, repoName] = opts.repoFullName.split("/")
 
-	// Send decline message
-	if (opts.prNumber) {
-		await addComment(token, owner, repoName, opts.prNumber, config.declineMessage);
-		// Close the PR
-		await closePullRequest(token, owner, repoName, opts.prNumber);
-	}
+  // Send decline message
+  if (opts.prNumber) {
+    await addComment(
+      token,
+      owner,
+      repoName,
+      opts.prNumber,
+      config.declineMessage
+    )
+    // Close the PR
+    await closePullRequest(token, owner, repoName, opts.prNumber)
+  }
 
-	// Record the catch
-	await db.insert(fakeBountyCatches).values({
-		bountyId: opts.bountyId,
-		repoId: opts.repoId,
-		githubUsername: opts.githubUsername,
-		githubUserId: opts.githubUserId ?? null,
-		githubRef: opts.githubRef,
-		refType: opts.refType,
-		declineSent: true,
-	});
+  // Record the catch
+  await db.insert(fakeBountyCatches).values({
+    bountyId: opts.bountyId,
+    repoId: opts.repoId,
+    githubUsername: opts.githubUsername,
+    githubUserId: opts.githubUserId ?? null,
+    githubRef: opts.githubRef,
+    refType: opts.refType,
+    declineSent: true,
+  })
 
-	// Increment catch count
-	await db
-		.update(fakeBounties)
-		.set({
-			catchCount: sql`${fakeBounties.catchCount} + 1`,
-		})
-		.where(eq(fakeBounties.id, opts.bountyId));
+  // Increment catch count
+  await db
+    .update(fakeBounties)
+    .set({
+      catchCount: sql`${fakeBounties.catchCount} + 1`,
+    })
+    .where(eq(fakeBounties.id, opts.bountyId))
 
-	await logEvent({
-		repoId: opts.repoId,
-		action: "pipeline_blocked",
-		severity: "error",
-		description: `Fake bounty trap caught @${opts.githubUsername} on ${opts.githubRef}`,
-		targetGithubUsername: opts.githubUsername,
-		targetGithubUserId: opts.githubUserId,
-		githubRef: opts.githubRef,
-		metadata: {
-			fakeBounty: true,
-			bountyId: opts.bountyId,
-			refType: opts.refType,
-		},
-	});
+  await logEvent({
+    repoId: opts.repoId,
+    action: "pipeline_blocked",
+    severity: "error",
+    description: `Fake bounty trap caught @${opts.githubUsername} on ${opts.githubRef}`,
+    targetGithubUsername: opts.githubUsername,
+    targetGithubUserId: opts.githubUserId,
+    githubRef: opts.githubRef,
+    metadata: {
+      fakeBounty: true,
+      bountyId: opts.bountyId,
+      refType: opts.refType,
+    },
+  })
 }

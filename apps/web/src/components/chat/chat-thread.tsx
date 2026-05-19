@@ -1,397 +1,504 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { UnicodeSpinner, useRandomThinkingVariant } from "#/components/ui/unicode-spinner";
-import { useThinkingPhrase } from '@tripwire/ai/components';
-import type { UIMessage, MessagePart, ToolResultPart, RenderSpec } from "#/types/chat";
-import { JSONUIProvider, Renderer } from "@json-render/react";
-import { Streamdown, type StreamdownProps } from "streamdown";
-import { code } from "@streamdown/code";
-import { useAIChat } from '#/components/chat/chat-context';
-import { registry } from "@tripwire/ui";
-import type { ActionResultData } from "#/types/chat";
+import { useMemo, useState, type ReactNode } from "react"
+import { Button } from "#/components/ui/button"
 import {
-	getPartKey,
-	getTextContent,
-	formatToolName,
-	formatToolArgs,
-	parseErrorMessage,
-	parseActionResult,
-	getApprovalText,
-	getBatchApprovalText,
-	isToolPart,
-	getPartToolName,
-	getToolCallId,
-	getToolInput,
-	getToolOutput,
-} from "#/lib/chat-format";
-import { getBriefActionText, renderInlineText } from "#/components/chat/chips";
-import { TripwireLogo } from "#/components/icons/tripwire-logo";
+  UnicodeSpinner,
+  useRandomThinkingVariant,
+} from "#/components/ui/unicode-spinner"
+import { useThinkingPhrase } from "@tripwire/ai/components"
+import type {
+  UIMessage,
+  MessagePart,
+  ToolResultPart,
+  RenderSpec,
+} from "#/types/chat"
+import { JSONUIProvider, Renderer } from "@json-render/react"
+import { Streamdown, type StreamdownProps } from "streamdown"
+import { code } from "@streamdown/code"
+import { useAIChat } from "#/components/chat/chat-context"
+import { registry } from "@tripwire/ui"
+import type { ActionResultData } from "#/types/chat"
+import {
+  getPartKey,
+  getTextContent,
+  formatToolName,
+  formatToolArgs,
+  parseErrorMessage,
+  parseActionResult,
+  getApprovalText,
+  getBatchApprovalText,
+  isToolPart,
+  getPartToolName,
+  getToolCallId,
+  getToolInput,
+  getToolOutput,
+} from "#/lib/chat-format"
+import { getBriefActionText, renderInlineText } from "#/components/chat/chips"
+import { TripwireLogo } from "#/components/icons/tripwire-logo"
+import {
+  QuotaCreditsLockIcon20,
+  ChatErrorAlertIcon14,
+  ToolStepErrorRingIcon12,
+  ToolStepSuccessRingIcon12,
+  ThoughtCollapsibleChevronIcon10,
+  BatchResultSuccessRingIcon14,
+  BatchResultErrorRingIcon14,
+} from "#/components/icons/chat-thread-status-icons"
 
 interface ChatThreadProps {
-	messages?: UIMessage[];
-	isLoading?: boolean;
-	error?: Error | null;
-	isQuotaExhausted?: boolean;
-	respondToToolApproval?: (approvalId: string, approved: boolean) => void;
+  messages?: UIMessage[]
+  isLoading?: boolean
+  error?: Error | null
+  isQuotaExhausted?: boolean
+  respondToToolApproval?: (approvalId: string, approved: boolean) => void
 }
 
 export function ChatThread(props: ChatThreadProps = {}) {
-	const ctx = useAIChat();
-	const messages = props.messages ?? ctx.messages;
-	const isLoading = props.isLoading ?? ctx.isLoading;
-	const error = props.error ?? ctx.error;
-	const isQuotaExhausted = props.isQuotaExhausted ?? ctx.isQuotaExhausted;
-	const respondToToolApproval = props.respondToToolApproval ?? ctx.respondToToolApproval;
+  const ctx = useAIChat()
+  const messages = props.messages ?? ctx.messages
+  const isLoading = props.isLoading ?? ctx.isLoading
+  const error = props.error ?? ctx.error
+  const isQuotaExhausted = props.isQuotaExhausted ?? ctx.isQuotaExhausted
+  const respondToToolApproval =
+    props.respondToToolApproval ?? ctx.respondToToolApproval
 
-	const avatarMap = useMemo(() => {
-		const out: Record<string, boolean> = {};
-		for (let i = 0; i < messages.length; i++) {
-			const m = messages[i];
-			if (m.role !== "assistant") continue;
-			const next = messages[i + 1];
-			const isLastInRun = !next || next.role !== "assistant";
-			out[m.id] = isLastInRun;
-		}
-		return out;
-	}, [messages]);
+  const avatarMap = useMemo(() => {
+    const out: Record<string, boolean> = {}
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i]
+      if (m.role !== "assistant") continue
+      const next = messages[i + 1]
+      const isLastInRun = !next || next.role !== "assistant"
+      out[m.id] = isLastInRun
+    }
+    return out
+  }, [messages])
 
-	if (isQuotaExhausted) {
-		return <QuotaExhaustedState />;
-	}
+  if (isQuotaExhausted) {
+    return <QuotaExhaustedState />
+  }
 
-	if (messages.length === 0 && !error) {
-		return <EmptyState />;
-	}
+  if (messages.length === 0 && !error) {
+    return <EmptyState />
+  }
 
-	if (messages.length === 0 && error) {
-		return (
-			<div className="flex flex-col gap-3 pt-1 pb-2">
-				<ErrorMessage message={error.message} />
-			</div>
-		);
-	}
+  if (messages.length === 0 && error) {
+    return (
+      <div className="flex flex-col gap-3 pt-1 pb-2">
+        <ErrorMessage message={error.message} />
+      </div>
+    )
+  }
 
-	return (
-		<div className="flex flex-col gap-3 pt-1 pb-2">
-			{messages.map((msg, msgIdx) => (
-				<div
-					key={msg.id || `msg-${msgIdx}`}
-					className="transition-all duration-300 ease-out"
-				>
-					<ChatMessage
-						message={msg}
-						showAvatar={avatarMap[msg.id] !== false}
-						onRespondToApproval={respondToToolApproval}
-					/>
-				</div>
-			))}
-			{isLoading && <LoadingIndicator />}
-			{error && <ErrorMessage message={error.message} />}
-		</div>
-	);
+  return (
+    <div className="flex flex-col gap-3 pt-1 pb-2">
+      {messages.map((msg, msgIdx) => (
+        <div
+          key={`${msg.id || "msg"}-${msgIdx}`}
+          className="transition-all duration-300 ease-out"
+        >
+          <ChatMessage
+            message={msg}
+            showAvatar={avatarMap[msg.id] !== false}
+            onRespondToApproval={respondToToolApproval}
+          />
+        </div>
+      ))}
+      {isLoading && <LoadingIndicator />}
+      {error && <ErrorMessage message={error.message} />}
+    </div>
+  )
 }
 
 function EmptyState() {
-	return (
-		<div className="flex flex-col items-center justify-center py-8 text-center">
-			<div className="size-12 flex items-center justify-center mb-3">
-				<TripwireLogo size={20} fill="#B4B4B4" />
-			</div>
-			<p className="text-[14px] text-tw-text-secondary mb-1">Ask me anything</p>
-			<p className="text-[12px] text-tw-text-muted max-w-[240px]">
-				I can help you investigate contributors, manage your blacklist, and understand activity patterns.
-			</p>
-		</div>
-	);
+  return (
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <div className="mb-3 flex size-12 items-center justify-center">
+        <TripwireLogo size={20} fill="#B4B4B4" />
+      </div>
+      <p className="mb-1 text-[14px] text-tw-text-secondary">Ask me anything</p>
+      <p className="max-w-[240px] text-[12px] text-tw-text-muted">
+        I can help you investigate contributors, manage your blacklist, and
+        understand activity patterns.
+      </p>
+    </div>
+  )
 }
 
 function QuotaExhaustedState() {
-	return (
-		<div className="flex flex-col items-center justify-center py-8 text-center">
-			<div className="size-12 flex items-center justify-center mb-3 rounded-full bg-[#FAFAFA08]">
-				<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-					<rect x="4" y="9" width="12" height="9" rx="1.5" stroke="#9F9FA9" strokeWidth="1.5" />
-					<path d="M7 9V6a3 3 0 1 1 6 0v3" stroke="#9F9FA9" strokeWidth="1.5" strokeLinecap="round" />
-				</svg>
-			</div>
-			<p className="text-[14px] text-tw-text-secondary mb-1">Out of credits</p>
-			<p className="text-[12px] text-tw-text-muted max-w-[220px]">
-				You've used all your AI credits for this month.
-			</p>
-		</div>
-	);
+  return (
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-[#FAFAFA08]">
+        <QuotaCreditsLockIcon20 />
+      </div>
+      <p className="mb-1 text-[14px] text-tw-text-secondary">Out of credits</p>
+      <p className="max-w-[220px] text-[12px] text-tw-text-muted">
+        You've used all your AI credits for this month.
+      </p>
+    </div>
+  )
 }
 
 function ErrorMessage({ message }: { message: string }) {
-	const { title, detail } = parseErrorMessage(message);
+  const { title, detail } = parseErrorMessage(message)
 
-	return (
-		<div className="flex items-end gap-2 px-1">
-			<div className="w-6 shrink-0">
-				<div className="size-6 rounded-full bg-[#F56D5D1A] flex items-center justify-center">
-					<TripwireLogo size={12} fill="#B4B4B4" />
-				</div>
-			</div>
-			<div className="flex-1 min-w-0 flex flex-col gap-1.5">
-				<div className="rounded-xl bg-[#F56D5D0D] border border-tw-error/10 p-3">
-					<div className="flex items-start gap-2">
-						<div className="shrink-0 mt-0.5">
-							<svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-tw-error">
-								<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
-								<path d="M7 4v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-								<circle cx="7" cy="9.5" r="0.75" fill="currentColor" />
-							</svg>
-						</div>
-						<div className="flex-1 min-w-0">
-							<div className="text-[13px] font-medium text-tw-error leading-tight">{title}</div>
-							{detail && (
-								<div className="text-[12px] text-tw-text-secondary mt-1 leading-relaxed">{detail}</div>
-							)}
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
+  return (
+    <div className="flex items-end gap-2 px-1">
+      <div className="w-6 shrink-0">
+        <div className="flex size-6 items-center justify-center rounded-full bg-[#F56D5D1A]">
+          <TripwireLogo size={12} fill="#B4B4B4" />
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="rounded-xl border border-tw-error/10 bg-[#F56D5D0D] p-3">
+          <div className="flex items-start gap-2">
+            <div className="mt-0.5 shrink-0">
+              <ChatErrorAlertIcon14 className="text-tw-error" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] leading-tight font-medium text-tw-error">
+                {title}
+              </div>
+              {detail && (
+                <div className="mt-1 text-[12px] leading-relaxed text-tw-text-secondary">
+                  {detail}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function LoadingIndicator() {
-	const variant = useRandomThinkingVariant();
-	const phrase = useThinkingPhrase();
+  const variant = useRandomThinkingVariant()
+  const phrase = useThinkingPhrase()
 
-	return (
-		<div className="flex items-end gap-2 px-1">
-			<div className="w-6 shrink-0">
-				<div className="size-6 rounded-full bg-[#FAFAFA14] flex items-center justify-center">
-					<TripwireLogo size={12} fill="#B4B4B4" />
-				</div>
-			</div>
-			<div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted">
-				<UnicodeSpinner variant={variant} className="text-[13px] opacity-80" label={phrase} />
-				<span>{phrase}...</span>
-			</div>
-		</div>
-	);
+  return (
+    <div className="flex items-end gap-2 px-1">
+      <div className="w-6 shrink-0">
+        <div className="flex size-6 items-center justify-center rounded-full bg-[#FAFAFA14]">
+          <TripwireLogo size={12} fill="#B4B4B4" />
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 text-[12px] text-tw-text-muted">
+        <UnicodeSpinner
+          variant={variant}
+          className="text-[13px] opacity-80"
+          label={phrase}
+        />
+        <span>{phrase}...</span>
+      </div>
+    </div>
+  )
 }
 
 interface ChatMessageProps {
-	message: UIMessage;
-	showAvatar: boolean;
-	onRespondToApproval: (approvalId: string, approved: boolean) => void;
+  message: UIMessage
+  showAvatar: boolean
+  onRespondToApproval: (approvalId: string, approved: boolean) => void
 }
 
 // Track approval IDs that have already been responded to.
 // Module-level so it survives component remounts.
-const handledApprovalIds = new Set<string>();
+const handledApprovalIds = new Set<string>()
 
-function ChatMessage({ message, showAvatar, onRespondToApproval }: ChatMessageProps) {
-	if (message.role === "user") {
-		return <UserMessage content={getTextContent(message)} />;
-	}
+function ChatMessage({
+  message,
+  showAvatar,
+  onRespondToApproval,
+}: ChatMessageProps) {
+  if (message.role === "user") {
+    return <UserMessage content={getTextContent(message)} />
+  }
 
-	const messageParts = (message.parts ?? []) as MessagePart[];
-	const pendingApprovals = messageParts.filter(
-		(part): part is MessagePart & { approval: { id: string }; state: "approval-requested" } =>
-			isToolPart(part) && part.state === "approval-requested" && !!part.approval
-			&& !handledApprovalIds.has(part.approval.id),
-	);
+  const messageParts = (message.parts ?? []) as MessagePart[]
+  const pendingApprovals = messageParts.filter(
+    (
+      part
+    ): part is MessagePart & {
+      approval: { id: string }
+      state: "approval-requested"
+    } =>
+      isToolPart(part) &&
+      part.state === "approval-requested" &&
+      !!part.approval &&
+      !handledApprovalIds.has(part.approval.id)
+  )
 
-	const handleApproveAll = () => {
-		for (const part of pendingApprovals) {
-			if (handledApprovalIds.has(part.approval.id)) continue;
-			handledApprovalIds.add(part.approval.id);
-			onRespondToApproval(part.approval.id, true);
-		}
-	};
+  const handleApproveAll = () => {
+    for (const part of pendingApprovals) {
+      if (handledApprovalIds.has(part.approval.id)) continue
+      handledApprovalIds.add(part.approval.id)
+      onRespondToApproval(part.approval.id, true)
+    }
+  }
 
-	const handleDenyAll = () => {
-		for (const part of pendingApprovals) {
-			if (handledApprovalIds.has(part.approval.id)) continue;
-			handledApprovalIds.add(part.approval.id);
-			onRespondToApproval(part.approval.id, false);
-		}
-	};
+  const handleDenyAll = () => {
+    for (const part of pendingApprovals) {
+      if (handledApprovalIds.has(part.approval.id)) continue
+      handledApprovalIds.add(part.approval.id)
+      onRespondToApproval(part.approval.id, false)
+    }
+  }
 
-	const groupedParts = useMemo(() => {
-		const rawParts = (message.parts ?? []) as MessagePart[];
+  const groupedParts = useMemo(() => {
+    const rawParts = (message.parts ?? []) as MessagePart[]
 
-		// Deduplicate parts by toolCallId (legacy tool streams can send duplicates)
-		const seen = new Set<string>();
-		const parts = rawParts.filter((part) => {
-			if (isToolPart(part) || part.type === "tool-result") {
-				const id = part.type === "tool-result"
-					? (part as ToolResultPart).toolCallId
-					: getToolCallId(part);
-				const key = `${part.type}-${id}`;
-				if (id && seen.has(key)) return false;
-				if (id) seen.add(key);
-			}
-			return true;
-		});
+    // Deduplicate parts by toolCallId (legacy tool streams can send duplicates)
+    const seen = new Set<string>()
+    const parts = rawParts.filter((part) => {
+      if (isToolPart(part) || part.type === "tool-result") {
+        const id =
+          part.type === "tool-result"
+            ? (part as ToolResultPart).toolCallId
+            : getToolCallId(part)
+        const key = `${part.type}-${id}`
+        if (id && seen.has(key)) return false
+        if (id) seen.add(key)
+      }
+      return true
+    })
 
-		const result: Array<MessagePart | { type: "grouped-results"; results: ActionResultData[]; key: string }> = [];
-		let currentGroup: Array<{ part: MessagePart; data: ActionResultData }> = [];
-		let currentAction: string | null = null;
+    const result: Array<
+      | MessagePart
+      | { type: "grouped-results"; results: ActionResultData[]; key: string }
+    > = []
+    let currentGroup: Array<{ part: MessagePart; data: ActionResultData }> = []
+    let currentAction: string | null = null
 
-		const flushGroup = () => {
-			if (currentGroup.length > 1) {
-				result.push({
-					type: "grouped-results",
-					results: currentGroup.map((g) => g.data),
-					key: `group-${result.length}`,
-				});
-			} else if (currentGroup.length === 1) {
-				result.push(currentGroup[0].part);
-			}
-			currentGroup = [];
-			currentAction = null;
-		};
+    const flushGroup = () => {
+      if (currentGroup.length > 1) {
+        result.push({
+          type: "grouped-results",
+          results: currentGroup.map((g) => g.data),
+          key: `group-${result.length}`,
+        })
+      } else if (currentGroup.length === 1) {
+        result.push(currentGroup[0].part)
+      }
+      currentGroup = []
+      currentAction = null
+    }
 
-		for (const part of parts) {
-			if (part.type === "tool-result") {
-				const actionResult = parseActionResult((part as ToolResultPart).content ?? "");
-				if (actionResult && actionResult.success) {
-					if (currentAction === null || currentAction === actionResult.action) {
-						currentGroup.push({ part, data: actionResult });
-						currentAction = actionResult.action;
-						continue;
-					} else {
-						flushGroup();
-						currentGroup.push({ part, data: actionResult });
-						currentAction = actionResult.action;
-						continue;
-					}
-				}
-			}
-			if (isToolPart(part) && part.state === "output-available") {
-				const output = getToolOutput(part);
-				const actionResult = parseActionResult(
-					typeof output === "string" ? output : JSON.stringify(output),
-				);
-				if (actionResult && actionResult.success) {
-					if (currentAction === null || currentAction === actionResult.action) {
-						currentGroup.push({ part, data: actionResult });
-						currentAction = actionResult.action;
-						continue;
-					} else {
-						flushGroup();
-						currentGroup.push({ part, data: actionResult });
-						currentAction = actionResult.action;
-						continue;
-					}
-				}
-			}
-			flushGroup();
-			result.push(part);
-		}
-		flushGroup();
-		return result;
-	}, [message.parts]);
+    for (const part of parts) {
+      if (part.type === "tool-result") {
+        const actionResult = parseActionResult(
+          (part as ToolResultPart).content ?? ""
+        )
+        if (actionResult && actionResult.success) {
+          if (currentAction === null || currentAction === actionResult.action) {
+            currentGroup.push({ part, data: actionResult })
+            currentAction = actionResult.action
+            continue
+          } else {
+            flushGroup()
+            currentGroup.push({ part, data: actionResult })
+            currentAction = actionResult.action
+            continue
+          }
+        }
+      }
+      if (isToolPart(part) && part.state === "output-available") {
+        const output = getToolOutput(part)
+        const actionResult = parseActionResult(
+          typeof output === "string" ? output : JSON.stringify(output)
+        )
+        if (actionResult && actionResult.success) {
+          if (currentAction === null || currentAction === actionResult.action) {
+            currentGroup.push({ part, data: actionResult })
+            currentAction = actionResult.action
+            continue
+          } else {
+            flushGroup()
+            currentGroup.push({ part, data: actionResult })
+            currentAction = actionResult.action
+            continue
+          }
+        }
+      }
+      flushGroup()
+      result.push(part)
+    }
+    flushGroup()
+    return result
+  }, [message.parts])
 
-	return (
-		<div className="flex items-end gap-2 px-1">
-			<div className="w-6 shrink-0">
-				{showAvatar && (
-					<div className="size-6 rounded-full bg-[#FAFAFA14] flex items-center justify-center">
-						<TripwireLogo size={12} fill="#B4B4B4" />
-					</div>
-				)}
-			</div>
-			<div className="flex-1 min-w-0 flex flex-col gap-2">
-				{pendingApprovals.length > 1 ? (
-					<>
-						{groupedParts
-							.filter((p) => !isToolPart(p as MessagePart) || (p as MessagePart & { state?: string }).state !== "approval-requested")
-							.map((part, i) => {
-								if (part.type === "grouped-results") {
-									return <CombinedActionResult key={part.key} results={part.results} />;
-								}
-								const mp = part as MessagePart;
-								return <MessagePartRenderer key={getPartKey(mp, message.id, i)} part={mp} onRespondToApproval={onRespondToApproval} />;
-							})}
-						<BatchApprovalCard approvals={pendingApprovals} onApproveAll={handleApproveAll} onDenyAll={handleDenyAll} />
-					</>
-				) : (
-					groupedParts.map((part, i) => {
-						if (part.type === "grouped-results") {
-							return <CombinedActionResult key={part.key} results={part.results} />;
-						}
-						const mp = part as MessagePart;
-						return <MessagePartRenderer key={getPartKey(mp, message.id, i)} part={mp} onRespondToApproval={onRespondToApproval} />;
-					})
-				)}
-			</div>
-		</div>
-	);
+  return (
+    <div className="flex items-end gap-2 px-1">
+      <div className="w-6 shrink-0">
+        {showAvatar && (
+          <div className="flex size-6 items-center justify-center rounded-full bg-[#FAFAFA14]">
+            <TripwireLogo size={12} fill="#B4B4B4" />
+          </div>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {pendingApprovals.length > 1 ? (
+          <>
+            {groupedParts
+              .filter(
+                (p) =>
+                  !isToolPart(p as MessagePart) ||
+                  (p as MessagePart & { state?: string }).state !==
+                    "approval-requested"
+              )
+              .map((part, i) => {
+                if (part.type === "grouped-results") {
+                  return (
+                    <CombinedActionResult
+                      key={part.key}
+                      results={part.results}
+                    />
+                  )
+                }
+                const mp = part as MessagePart
+                return (
+                  <MessagePartRenderer
+                    key={getPartKey(mp, message.id, i)}
+                    part={mp}
+                    onRespondToApproval={onRespondToApproval}
+                  />
+                )
+              })}
+            <BatchApprovalCard
+              approvals={pendingApprovals}
+              onApproveAll={handleApproveAll}
+              onDenyAll={handleDenyAll}
+            />
+          </>
+        ) : (
+          groupedParts.map((part, i) => {
+            if (part.type === "grouped-results") {
+              return (
+                <CombinedActionResult key={part.key} results={part.results} />
+              )
+            }
+            const mp = part as MessagePart
+            return (
+              <MessagePartRenderer
+                key={getPartKey(mp, message.id, i)}
+                part={mp}
+                onRespondToApproval={onRespondToApproval}
+              />
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
 }
 
 function UserMessage({ content }: { content: string }) {
-	return (
-		<div className="flex justify-end px-1">
-			<div className="max-w-[86%] px-3 py-2 rounded-2xl rounded-tr-sm bg-[#252528] text-[13px] leading-[19px] text-tw-text-primary">
-				{content}
-			</div>
-		</div>
-	);
+  return (
+    <div className="flex justify-end px-1">
+      <div className="max-w-[86%] rounded-2xl rounded-tr-sm bg-[#252528] px-3 py-2 text-[13px] leading-[19px] text-tw-text-primary">
+        {content}
+      </div>
+    </div>
+  )
 }
 
 interface MessagePartRendererProps {
-	part: MessagePart;
-	onRespondToApproval: (approvalId: string, approved: boolean) => void;
+  part: MessagePart
+  onRespondToApproval: (approvalId: string, approved: boolean) => void
 }
 
-function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererProps) {
-	switch (part.type) {
-		case "text":
-			return <MarkdownText content={part.text ?? (part as { content?: string }).content ?? ""} />;
+function MessagePartRenderer({
+  part,
+  onRespondToApproval,
+}: MessagePartRendererProps) {
+  switch (part.type) {
+    case "text":
+      return (
+        <MarkdownText
+          content={part.text ?? (part as { content?: string }).content ?? ""}
+        />
+      )
 
-		case "thinking":
-		case "reasoning":
-			return <ReasoningBlock content={(part as { content?: string; text?: string }).content ?? (part as { text?: string }).text ?? ""} />;
+    case "thinking":
+    case "reasoning":
+      return (
+        <ReasoningBlock
+          content={
+            (part as { content?: string; text?: string }).content ??
+            (part as { text?: string }).text ??
+            ""
+          }
+        />
+      )
 
-		case "tool-result":
-			// Tool results are now shown inside ToolStep's collapsible detail
-			// Only render standalone if there's a UI card (json-render spec)
-			try {
-				const parsed = JSON.parse((part as ToolResultPart).content ?? "");
-				if (parsed && typeof parsed === "object" && "root" in parsed && "elements" in parsed) {
-					return <ToolResultDisplay result={parsed} />;
-				}
-				return null; // Absorbed into ToolStep
-			} catch {
-				return null;
-			}
+    case "tool-result":
+      // Tool results are now shown inside ToolStep's collapsible detail
+      // Only render standalone if there's a UI card (json-render spec)
+      try {
+        const parsed = JSON.parse((part as ToolResultPart).content ?? "")
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          "root" in parsed &&
+          "elements" in parsed
+        ) {
+          return <ToolResultDisplay result={parsed} />
+        }
+        return null // Absorbed into ToolStep
+      } catch {
+        return null
+      }
 
-		default:
-			if (isToolPart(part)) {
-				const toolArgs = getToolInput(part);
-				const toolName = getPartToolName(part);
-				const approval = "approval" in part ? part.approval : undefined;
+    default:
+      if (isToolPart(part)) {
+        const toolArgs = getToolInput(part)
+        const toolName = getPartToolName(part)
+        const approval = "approval" in part ? part.approval : undefined
 
-				if (part.state === "approval-requested" && approval && !handledApprovalIds.has(approval.id)) {
-					return (
-						<ToolApprovalCard
-							toolName={toolName}
-							args={toolArgs}
-							onApprove={() => {
-								handledApprovalIds.add(approval.id);
-								onRespondToApproval(approval.id, true);
-							}}
-							onDeny={() => {
-								handledApprovalIds.add(approval.id);
-								onRespondToApproval(approval.id, false);
-							}}
-						/>
-					);
-				}
+        if (
+          part.state === "approval-requested" &&
+          approval &&
+          !handledApprovalIds.has(approval.id)
+        ) {
+          return (
+            <ToolApprovalCard
+              toolName={toolName}
+              args={toolArgs}
+              onApprove={() => {
+                handledApprovalIds.add(approval.id)
+                onRespondToApproval(approval.id, true)
+              }}
+              onDeny={() => {
+                handledApprovalIds.add(approval.id)
+                onRespondToApproval(approval.id, false)
+              }}
+            />
+          )
+        }
 
-				if (part.state === "output-available") {
-					return <ToolResultDisplay result={getToolOutput(part)} fallback={<ToolStep toolName={toolName} args={toolArgs} state={part.state} />} />;
-				}
+        if (part.state === "output-available") {
+          return (
+            <ToolResultDisplay
+              result={getToolOutput(part)}
+              fallback={
+                <ToolStep
+                  toolName={toolName}
+                  args={toolArgs}
+                  state={part.state}
+                />
+              }
+            />
+          )
+        }
 
-				return <ToolStep toolName={toolName} args={toolArgs} state={part.state ?? "input-streaming"} />;
-			}
-			return null;
-	}
+        return (
+          <ToolStep
+            toolName={toolName}
+            args={toolArgs}
+            state={part.state ?? "input-streaming"}
+          />
+        )
+      }
+      return null
+  }
 }
 
 // Security: restrict which URLs AI-generated markdown can render as links/images.
@@ -400,23 +507,26 @@ function MessagePartRenderer({ part, onRespondToApproval }: MessagePartRendererP
 //   - auto-loaded <img> tags that leak the viewer's IP/UA to arbitrary hosts
 // Keep the lists minimal; better to block too much and add later.
 const ALLOWED_LINK_PREFIXES: readonly string[] = [
-	"https://github.com/",
-	"https://api.github.com/",
-	"https://gist.github.com/",
-	"https://docs.github.com/",
-	"https://avatars.githubusercontent.com/",
-	"https://user-images.githubusercontent.com/",
-];
+  "https://github.com/",
+  "https://api.github.com/",
+  "https://gist.github.com/",
+  "https://docs.github.com/",
+  "https://avatars.githubusercontent.com/",
+  "https://user-images.githubusercontent.com/",
+]
 
 const ALLOWED_IMAGE_PREFIXES: readonly string[] = [
-	"https://avatars.githubusercontent.com/",
-	"https://user-images.githubusercontent.com/",
-	"https://github.com/",
-];
+  "https://avatars.githubusercontent.com/",
+  "https://user-images.githubusercontent.com/",
+  "https://github.com/",
+]
 
-function isAllowed(url: string | undefined, allowlist: readonly string[]): boolean {
-	if (!url) return false;
-	return allowlist.some((prefix) => url.startsWith(prefix));
+function isAllowed(
+  url: string | undefined,
+  allowlist: readonly string[]
+): boolean {
+  if (!url) return false
+  return allowlist.some((prefix) => url.startsWith(prefix))
 }
 
 // `urlTransform` is called by Streamdown for every href/src; returning the URL
@@ -424,329 +534,374 @@ function isAllowed(url: string | undefined, allowlist: readonly string[]): boole
 // We use it as a first-line filter; the `a`/`img` component overrides below
 // are a defensive second layer.
 const safeUrlTransform = (url: string, key: string): string => {
-	if (key === "src") {
-		return isAllowed(url, ALLOWED_IMAGE_PREFIXES) ? url : "";
-	}
-	if (key === "href") {
-		return isAllowed(url, ALLOWED_LINK_PREFIXES) ? url : "";
-	}
-	return url;
-};
+  if (key === "src") {
+    return isAllowed(url, ALLOWED_IMAGE_PREFIXES) ? url : ""
+  }
+  if (key === "href") {
+    return isAllowed(url, ALLOWED_LINK_PREFIXES) ? url : ""
+  }
+  return url
+}
 
 // Streamdown lacks a built-in image/link allowlist prop. We layer a custom
 // `urlTransform` (filters URLs) with `components` overrides for `a` and `img`
 // (renders the disallowed URL as inert text instead of a clickable/loaded element).
 const SAFE_STREAMDOWN_CONFIG = {
-	linkSafety: { enabled: true },
-	urlTransform: safeUrlTransform,
-	components: {
-		a: ({ href, children, ...rest }) => {
-			if (!isAllowed(href, ALLOWED_LINK_PREFIXES)) {
-				// Render as plain text: no anchor, no navigation.
-				return <span className="tw-chat-blocked-link">{children}</span>;
-			}
-			return (
-				<a {...rest} href={href} target="_blank" rel="noopener noreferrer">
-					{children}
-				</a>
-			);
-		},
-		img: ({ src, alt }) => {
-			if (typeof src !== "string" || !isAllowed(src, ALLOWED_IMAGE_PREFIXES)) {
-				// Drop the image entirely; never issue a GET to a non-allowlisted host.
-				return null;
-			}
-			return <img src={src} alt={alt ?? ""} loading="lazy" referrerPolicy="no-referrer" />;
-		},
-	},
-} satisfies Pick<StreamdownProps, "linkSafety" | "urlTransform" | "components">;
+  linkSafety: { enabled: true },
+  urlTransform: safeUrlTransform,
+  components: {
+    a: ({ href, children, ...rest }) => {
+      if (!isAllowed(href, ALLOWED_LINK_PREFIXES)) {
+        // Render as plain text: no anchor, no navigation.
+        return <span className="tw-chat-blocked-link">{children}</span>
+      }
+      return (
+        <a {...rest} href={href} target="_blank" rel="noopener noreferrer">
+          {children}
+        </a>
+      )
+    },
+    img: ({ src, alt }) => {
+      if (typeof src !== "string" || !isAllowed(src, ALLOWED_IMAGE_PREFIXES)) {
+        // Drop the image entirely; never issue a GET to a non-allowlisted host.
+        return null
+      }
+      return (
+        <img
+          src={src}
+          alt={alt ?? ""}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      )
+    },
+  },
+} satisfies Pick<StreamdownProps, "linkSafety" | "urlTransform" | "components">
 
 function MarkdownText({ content }: { content: string }) {
-	return (
-		<Streamdown
-			className="tw-chat-markdown"
-			mode="static"
-			plugins={{ code }}
-			controls={false}
-			{...SAFE_STREAMDOWN_CONFIG}
-		>
-			{content}
-		</Streamdown>
-	);
+  return (
+    <Streamdown
+      className="tw-chat-markdown"
+      mode="static"
+      plugins={{ code }}
+      controls={false}
+      {...SAFE_STREAMDOWN_CONFIG}
+    >
+      {content}
+    </Streamdown>
+  )
 }
 
 interface ToolStepProps {
-	toolName: string;
-	args: Record<string, unknown>;
-	state: string;
+  toolName: string
+  args: Record<string, unknown>
+  state: string
 }
 
 function ToolStep({ toolName, args, state }: ToolStepProps) {
-	const [isOpen, setIsOpen] = useState(false);
-	const isComplete = state === "input-complete"
-		|| state === "approval-responded"
-		|| state === "output-available"
-		|| state === "output-denied";
-	const isError = state === "error" || state === "output-error";
-	const displayName = formatToolName(toolName);
-	const argsStr = formatToolArgs(toolName, args);
-	const hasArgs = Object.keys(args).length > 0;
+  const [isOpen, setIsOpen] = useState(false)
+  const isComplete =
+    state === "input-complete" ||
+    state === "approval-responded" ||
+    state === "output-available" ||
+    state === "output-denied"
+  const isError = state === "error" || state === "output-error"
+  const displayName = formatToolName(toolName)
+  const argsStr = formatToolArgs(toolName, args)
+  const hasArgs = Object.keys(args).length > 0
 
-	return (
-		<div className="flex flex-col">
-			<button
-				type="button"
-				onClick={() => hasArgs && setIsOpen(!isOpen)}
-				className={`flex items-center gap-2 py-0.5 text-[12px] text-tw-text-muted ${hasArgs ? "cursor-pointer hover:text-[#E0E0E0]" : "cursor-default"} transition-colors`}
-			>
-				{isError ? (
-					<svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-red-400/60">
-						<circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
-						<path d="M4.5 4.5L7.5 7.5M7.5 4.5L4.5 7.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-					</svg>
-				) : isComplete ? (
-					<svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-tw-success/60">
-						<circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
-						<path d="M3.5 6L5 7.5L8.5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-					</svg>
-				) : (
-					<UnicodeSpinner variant="dots" className="text-[12px] text-tw-text-secondary" label={displayName} />
-				)}
-				<span className={isComplete ? "" : "text-tw-text-secondary"}>{displayName}</span>
-				{!isOpen && argsStr && <span className="text-tw-text-tertiary truncate max-w-[140px]">{argsStr}</span>}
-			</button>
-			{isOpen && hasArgs && (
-				<div className="ml-5 mt-0.5 mb-1 text-[11px] flex flex-col gap-0.5">
-					{Object.entries(args).map(([key, val]) => (
-						<div key={key} className="flex gap-2">
-							<span className="text-tw-text-muted shrink-0">{key}</span>
-							<span className="text-tw-text-secondary font-mono truncate">
-								{typeof val === "string" ? val : JSON.stringify(val)}
-							</span>
-						</div>
-					))}
-				</div>
-			)}
-		</div>
-	);
+  return (
+    <div className="flex flex-col">
+      <Button
+        variant="ghost"
+        type="button"
+        onClick={() => hasArgs && setIsOpen(!isOpen)}
+        className={`flex items-center gap-2 py-0.5 text-[12px] text-tw-text-muted ${hasArgs ? "cursor-pointer hover:text-[#E0E0E0]" : "cursor-default"} transition-colors`}
+      >
+        {isError ? (
+          <ToolStepErrorRingIcon12 className="shrink-0 text-red-400/60" />
+        ) : isComplete ? (
+          <ToolStepSuccessRingIcon12 className="shrink-0 text-tw-success/60" />
+        ) : (
+          <UnicodeSpinner
+            variant="dots"
+            className="text-[12px] text-tw-text-secondary"
+            label={displayName}
+          />
+        )}
+        <span className={isComplete ? "" : "text-tw-text-secondary"}>
+          {displayName}
+        </span>
+        {!isOpen && argsStr && (
+          <span className="max-w-[140px] truncate text-tw-text-tertiary">
+            {argsStr}
+          </span>
+        )}
+      </Button>
+      {isOpen && hasArgs && (
+        <div className="mt-0.5 mb-1 ml-5 flex flex-col gap-0.5 text-[11px]">
+          {Object.entries(args).map(([key, val]) => (
+            <div key={key} className="flex gap-2">
+              <span className="shrink-0 text-tw-text-muted">{key}</span>
+              <span className="truncate font-mono text-tw-text-secondary">
+                {typeof val === "string" ? val : JSON.stringify(val)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function ReasoningBlock({ content }: { content: string }) {
-	const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false)
 
-	if (!content.trim()) return null;
+  if (!content.trim()) return null
 
-	return (
-		<div className="flex flex-col gap-1">
-			<button
-				type="button"
-				onClick={() => setIsOpen(!isOpen)}
-				className="flex items-center gap-1.5 text-[12px] text-tw-text-muted hover:text-tw-text-secondary transition-colors py-0.5"
-			>
-				<svg
-					width="10"
-					height="10"
-					viewBox="0 0 10 10"
-					fill="none"
-					className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
-				>
-					<path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-				</svg>
-				<span>Thought</span>
-			</button>
-			{isOpen && (
-				<div className="pl-4 border-l border-[#27272A] text-[12px] leading-[18px] text-tw-text-muted/70">
-					<Streamdown
-						className="tw-chat-markdown"
-						mode="static"
-						plugins={{ code }}
-						controls={false}
-						{...SAFE_STREAMDOWN_CONFIG}
-					>
-						{content}
-					</Streamdown>
-				</div>
-			)}
-		</div>
-	);
+  return (
+    <div className="flex flex-col gap-1">
+      <Button
+        variant="ghost"
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1.5 py-0.5 text-[12px] text-tw-text-muted transition-colors hover:text-tw-text-secondary"
+      >
+        <ThoughtCollapsibleChevronIcon10
+          className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+        <span>Thought</span>
+      </Button>
+      {isOpen && (
+        <div className="border-l border-[#27272A] pl-4 text-[12px] leading-[18px] text-tw-text-muted/70">
+          <Streamdown
+            className="tw-chat-markdown"
+            mode="static"
+            plugins={{ code }}
+            controls={false}
+            {...SAFE_STREAMDOWN_CONFIG}
+          >
+            {content}
+          </Streamdown>
+        </div>
+      )}
+    </div>
+  )
 }
 
 interface ToolApprovalCardProps {
-	toolName: string;
-	args: Record<string, unknown>;
-	onApprove: () => void;
-	onDeny: () => void;
+  toolName: string
+  args: Record<string, unknown>
+  onApprove: () => void
+  onDeny: () => void
 }
 
-function ToolApprovalCard({ toolName, args, onApprove, onDeny }: ToolApprovalCardProps) {
-	const username = args.username as string | undefined;
-	const { text, yesLabel, noLabel } = getApprovalText(toolName, username);
+function ToolApprovalCard({
+  toolName,
+  args,
+  onApprove,
+  onDeny,
+}: ToolApprovalCardProps) {
+  const username = args.username as string | undefined
+  const { text, yesLabel, noLabel } = getApprovalText(toolName, username)
 
-	return (
-		<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
-			<div className="text-[13px] text-tw-text-primary">{renderInlineText(text)}</div>
-			<div className="flex items-center gap-2">
-				<button
-					type="button"
-					onClick={onApprove}
-					className="h-7 px-3 rounded-lg bg-tw-text-primary text-[#0D0D0F] text-[12px] font-medium hover:opacity-90 transition-opacity"
-				>
-					{yesLabel}
-				</button>
-				<button
-					type="button"
-					onClick={onDeny}
-					className="h-7 px-3 rounded-lg bg-tw-hover text-tw-text-secondary text-[12px] font-medium hover:text-tw-text-primary transition-colors"
-				>
-					{noLabel}
-				</button>
-			</div>
-		</div>
-	);
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-tw-card p-3">
+      <div className="text-[13px] text-tw-text-primary">
+        {renderInlineText(text)}
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          type="button"
+          onClick={onApprove}
+          className="h-7 rounded-lg bg-tw-text-primary px-3 text-[12px] font-medium text-[#0D0D0F] transition-opacity hover:opacity-90"
+        >
+          {yesLabel}
+        </Button>
+        <Button
+          variant="ghost"
+          type="button"
+          onClick={onDeny}
+          className="h-7 rounded-lg bg-tw-hover px-3 text-[12px] font-medium text-tw-text-secondary transition-colors hover:text-tw-text-primary"
+        >
+          {noLabel}
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 interface BatchApprovalCardProps {
-	approvals: Array<MessagePart & { approval: { id: string } }>;
-	onApproveAll: () => void;
-	onDenyAll: () => void;
+  approvals: Array<MessagePart & { approval: { id: string } }>
+  onApproveAll: () => void
+  onDenyAll: () => void
 }
 
-function BatchApprovalCard({ approvals, onApproveAll, onDenyAll }: BatchApprovalCardProps) {
-	const parsed = approvals.map((part) => {
-		const toolArgs = getToolInput(part);
-		return { name: getPartToolName(part), username: toolArgs.username as string | undefined };
-	});
+function BatchApprovalCard({
+  approvals,
+  onApproveAll,
+  onDenyAll,
+}: BatchApprovalCardProps) {
+  const parsed = approvals.map((part) => {
+    const toolArgs = getToolInput(part)
+    return {
+      name: getPartToolName(part),
+      username: toolArgs.username as string | undefined,
+    }
+  })
 
-	const allSameAction = parsed.every((p) => p.name === parsed[0].name);
-	const usernames = parsed.map((p) => p.username).filter(Boolean) as string[];
+  const allSameAction = parsed.every((p) => p.name === parsed[0].name)
+  const usernames = parsed.map((p) => p.username).filter(Boolean) as string[]
 
-	if (allSameAction && usernames.length > 1) {
-		const action = parsed[0].name;
-		const lastUser = usernames[usernames.length - 1];
-		const userList = usernames.slice(0, -1).map((u) => `@${u}`).join(", ") + ` and @${lastUser}`;
-		const { prefix, suffix, consequence, buttonLabel } = getBatchApprovalText(action);
+  if (allSameAction && usernames.length > 1) {
+    const action = parsed[0].name
+    const lastUser = usernames[usernames.length - 1]
+    const userList =
+      usernames
+        .slice(0, -1)
+        .map((u) => `@${u}`)
+        .join(", ") + ` and @${lastUser}`
+    const { prefix, suffix, consequence, buttonLabel } =
+      getBatchApprovalText(action)
 
-		return (
-			<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
-				<div className="text-[13px] text-tw-text-primary">
-					{prefix} {renderInlineText(userList)}{suffix ? ` ${suffix}` : ""}?
-				</div>
-				{consequence && <div className="text-[12px] text-tw-text-muted">{consequence}</div>}
-				<div className="flex items-center gap-2 mt-1">
-					<button
-						type="button"
-						onClick={onApproveAll}
-						className="h-7 px-3 rounded-lg bg-tw-text-primary text-[#0D0D0F] text-[12px] font-medium hover:opacity-90 transition-opacity"
-					>
-						Yes, {buttonLabel}
-					</button>
-					<button
-						type="button"
-						onClick={onDenyAll}
-						className="h-7 px-3 rounded-lg bg-tw-hover text-tw-text-secondary text-[12px] font-medium hover:text-tw-text-primary transition-colors"
-					>
-						Cancel
-					</button>
-				</div>
-			</div>
-		);
-	}
+    return (
+      <div className="flex flex-col gap-2 rounded-xl bg-tw-card p-3">
+        <div className="text-[13px] text-tw-text-primary">
+          {prefix} {renderInlineText(userList)}
+          {suffix ? ` ${suffix}` : ""}?
+        </div>
+        {consequence && (
+          <div className="text-[12px] text-tw-text-muted">{consequence}</div>
+        )}
+        <div className="mt-1 flex items-center gap-2">
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={onApproveAll}
+            className="h-7 rounded-lg bg-tw-text-primary px-3 text-[12px] font-medium text-[#0D0D0F] transition-opacity hover:opacity-90"
+          >
+            Yes, {buttonLabel}
+          </Button>
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={onDenyAll}
+            className="h-7 rounded-lg bg-tw-hover px-3 text-[12px] font-medium text-tw-text-secondary transition-colors hover:text-tw-text-primary"
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
-	return (
-		<div className="rounded-xl bg-tw-card p-3 flex flex-col gap-2">
-			<div className="text-[12px] text-tw-text-muted uppercase tracking-wider">{approvals.length} actions</div>
-			<div className="flex flex-col gap-1">
-				{parsed.map((p, i) => (
-					<div key={getToolCallId(approvals[i]) ?? approvals[i].approval.id} className="flex items-center gap-2 text-[13px] text-tw-text-primary">
-						<span className="size-1.5 rounded-full bg-tw-warning shrink-0" />
-						{getBriefActionText(p.name, p.username)}
-					</div>
-				))}
-			</div>
-			<div className="flex items-center gap-2 mt-1">
-				<button
-					type="button"
-					onClick={onApproveAll}
-					className="h-7 px-3 rounded-lg bg-tw-text-primary text-[#0D0D0F] text-[12px] font-medium hover:opacity-90 transition-opacity"
-				>
-					Approve all
-				</button>
-				<button
-					type="button"
-					onClick={onDenyAll}
-					className="h-7 px-3 rounded-lg bg-tw-hover text-tw-text-secondary text-[12px] font-medium hover:text-tw-text-primary transition-colors"
-				>
-					Cancel
-				</button>
-			</div>
-		</div>
-	);
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-tw-card p-3">
+      <div className="text-[12px] tracking-wider text-tw-text-muted uppercase">
+        {approvals.length} actions
+      </div>
+      <div className="flex flex-col gap-1">
+        {parsed.map((p, i) => (
+          <div
+            key={getToolCallId(approvals[i]) ?? approvals[i].approval.id}
+            className="flex items-center gap-2 text-[13px] text-tw-text-primary"
+          >
+            <span className="size-1.5 shrink-0 rounded-full bg-tw-warning" />
+            {getBriefActionText(p.name, p.username)}
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex items-center gap-2">
+        <Button
+          variant="ghost"
+          type="button"
+          onClick={onApproveAll}
+          className="h-7 rounded-lg bg-tw-text-primary px-3 text-[12px] font-medium text-[#0D0D0F] transition-opacity hover:opacity-90"
+        >
+          Approve all
+        </Button>
+        <Button
+          variant="ghost"
+          type="button"
+          onClick={onDenyAll}
+          className="h-7 rounded-lg bg-tw-hover px-3 text-[12px] font-medium text-tw-text-secondary transition-colors hover:text-tw-text-primary"
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
 }
 
-function ToolResultDisplay({ result, fallback = null }: { result: unknown; fallback?: ReactNode }) {
-	if (typeof result === "string") {
-		try {
-			result = JSON.parse(result);
-		} catch {
-			return fallback;
-		}
-	}
-	if (!result || typeof result !== "object") return fallback;
+function ToolResultDisplay({
+  result,
+  fallback = null,
+}: {
+  result: unknown
+  fallback?: ReactNode
+}) {
+  if (typeof result === "string") {
+    try {
+      result = JSON.parse(result)
+    } catch {
+      return fallback
+    }
+  }
+  if (!result || typeof result !== "object") return fallback
 
-	const r = result as Record<string, unknown>;
+  const r = result as Record<string, unknown>
 
-	if ("root" in r && "elements" in r && typeof r.root === "string") {
-		return (
-			<JSONUIProvider registry={registry}>
-				<Renderer spec={r as unknown as RenderSpec} registry={registry} />
-			</JSONUIProvider>
-		);
-	}
+  if ("root" in r && "elements" in r && typeof r.root === "string") {
+    return (
+      <JSONUIProvider registry={registry}>
+        <Renderer spec={r as unknown as RenderSpec} registry={registry} />
+      </JSONUIProvider>
+    )
+  }
 
-	return fallback;
+  return fallback
 }
 
 function CombinedActionResult({ results }: { results: ActionResultData[] }) {
-	if (results.length === 0) return null;
+  if (results.length === 0) return null
 
-	const allSuccess = results.every((r) => r.success);
-	const usernames = results.map((r) => r.username).filter(Boolean) as string[];
+  const allSuccess = results.every((r) => r.success)
+  const usernames = results.map((r) => r.username).filter(Boolean) as string[]
 
-	let message: string;
-	if (usernames.length <= 1) {
-		message = results[0].message;
-	} else {
-		const firstMsg = results[0].message;
-		const match = firstMsg.match(/^@\w+\s+has\s+been\s+(.+)$/);
+  let message: string
+  if (usernames.length <= 1) {
+    message = results[0].message
+  } else {
+    const firstMsg = results[0].message
+    const match = firstMsg.match(/^@\w+\s+has\s+been\s+(.+)$/)
 
-		if (match) {
-			const lastUser = usernames.pop()!;
-			const userList = "@" + usernames.join(", @") + ` and @${lastUser}`;
-			message = `${userList} have been ${match[1]}`;
-		} else {
-			const lastUser = usernames.pop()!;
-			const userList = "@" + usernames.join(", @") + ` and @${lastUser}`;
-			message = `${userList}: ${results[0].message.replace(/@\w+\s*/, "")}`;
-		}
-	}
+    if (match) {
+      const lastUser = usernames.pop()!
+      const userList = "@" + usernames.join(", @") + ` and @${lastUser}`
+      message = `${userList} have been ${match[1]}`
+    } else {
+      const lastUser = usernames.pop()!
+      const userList = "@" + usernames.join(", @") + ` and @${lastUser}`
+      message = `${userList}: ${results[0].message.replace(/@\w+\s*/, "")}`
+    }
+  }
 
-	const bgColor = allSuccess ? "bg-[#4ADE801A] border-tw-success/20" : "bg-[#F56D5D1A] border-tw-error/20";
-	const iconColor = allSuccess ? "text-tw-success" : "text-tw-error";
+  const bgColor = allSuccess
+    ? "bg-[#4ADE801A] border-tw-success/20"
+    : "bg-[#F56D5D1A] border-tw-error/20"
+  const iconColor = allSuccess ? "text-tw-success" : "text-tw-error"
 
-	return (
-		<div className={`rounded-xl border p-3 flex items-center gap-2 ${bgColor}`}>
-			{allSuccess ? (
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={iconColor}>
-					<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
-					<path d="M4 7L6 9L10 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-				</svg>
-			) : (
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={iconColor}>
-					<circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
-					<path d="M5 5L9 9M9 5L5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-				</svg>
-			)}
-			<span className="text-[13px] text-tw-text-primary">{renderInlineText(message)}</span>
-		</div>
-	);
+  return (
+    <div className={`flex items-center gap-2 rounded-xl border p-3 ${bgColor}`}>
+      {allSuccess ? (
+        <BatchResultSuccessRingIcon14 className={iconColor} />
+      ) : (
+        <BatchResultErrorRingIcon14 className={iconColor} />
+      )}
+      <span className="text-[13px] text-tw-text-primary">
+        {renderInlineText(message)}
+      </span>
+    </div>
+  )
 }

@@ -1,5 +1,5 @@
-import { definePlugin as defineNitroPlugin } from "nitro";
-import { createAxiomDrain } from "evlog/axiom";
+import { definePlugin as defineNitroPlugin } from "nitro"
+import { createAxiomDrain } from "evlog/axiom"
 
 /**
  * Forward wide events to Axiom.
@@ -8,5 +8,5 @@ import { createAxiomDrain } from "evlog/axiom";
  * fire-and-forget; failures are swallowed so they never block the request.
  */
 export default defineNitroPlugin((nitroApp) => {
-	nitroApp.hooks.hook("evlog:drain", createAxiomDrain());
-});
+  nitroApp.hooks.hook("evlog:drain", createAxiomDrain())
+})

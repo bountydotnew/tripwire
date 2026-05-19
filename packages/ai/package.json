@@ -1,31 +1,31 @@
 {
-	"name": "@tripwire/ai",
-	"version": "0.0.0",
-	"private": true,
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts",
-		"./credit-middleware": "./src/credit-middleware.ts",
-		"./credit-schema": "./src/credit-schema.ts",
-		"./prompt": "./src/prompt.ts",
-		"./components": "./src/components/index.ts",
-		"./model-config": "./src/model-config.ts"
-	},
-	"scripts": {
-		"typecheck": "tsc --noEmit"
-	},
-	"dependencies": {
-		"@tripwire/auth": "workspace:*",
-		"@tripwire/env": "workspace:*",
-		"autumn-js": "^1.2.12",
-		"evlog": "^2.17.0",
-		"nitro": "^3.0.260311-beta",
-		"react": "^19.2.0",
-		"tokenlens": "^2.0.0-alpha.3"
-	},
-	"devDependencies": {
-		"@types/node": "^22.10.2",
-		"@types/react": "^19.2.0",
-		"typescript": "^5.7.2"
-	}
+  "name": "@tripwire/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./credit-middleware": "./src/credit-middleware.ts",
+    "./credit-schema": "./src/credit-schema.ts",
+    "./prompt": "./src/prompt.ts",
+    "./components": "./src/components/index.ts",
+    "./model-config": "./src/model-config.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tripwire/auth": "workspace:*",
+    "@tripwire/env": "workspace:*",
+    "autumn-js": "^1.2.12",
+    "evlog": "^2.17.0",
+    "nitro": "^3.0.260311-beta",
+    "react": "^19.2.0",
+    "tokenlens": "^2.0.0-alpha.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.0",
+    "typescript": "^5.7.2"
+  }
 }

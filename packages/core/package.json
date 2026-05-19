@@ -1,32 +1,36 @@
 {
-	"name": "@tripwire/core",
-	"version": "0.0.0",
-	"private": true,
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts",
-		"./events": "./src/events.ts",
-		"./reputation": "./src/reputation.ts",
-		"./contributor-score": "./src/contributor-score.ts",
-		"./filter-pipeline": "./src/filter-pipeline.ts",
-		"./rules/config-schema": "./src/rules/config-schema.ts",
-		"./rules/config-draft": "./src/rules/config-draft.ts"
-	},
-	"scripts": {
-		"typecheck": "tsc --noEmit",
-		"test": "vitest run"
-	},
-	"dependencies": {
-		"@tripwire/db": "workspace:*",
-		"@tripwire/env": "workspace:*",
-		"@tripwire/github": "workspace:*",
-		"drizzle-orm": "^0.45.1",
-		"evlog": "^2.17.0",
-		"zod": "^4.3.6"
-	},
-	"devDependencies": {
-		"@types/node": "^22.10.2",
-		"typescript": "^5.7.2",
-		"vitest": "^3.0.5"
-	}
+  "name": "@tripwire/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./events": "./src/events.ts",
+    "./reputation": "./src/reputation.ts",
+    "./contributor-score": "./src/contributor-score.ts",
+    "./filter-pipeline": "./src/filter-pipeline.ts",
+    "./rules/config-schema": "./src/rules/config-schema.ts",
+    "./rules/config-draft": "./src/rules/config-draft.ts",
+    "./rules/signal-registry": "./src/rules/signal-registry.ts",
+    "./workflow-registry": "./src/workflow-registry.ts",
+    "./node-evaluators": "./src/node-evaluators.ts",
+    "./workflow-executor": "./src/workflow-executor.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tripwire/db": "workspace:*",
+    "@tripwire/env": "workspace:*",
+    "@tripwire/github": "workspace:*",
+    "drizzle-orm": "^0.45.1",
+    "evlog": "^2.17.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
 }

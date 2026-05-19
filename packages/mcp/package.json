@@ -1,21 +1,21 @@
 {
-	"name": "@tripwire/mcp",
-	"version": "0.0.0",
-	"private": true,
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts"
-	},
-	"scripts": {
-		"typecheck": "tsc --noEmit"
-	},
-	"dependencies": {
-		"@modelcontextprotocol/sdk": "^1.29.0",
-		"@tripwire/tools": "workspace:*",
-		"zod": "^4.3.6"
-	},
-	"devDependencies": {
-		"@types/node": "^22.10.2",
-		"typescript": "^5.7.2"
-	}
+  "name": "@tripwire/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@tripwire/tools": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
 }

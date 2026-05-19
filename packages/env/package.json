@@ -1,24 +1,24 @@
 {
-	"name": "@tripwire/env",
-	"version": "0.0.0",
-	"private": true,
-	"type": "module",
-	"exports": {
-		".": "./src/server.ts",
-		"./server": "./src/server.ts",
-		"./client": "./src/client.ts"
-	},
-	"scripts": {
-		"typecheck": "tsc --noEmit"
-	},
-	"dependencies": {
-		"@t3-oss/env-core": "^0.13.10",
-		"dotenv": "^17.3.1",
-		"zod": "^4.3.6"
-	},
-	"devDependencies": {
-		"@types/node": "^22.10.2",
-		"typescript": "^5.7.2",
-		"vite": "^7.3.1"
-	}
+  "name": "@tripwire/env",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/server.ts",
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@t3-oss/env-core": "^0.13.10",
+    "dotenv": "^17.3.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vite": "^7.3.1"
+  }
 }

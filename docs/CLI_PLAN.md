@@ -177,12 +177,14 @@ For agent / CI usage, also ship a single Bun-runtime build for `npx tw`.
 ## Phasing
 
 **M0 — Scaffold (1 commit)**
+
 - `apps/cli/package.json`, `tsconfig.json`, `src/cli.ts`
 - Crust deps installed
 - `tw --version` works
 - Turbo recognizes it as an app
 
 **M1 — Read-only commands**
+
 - `tw login` (paste-key path; browser flow comes later)
 - `tw repos`
 - `tw user <name>`
@@ -191,20 +193,24 @@ For agent / CI usage, also ship a single Bun-runtime build for `npx tw`.
 - Pure HTTP client against deployed Tripwire backend.
 
 **M2 — Mutations**
+
 - `tw blacklist/whitelist/move`
 - `tw rules <enable/disable/action/set>`
 - `tw user <name> reset`
 - `tw rules scope/copy/clear`
 
 **M3 — Local mode**
+
 - Detect `DATABASE_URL` → import `@tripwire/tools` directly
 - Same command surface, no network
 
 **M4 — MCP server boot**
+
 - `tw mcp` — starts a stdio MCP server that exposes the same tool registry
 - Drops in as an MCP for Claude Code / Cursor without needing the web app
 
 **M5 — Distribution**
+
 - `tw login` browser hand-off
 - Standalone binaries on GitHub releases
 - npm publish (`@tripwire/cli`)

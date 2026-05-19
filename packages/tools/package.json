@@ -1,29 +1,29 @@
 {
-	"name": "@tripwire/tools",
-	"version": "0.0.0",
-	"private": true,
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts",
-		"./registry": "./src/registry.ts",
-		"./chat-adapter": "./src/chat-adapter.ts",
-		"./helpers": "./src/helpers.ts",
-		"./guides-content": "./src/guides-content.ts"
-	},
-	"scripts": {
-		"typecheck": "tsc --noEmit"
-	},
-	"dependencies": {
-		"ai": "^6.0.184",
-		"@tripwire/core": "workspace:*",
-		"@tripwire/db": "workspace:*",
-		"@tripwire/github": "workspace:*",
-		"drizzle-orm": "^0.45.1",
-		"evlog": "^2.17.0",
-		"zod": "^4.3.6"
-	},
-	"devDependencies": {
-		"@types/node": "^22.10.2",
-		"typescript": "^5.7.2"
-	}
+  "name": "@tripwire/tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./registry": "./src/registry.ts",
+    "./chat-adapter": "./src/chat-adapter.ts",
+    "./helpers": "./src/helpers.ts",
+    "./guides-content": "./src/guides-content.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ai": "^6.0.184",
+    "@tripwire/core": "workspace:*",
+    "@tripwire/db": "workspace:*",
+    "@tripwire/github": "workspace:*",
+    "drizzle-orm": "^0.45.1",
+    "evlog": "^2.17.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
 }

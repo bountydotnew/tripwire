@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 /* Streamdown styles */
@@ -20,57 +20,57 @@
   --font-display: "Playfair Display", Georgia, serif;
 
   /* Default border color for Tailwind's `border` utility */
-  --default-border-color: #27272A;
+  --default-border-color: #27272a;
 
   /* Tripwire color palette (from prototype) */
-  --color-tw-bg: #0D0D0F;
-  --color-tw-surface: #17171A;
+  --color-tw-bg: #0d0d0f;
+  --color-tw-surface: #17171a;
   --color-tw-card: #202023;
-  --color-tw-inner: #FAFAFA1A;
-  --color-tw-border: #27272A;
-  --color-tw-border-card: #0000004D;
-  --color-tw-hover: #18181B;
-  --color-tw-hover-light: #25252A;
+  --color-tw-inner: #fafafa1a;
+  --color-tw-border: #27272a;
+  --color-tw-border-card: #0000004d;
+  --color-tw-hover: #18181b;
+  --color-tw-hover-light: #25252a;
 
   /* Text colors */
-  --color-tw-text-primary: #EEEEEE;
-  --color-tw-text-secondary: #B4B4B4;
-  --color-tw-text-muted: #9F9FA9;
-  --color-tw-text-tertiary: #6E6E6E;
+  --color-tw-text-primary: #eeeeee;
+  --color-tw-text-secondary: #b4b4b4;
+  --color-tw-text-muted: #9f9fa9;
+  --color-tw-text-tertiary: #6e6e6e;
 
   /* Button colors */
-  --color-tw-button-muted: #FFFFFF14;
-  --color-tw-button-muted-hover: #FFFFFF22;
+  --color-tw-button-muted: #ffffff14;
+  --color-tw-button-muted-hover: #ffffff22;
 
   /* Semantic colors */
-  --color-tw-accent: #34A6FF;
-  --color-tw-success: #67E19F;
-  --color-tw-error: #F56D5D;
-  --color-tw-warning: #D1BC00;
+  --color-tw-accent: #34a6ff;
+  --color-tw-success: #67e19f;
+  --color-tw-error: #f56d5d;
+  --color-tw-warning: #d1bc00;
 
   /* Chart colors */
-  --color-tw-chart-blue: #118AF3;
-  --color-tw-chart-orange: #DF750C;
+  --color-tw-chart-blue: #118af3;
+  --color-tw-chart-orange: #df750c;
 
   /* Integration brand colors */
-  --color-tw-figma: #533AFD;
-  --color-tw-linear: #5E6AD2;
+  --color-tw-figma: #533afd;
+  --color-tw-linear: #5e6ad2;
   --color-tw-github: #000000;
 
   /* shadcn/ui variables */
-  --color-background: #0D0D0F;
-  --color-foreground: #EEEEEE;
-  --color-popover: #1F1E1E;
-  --color-popover-foreground: #EEEEEE;
-  --color-border: #27272A;
+  --color-background: #0d0d0f;
+  --color-foreground: #eeeeee;
+  --color-popover: #1f1e1e;
+  --color-popover-foreground: #eeeeee;
+  --color-border: #27272a;
   --color-accent: #202023;
-  --color-accent-foreground: #EEEEEE;
+  --color-accent-foreground: #eeeeee;
   --color-muted: #202023;
-  --color-muted-foreground: #B4B4B4;
-  --color-primary: #34A6FF;
-  --color-primary-foreground: #FFFFFF;
+  --color-muted-foreground: #b4b4b4;
+  --color-primary: #34a6ff;
+  --color-primary-foreground: #ffffff;
   --color-input: #202023;
-  --color-ring: #34A6FF;
+  --color-ring: #34a6ff;
   --radius-lg: 0.5rem;
 }
 
@@ -87,15 +87,15 @@ body {
 }
 
 .tw-card {
-  @apply bg-tw-card rounded-xl p-1;
+  @apply rounded-xl bg-tw-card p-1;
 }
 
 .tw-card-inner {
-  @apply bg-tw-inner rounded-[10px] p-2;
+  @apply rounded-[10px] bg-tw-inner p-2;
 }
 
 .tw-inset {
-  @apply bg-tw-surface rounded-[14px] overflow-hidden;
+  @apply overflow-hidden rounded-[14px] bg-tw-surface;
 }
 
 :root {
@@ -146,15 +146,15 @@ body {
 }
 
 .tw-chat-markdown [data-streamdown="heading-1"] {
-  @apply text-[15px] font-semibold mb-2;
+  @apply mb-2 text-[15px] font-semibold;
 }
 
 .tw-chat-markdown [data-streamdown="heading-2"] {
-  @apply text-[14px] font-semibold mb-2;
+  @apply mb-2 text-[14px] font-semibold;
 }
 
 .tw-chat-markdown [data-streamdown="heading-3"] {
-  @apply text-[13px] font-semibold mb-1;
+  @apply mb-1 text-[13px] font-semibold;
 }
 
 .tw-chat-markdown [data-streamdown="strong"] {
@@ -166,11 +166,11 @@ body {
 }
 
 .tw-chat-markdown [data-streamdown="inline-code"] {
-  @apply text-[12px] px-1 py-0.5 rounded bg-tw-card;
+  @apply rounded bg-tw-card px-1 py-0.5 text-[12px];
 }
 
 .tw-chat-markdown [data-streamdown="code-block"] {
-  @apply my-2 rounded-lg bg-tw-card overflow-hidden text-[12px];
+  @apply my-2 overflow-hidden rounded-lg bg-tw-card text-[12px];
 }
 
 .tw-chat-markdown [data-streamdown="ordered-list"],
@@ -191,25 +191,25 @@ body {
 }
 
 .tw-chat-markdown [data-streamdown="horizontal-rule"] {
-  @apply border-tw-border my-3;
+  @apply my-3 border-tw-border;
 }
 
 /* ─── File preview markdown ─────────────────────────────── */
 
 .prose-file-preview h1 {
-  @apply text-[16px] font-semibold text-tw-text-primary mt-0 mb-2;
+  @apply mt-0 mb-2 text-[16px] font-semibold text-tw-text-primary;
 }
 
 .prose-file-preview h2 {
-  @apply text-[14px] font-semibold text-tw-text-primary mt-4 mb-1.5;
+  @apply mt-4 mb-1.5 text-[14px] font-semibold text-tw-text-primary;
 }
 
 .prose-file-preview h3 {
-  @apply text-[13px] font-medium text-tw-text-primary mt-3 mb-1;
+  @apply mt-3 mb-1 text-[13px] font-medium text-tw-text-primary;
 }
 
 .prose-file-preview strong {
-  @apply text-tw-text-primary font-medium;
+  @apply font-medium text-tw-text-primary;
 }
 
 .prose-file-preview em {
@@ -217,7 +217,7 @@ body {
 }
 
 .prose-file-preview ul {
-  @apply pl-4 my-1.5 list-disc;
+  @apply my-1.5 list-disc pl-4;
 }
 
 .prose-file-preview li {
@@ -225,7 +225,7 @@ body {
 }
 
 .prose-file-preview li.task {
-  @apply list-none -ml-4 pl-0;
+  @apply -ml-4 list-none pl-0;
 }
 
 .prose-file-preview li.task::before {
@@ -239,23 +239,23 @@ body {
 }
 
 .prose-file-preview hr {
-  @apply border-tw-border my-3;
+  @apply my-3 border-tw-border;
 }
 
 .prose-file-preview .code-block {
-  @apply my-2 rounded-lg bg-tw-bg border border-tw-border overflow-hidden;
+  @apply my-2 overflow-hidden rounded-lg border border-tw-border bg-tw-bg;
 }
 
 .prose-file-preview .code-block code {
-  @apply block p-2.5 font-mono text-[11px] leading-snug text-tw-text-secondary whitespace-pre overflow-x-auto;
+  @apply block overflow-x-auto p-2.5 font-mono text-[11px] leading-snug whitespace-pre text-tw-text-secondary;
 }
 
 .prose-file-preview .inline-code {
-  @apply font-mono text-[11px] text-tw-accent bg-tw-inner px-1 py-0.5 rounded;
+  @apply rounded bg-tw-inner px-1 py-0.5 font-mono text-[11px] text-tw-accent;
 }
 
 .prose-file-preview .html-comment {
-  @apply font-mono text-[10px] text-tw-text-tertiary/50 bg-tw-inner/50 rounded px-2 py-1.5 my-2 leading-snug whitespace-pre-wrap break-all;
+  @apply my-2 rounded bg-tw-inner/50 px-2 py-1.5 font-mono text-[10px] leading-snug break-all whitespace-pre-wrap text-tw-text-tertiary/50;
 }
 
 .prose-file-preview p {

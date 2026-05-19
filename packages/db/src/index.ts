@@ -6,4 +6,4 @@
 // The live drizzle client lives at `@tripwire/db/client`. Import that only
 // from server code (TRPC routers, tools, etc).
 
-export * from "./schema";
+export * from "./schema"

@@ -3,47 +3,55 @@
  */
 
 const PAGE_CONTEXT: Record<string, string> = {
-	"/home": "The dashboard. Shows an overview of recent activity and key metrics.",
-	"/events": "The events log. Lists all webhook events, rule triggers, and actions taken.",
-	"/rules": "The rules page, where rule configurations are managed (age checks, slop detection, etc.).",
-	"/insights": "The insights page. Charts and analytics about contributor activity and rule performance.",
-	"/integrations": "The integrations page. GitHub app installation and connection management.",
-	"/automations": "The automations page. Automated workflows and responses.",
-	"/search": "The search page. Searching across events, contributors, and activity.",
-};
+  "/home":
+    "The dashboard. Shows an overview of recent activity and key metrics.",
+  "/events":
+    "The events log. Lists all webhook events, rule triggers, and actions taken.",
+  "/rules":
+    "The rules page, where rule configurations are managed (age checks, slop detection, etc.).",
+  "/insights":
+    "The insights page. Charts and analytics about contributor activity and rule performance.",
+  "/integrations":
+    "The integrations page. GitHub app installation and connection management.",
+  "/automations": "The automations page. Automated workflows and responses.",
+  "/search":
+    "The search page. Searching across events, contributors, and activity.",
+}
 
 function getPageContext(currentPage: string): string {
-	const exact = PAGE_CONTEXT[currentPage];
-	if (exact) return exact;
+  const exact = PAGE_CONTEXT[currentPage]
+  if (exact) return exact
 
-	for (const [path, desc] of Object.entries(PAGE_CONTEXT)) {
-		if (currentPage.startsWith(path)) return desc;
-	}
+  for (const [path, desc] of Object.entries(PAGE_CONTEXT)) {
+    if (currentPage.startsWith(path)) return desc
+  }
 
-	return "An unknown page.";
+  return "An unknown page."
 }
 
 function getPageHint(currentPage: string, repoName: string): string {
-	if (currentPage.startsWith("/events"))
-		return "You can help them dig into specific events, filter activity, or investigate flagged contributors from here.";
-	if (currentPage === "/rules")
-		return "You can help them understand what each rule does and how it affects contributors.";
-	if (currentPage === "/home")
-		return `You can help them get oriented. Summarize recent activity in ${repoName} or highlight anything that needs attention.`;
-	if (currentPage === "/insights")
-		return "You can help them make sense of the data here. Trends, anomalies, whatever stands out.";
-	return "";
+  if (currentPage.startsWith("/events"))
+    return "You can help them dig into specific events, filter activity, or investigate flagged contributors from here."
+  if (currentPage === "/rules")
+    return "You can help them understand what each rule does and how it affects contributors."
+  if (currentPage === "/home")
+    return `You can help them get oriented. Summarize recent activity in ${repoName} or highlight anything that needs attention.`
+  if (currentPage === "/insights")
+    return "You can help them make sense of the data here. Trends, anomalies, whatever stands out."
+  if (currentPage.startsWith("/automations"))
+    return "You can help them build workflows here. Use get_node_types to see available nodes, then create and edit workflows with operations."
+  return ""
 }
 
 export function buildSystemPrompt(context: {
-	repoName: string;
-	userName: string;
-	currentPage: string;
+  repoName: string
+  userName: string
+  currentPage: string
 }) {
-	const pageContext = getPageContext(context.currentPage);
-	const pageHint = getPageHint(context.currentPage, context.repoName);
+  const pageContext = getPageContext(context.currentPage)
+  const pageHint = getPageHint(context.currentPage, context.repoName)
 
-	return `You are Tripwire's AI assistant. A sharp, friendly copilot for managing open-source repository security.
+  return `You are Tripwire's AI assistant. A sharp, friendly copilot for managing open-source repository security.
 
 <background-data>
 <user>${context.userName}</user>
@@ -59,6 +67,7 @@ export function buildSystemPrompt(context: {
 - Explaining what Tripwire is doing and why
 - Answering questions about the current page or data they're looking at
 - Searching the web for context about contributors, security advisories, or GitHub activity
+- Building and editing automation workflows (call get_node_types first, then create_workflow, then edit_workflow with operations)
 - General questions about their repo's security posture
 
 If someone asks something completely unrelated to Tripwire or repo management, gently redirect: "I'm best at helping with Tripwire. Managing contributors, investigating flags, and understanding your repo's activity."
@@ -146,5 +155,5 @@ When someone asks vague questions like "what can you do?", "help", "idk", or see
 <context>User is on /insights</context>
 <assistant>I can help you make sense of the data here. Anything standing out?</assistant>
 </example>
-</examples>`;
+</examples>`
 }

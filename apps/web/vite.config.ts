@@ -1,10 +1,11 @@
-import { defineConfig } from "vite";
-import { devtools } from "@tanstack/devtools-vite";
-import tsconfigPaths from "vite-tsconfig-paths";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-import { nitro } from "nitro/vite";
+import { defineConfig } from "vite"
+import { devtools } from "@tanstack/devtools-vite"
+import tsconfigPaths from "vite-tsconfig-paths"
+import { tanstackStart } from "@tanstack/react-start/plugin/vite"
+import viteReact from "@vitejs/plugin-react"
+import tailwindcss from "@tailwindcss/vite"
+import { nitro } from "nitro/vite"
+import { tripwireDevServeTiming } from "./vite/dev-serve-timing-plugin"
 
 const config = defineConfig({
   // .env lives at the monorepo root so every package + app shares it.
@@ -13,6 +14,7 @@ const config = defineConfig({
   envDir: "../..",
   plugins: [
     devtools(),
+    tripwireDevServeTiming(),
     tsconfigPaths({ projects: ["./tsconfig.json"] }),
     tailwindcss(),
     tanstackStart(),
@@ -34,6 +36,6 @@ const config = defineConfig({
     },
     dedupe: ["react", "react-dom"],
   },
-});
+})
 
-export default config;
+export default config

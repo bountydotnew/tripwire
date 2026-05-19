@@ -1,8 +1,8 @@
 {
-	"extends": "../../tsconfig.base.json",
-	"include": ["src/**/*.ts", "src/**/*.tsx"],
-	"exclude": ["node_modules", "dist"],
-	"compilerOptions": {
-		"types": []
-	}
+  "extends": "../../tsconfig.base.json",
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "types": []
+  }
 }

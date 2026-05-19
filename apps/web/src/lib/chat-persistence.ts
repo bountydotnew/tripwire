@@ -6,45 +6,45 @@
  * able to create or rewrite assistant/tool history, especially approvals.
  */
 export function mergeMessagesPreservingResults(
-	input: unknown[],
-	existing: unknown[],
+  input: unknown[],
+  existing: unknown[]
 ): unknown[] {
-	if (existing.length === 0) {
-		return input.filter(isUserMessage).map(clone);
-	}
+  if (existing.length === 0) {
+    return input.filter(isUserMessage).map(clone)
+  }
 
-	const merged = existing.map(clone);
-	const knownIds = new Set(
-		merged
-			.map((message) => getMessageId(message))
-			.filter((id): id is string => typeof id === "string"),
-	);
+  const merged = existing.map(clone)
+  const knownIds = new Set(
+    merged
+      .map((message) => getMessageId(message))
+      .filter((id): id is string => typeof id === "string")
+  )
 
-	for (const message of input) {
-		if (!isUserMessage(message)) continue;
-		const id = getMessageId(message);
-		if (id && knownIds.has(id)) continue;
-		merged.push(clone(message));
-		if (id) knownIds.add(id);
-	}
+  for (const message of input) {
+    if (!isUserMessage(message)) continue
+    const id = getMessageId(message)
+    if (id && knownIds.has(id)) continue
+    merged.push(clone(message))
+    if (id) knownIds.add(id)
+  }
 
-	return merged;
+  return merged
 }
 
 type MessageLike = {
-	id?: string;
-	role?: string;
-};
+  id?: string
+  role?: string
+}
 
 function isUserMessage(message: unknown): boolean {
-	return (message as MessageLike | undefined)?.role === "user";
+  return (message as MessageLike | undefined)?.role === "user"
 }
 
 function getMessageId(message: unknown): string | undefined {
-	const id = (message as MessageLike | undefined)?.id;
-	return typeof id === "string" ? id : undefined;
+  const id = (message as MessageLike | undefined)?.id
+  return typeof id === "string" ? id : undefined
 }
 
 function clone<T>(value: T): T {
-	return JSON.parse(JSON.stringify(value));
+  return JSON.parse(JSON.stringify(value))
 }
