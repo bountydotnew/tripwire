@@ -36,7 +36,7 @@ export function DialogBackdrop({
   return (
     <DialogPrimitive.Backdrop
       className={cn(
-        "fixed inset-0 z-50 bg-tw-bg/32 backdrop-blur-sm transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
+        "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
         className
       )}
       data-slot="dialog-backdrop"
@@ -86,9 +86,9 @@ export function DialogPopup({
       >
         <DialogPrimitive.Popup
           className={cn(
-            "relative row-start-2 flex max-h-full min-h-0 w-full max-w-lg min-w-0 origin-center flex-col rounded-2xl border bg-popover text-popover-foreground opacity-[calc(1-var(--nested-dialogs))] shadow-lg/5 transition-[scale,opacity,translate] duration-200 ease-in-out will-change-transform outline-none not-dark:bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:opacity-0 data-starting-style:opacity-0 sm:scale-[calc(1-0.1*var(--nested-dialogs))] sm:data-ending-style:scale-98 sm:data-starting-style:scale-98 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+            "relative row-start-2 flex max-h-full min-h-0 w-full max-w-lg min-w-0 origin-center flex-col rounded-xl border border-tw-border bg-tw-surface text-tw-text-primary shadow-2xl transition-[scale,opacity,translate] duration-200 ease-out outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 sm:data-ending-style:scale-95 sm:data-starting-style:scale-95",
             bottomStickOnMobile &&
-              "max-sm:max-w-none max-sm:origin-bottom max-sm:rounded-none max-sm:border-x-0 max-sm:border-t max-sm:border-b-0 max-sm:before:hidden max-sm:before:rounded-none max-sm:data-ending-style:translate-y-4 max-sm:data-starting-style:translate-y-4",
+              "max-sm:max-w-none max-sm:origin-bottom max-sm:rounded-none max-sm:rounded-t-xl max-sm:border-x-0 max-sm:border-b-0 max-sm:data-ending-style:translate-y-4 max-sm:data-starting-style:translate-y-4",
             className
           )}
           data-slot="dialog-popup"
@@ -98,11 +98,11 @@ export function DialogPopup({
           {showCloseButton && (
             <DialogPrimitive.Close
               aria-label="Close"
-              className="absolute end-2 top-2"
+              className="absolute end-3 top-3"
               render={<Button size="icon" variant="ghost" />}
               {...closeProps}
             >
-              <XIcon />
+              <XIcon className="size-4 text-tw-text-muted" />
             </DialogPrimitive.Close>
           )}
         </DialogPrimitive.Popup>
@@ -118,7 +118,7 @@ export function DialogHeader({
 }: useRender.ComponentProps<"div">): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "flex flex-col gap-2 p-6 in-[[data-slot=dialog-popup]:has([data-slot=dialog-panel])]:pb-3 max-sm:pb-4",
+      "flex flex-col gap-1.5 px-5 pt-5 pb-4 in-[[data-slot=dialog-popup]:has([data-slot=dialog-panel])]:pb-2",
       className
     ),
     "data-slot": "dialog-header",
@@ -141,10 +141,9 @@ export function DialogFooter({
 }): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "flex flex-col-reverse gap-2 px-6 sm:flex-row sm:justify-end sm:rounded-b-[calc(var(--radius-2xl)-1px)]",
-      variant === "default" && "border-t bg-muted/72 py-4",
-      variant === "bare" &&
-        "pt-4 pb-6 in-[[data-slot=dialog-popup]:has([data-slot=dialog-panel])]:pt-3",
+      "flex flex-col-reverse gap-2 px-5 sm:flex-row sm:justify-end",
+      variant === "default" && "border-t border-tw-border bg-tw-bg/50 py-4 rounded-b-xl",
+      variant === "bare" && "pt-2 pb-5 in-[[data-slot=dialog-popup]:has([data-slot=dialog-panel])]:pt-2",
       className
     ),
     "data-slot": "dialog-footer",
@@ -164,7 +163,7 @@ export function DialogTitle({
   return (
     <DialogPrimitive.Title
       className={cn(
-        "font-heading text-xl leading-none font-semibold",
+        "text-[15px] leading-tight font-semibold text-tw-text-primary",
         className
       )}
       data-slot="dialog-title"
@@ -179,7 +178,7 @@ export function DialogDescription({
 }: DialogPrimitive.Description.Props): React.ReactElement {
   return (
     <DialogPrimitive.Description
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-[13px] leading-relaxed text-tw-text-muted", className)}
       data-slot="dialog-description"
       {...props}
     />
@@ -196,7 +195,7 @@ export function DialogPanel({
 }): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "p-6 in-[[data-slot=dialog-popup]:has([data-slot=dialog-footer]:not(.border-t))]:pb-1 in-[[data-slot=dialog-popup]:has([data-slot=dialog-header])]:pt-1",
+      "px-5 py-4 in-[[data-slot=dialog-popup]:has([data-slot=dialog-footer]:not(.border-t))]:pb-1 in-[[data-slot=dialog-popup]:has([data-slot=dialog-header])]:pt-0",
       className
     ),
     "data-slot": "dialog-panel",

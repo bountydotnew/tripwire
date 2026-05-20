@@ -78,6 +78,10 @@ export function FeedbackProvider({
     onOpenRef.current?.();
   }, []);
 
+  const setScreenshot = useCallback((blob: Blob | null) => {
+    setScreenshotBlob(blob);
+  }, []);
+
   return (
     <FeedbackContext
       value={{
@@ -90,6 +94,7 @@ export function FeedbackProvider({
         startSelection,
         cancelSelection,
         selectElement,
+        setScreenshot,
         config: mergedConfig,
       }}
     >

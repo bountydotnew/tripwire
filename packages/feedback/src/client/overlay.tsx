@@ -32,8 +32,89 @@ function getComponentName(element: Element): string | null {
   return name;
 }
 
+async function captureScreenshot(
+  target: Element,
+  componentName: string | null
+): Promise<Blob | null> {
+  const overlayEl = document.getElementById('feedback-overlay-layer');
+  if (overlayEl) overlayEl.style.display = 'none';
+
+  // Hide any open dialogs so they don't appear in the screenshot
+  const dialogEls = document.querySelectorAll<HTMLElement>('[data-slot="dialog-backdrop"], [data-slot="dialog-viewport"]');
+  for (const el of dialogEls) el.style.display = 'none';
+
+  try {
+    const selectedRect = target.getBoundingClientRect();
+    const highlightLabel = componentName ?? target.tagName.toLowerCase();
+
+    const html2canvas = (await import('html2canvas-pro')).default;
+    const canvas = await html2canvas(document.body, {
+      logging: false,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      scrollX: -window.scrollX,
+      scrollY: -window.scrollY,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+      onclone: (clonedDoc) => {
+        for (const el of clonedDoc.querySelectorAll<HTMLElement>(
+          '[data-privacy="masked"]'
+        )) {
+          el.style.filter = 'blur(10px)';
+        }
+
+        const highlight = clonedDoc.createElement('div');
+        Object.assign(highlight.style, {
+          position: 'fixed',
+          top: `${selectedRect.top}px`,
+          left: `${selectedRect.left}px`,
+          width: `${selectedRect.width}px`,
+          height: `${selectedRect.height}px`,
+          border: '2px solid #34a6ff',
+          backgroundColor: 'rgba(52, 166, 255, 0.08)',
+          borderRadius: '3px',
+          zIndex: '999999',
+          pointerEvents: 'none',
+        });
+        clonedDoc.body.appendChild(highlight);
+
+        const label = clonedDoc.createElement('div');
+        Object.assign(label.style, {
+          position: 'fixed',
+          top: `${Math.max(selectedRect.top - 24, 4)}px`,
+          left: `${selectedRect.left}px`,
+          backgroundColor: '#34a6ff',
+          color: '#ffffff',
+          fontSize: '11px',
+          fontFamily: 'ui-monospace, monospace',
+          fontWeight: '500',
+          padding: '2px 6px',
+          borderRadius: '3px',
+          zIndex: '999999',
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+        });
+        label.textContent = highlightLabel;
+        clonedDoc.body.appendChild(label);
+      },
+    });
+
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+        'image/png'
+      )
+    );
+  } catch {
+    return null;
+  } finally {
+    if (overlayEl) overlayEl.style.display = '';
+    for (const el of dialogEls) el.style.display = '';
+  }
+}
+
 export function FeedbackOverlay() {
-  const { isSelecting, selectElement, cancelSelection, config } = useFeedback();
+  const { isSelecting, selectElement, setScreenshot, cancelSelection, config } = useFeedback();
   const overlayZIndex = config.ui?.zIndex ? config.ui.zIndex - 2 : 9998;
   const [hovered, setHovered] = useState<HoveredInfo>(null);
   const [isResolving, setIsResolving] = useState(false);
@@ -46,6 +127,8 @@ export function FeedbackOverlay() {
   isSelectingRef.current = isSelecting;
   const selectElementRef = useRef(selectElement);
   selectElementRef.current = selectElement;
+  const setScreenshotRef = useRef(setScreenshot);
+  setScreenshotRef.current = setScreenshot;
   const cancelSelectionRef = useRef(cancelSelection);
   cancelSelectionRef.current = cancelSelection;
 
@@ -112,83 +195,11 @@ export function FeedbackOverlay() {
 
       setIsResolving(true);
       cancelledRef.current = false;
+
+      const componentName = getComponentName(target);
+
       try {
-        let screenshot: Blob | null = null;
-        try {
-          const overlayEl = document.getElementById('feedback-overlay-layer');
-          if (overlayEl) overlayEl.style.display = 'none';
-
-          const selectedRect = target.getBoundingClientRect();
-          const componentName = getComponentName(target);
-          const highlightLabel = componentName ?? target.tagName.toLowerCase();
-
-          const html2canvas = (await import('html2canvas-pro')).default;
-          const canvas = await html2canvas(document.body, {
-            logging: false,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            scrollX: -window.scrollX,
-            scrollY: -window.scrollY,
-            windowWidth: window.innerWidth,
-            windowHeight: window.innerHeight,
-            onclone: (clonedDoc) => {
-              for (const el of clonedDoc.querySelectorAll<HTMLElement>(
-                '[data-privacy="masked"]'
-              )) {
-                el.style.filter = 'blur(10px)';
-              }
-
-              const highlight = clonedDoc.createElement('div');
-              Object.assign(highlight.style, {
-                position: 'fixed',
-                top: `${selectedRect.top}px`,
-                left: `${selectedRect.left}px`,
-                width: `${selectedRect.width}px`,
-                height: `${selectedRect.height}px`,
-                border: '2px solid #34a6ff',
-                backgroundColor: 'rgba(52, 166, 255, 0.08)',
-                borderRadius: '3px',
-                zIndex: '999999',
-                pointerEvents: 'none',
-              });
-              clonedDoc.body.appendChild(highlight);
-
-              const label = clonedDoc.createElement('div');
-              Object.assign(label.style, {
-                position: 'fixed',
-                top: `${Math.max(selectedRect.top - 24, 4)}px`,
-                left: `${selectedRect.left}px`,
-                backgroundColor: '#34a6ff',
-                color: '#ffffff',
-                fontSize: '11px',
-                fontFamily: 'ui-monospace, monospace',
-                fontWeight: '500',
-                padding: '2px 6px',
-                borderRadius: '3px',
-                zIndex: '999999',
-                pointerEvents: 'none',
-                whiteSpace: 'nowrap',
-              });
-              label.textContent = highlightLabel;
-              clonedDoc.body.appendChild(label);
-            },
-          });
-
-          if (overlayEl) overlayEl.style.display = '';
-
-          screenshot = await new Promise<Blob>((resolve, reject) =>
-            canvas.toBlob(
-              (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
-              'image/png'
-            )
-          );
-        } catch {
-          const overlayEl = document.getElementById('feedback-overlay-layer');
-          if (overlayEl) overlayEl.style.display = '';
-        }
-
-        if (cancelledRef.current) return;
-
+        // Resolve element context first (fast) and open dialog immediately
         freeze();
         const context = await getElementContext(target);
         if (cancelledRef.current) {
@@ -196,15 +207,24 @@ export function FeedbackOverlay() {
           return;
         }
         unfreeze();
-        selectElementRef.current(context, screenshot);
+
+        // Open dialog right away — no waiting for screenshot
+        selectElementRef.current(context, null);
+        setIsResolving(false);
+
+        // Capture screenshot in background, then update the blob
+        captureScreenshot(target, componentName).then((blob) => {
+          if (blob && !cancelledRef.current) {
+            setScreenshotRef.current(blob);
+          }
+        });
       } catch (err) {
         unfreeze();
+        setIsResolving(false);
         if (!cancelledRef.current) {
           console.error('[feedback] Failed to resolve element context:', err);
           cancelSelectionRef.current();
         }
-      } finally {
-        setIsResolving(false);
       }
     };
 

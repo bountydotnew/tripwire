@@ -58,5 +58,6 @@ export interface FeedbackContextType {
   startSelection: () => void;
   cancelSelection: () => void;
   selectElement: (context: ReactGrabElementContext, screenshot?: Blob | null) => void;
+  setScreenshot: (blob: Blob | null) => void;
   config: FeedbackConfig;
 }

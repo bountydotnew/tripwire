@@ -13,6 +13,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "preflight": "pnpm typecheck && pnpm lint && pnpm format:check",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "db:generate": "pnpm --filter @tripwire/web db:generate",
     "db:migrate": "pnpm --filter @tripwire/web db:migrate",

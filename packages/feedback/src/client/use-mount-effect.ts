@@ -1,4 +1,6 @@
 import { useEffect, type EffectCallback } from 'react';
 
-// eslint-disable-next-line react-hooks/exhaustive-deps
-export const useMountEffect = (effect: EffectCallback) => useEffect(effect, []);
+export function useMountEffect(effect: EffectCallback) {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally mount-only
+  useEffect(effect, []);
+}
