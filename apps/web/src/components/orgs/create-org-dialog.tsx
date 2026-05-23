@@ -168,17 +168,17 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
             </div>
           </div>
         </DialogPanel>
-        <DialogFooter variant="bare">
+        <DialogFooter variant="default" side="end">
           <DialogClose className="flex h-8 items-center rounded-lg border border-[#27272A] px-3 text-[13px] font-medium text-tw-text-secondary transition-colors hover:bg-tw-hover">
             Cancel
           </DialogClose>
           <Button
-            variant="ghost"
+            variant="default"
             type="button"
             disabled={!canSubmit}
             loading={submitting}
             onClick={handleSubmit}
-            className="flex h-8 items-center rounded-lg bg-white px-3 text-[13px] font-medium text-black transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-8 items-center rounded-lg px-3 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-40"
           >
             Create
           </Button>

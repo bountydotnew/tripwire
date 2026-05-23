@@ -133,22 +133,24 @@ export function DialogHeader({
 
 export function DialogFooter({
   className,
+  side = "end",
   variant = "default",
   render,
   ...props
 }: useRender.ComponentProps<"div"> & {
+  side?: "start" | "end"
   variant?: "default" | "bare"
 }): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "flex flex-col-reverse gap-2 px-5 sm:flex-row sm:justify-end",
+      `flex flex-col-reverse gap-2 px-5 sm:flex-row justify-${side}`,
       variant === "default" &&
-        "rounded-b-xl border-t border-tw-border bg-tw-bg/50 py-4",
+        `rounded-b-xl border-t border-tw-border bg-tw-bg/50 py-4 sm:justify-${side}`,
       variant === "bare" &&
-        "pt-2 pb-5 in-[[data-slot=dialog-popup]:has([data-slot=dialog-panel])]:pt-2",
+        `pt-2 pb-5 in-[[data-slot=dialog-popup]:has([data-slot=dialog-panel])]:pt-2 sm:justify-${side}`,
       className
     ),
-    "data-slot": "dialog-footer",
+    "data-slot": `dialog-footer-${side}`,
   }
 
   return useRender({

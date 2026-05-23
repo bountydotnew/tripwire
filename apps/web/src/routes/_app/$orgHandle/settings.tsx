@@ -124,10 +124,10 @@ function OrgProfileSection({
       <div className="flex flex-col gap-4 rounded-xl bg-tw-card p-4">
         <Field label="URL" hint="Locked. URL changes are coming later.">
           <div className="flex items-stretch overflow-hidden rounded-lg border border-tw-border bg-tw-inner">
-            <span className="flex items-center bg-tw-inner px-2.5 font-mono text-[12px] text-tw-text-muted">
-              tripwire.dev/
+            <span className="flex items-center bg-tw-inner px-2 font-mono text-[12px] text-tw-text-muted">
+              tripwire.sh/
             </span>
-            <span className="flex h-9 flex-1 items-center px-0 font-mono text-[13px] text-tw-text-primary">
+            <span className="flex h-9 flex-1 items-center px-2 font-mono text-[13px] text-tw-text-primary">
               {orgSlug}
             </span>
           </div>
@@ -302,10 +302,10 @@ function Field({
 function RoleBadge({ role }: { role: string }) {
   const tone =
     role === "owner"
-      ? "border-tw-accent/20 bg-tw-accent/10 text-tw-accent"
+      ? "text-tw-text-primary bg-tw-accent border-tw-accent"
       : role === "admin"
-        ? "border-tw-success/20 bg-tw-success/10 text-tw-success"
-        : "border-tw-border bg-tw-inner text-tw-text-secondary"
+        ? "text-tw-text-primary bg-tw-error border-tw-error"
+        : "text-tw-text-secondary bg-tw-inner border-tw-border"
   return (
     <span
       className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[11px] font-medium capitalize ${tone}`}
