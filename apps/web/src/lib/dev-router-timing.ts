@@ -1,4 +1,3 @@
-// @ts-expect-error -- subpath not in published types, resolved at runtime
 import type { AnyRouter, RouterEvents } from "@tanstack/router-core"
 
 /** Dev-only: logs client navigations from route resolve through first paint hook. */

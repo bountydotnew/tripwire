@@ -11,7 +11,7 @@ import { getInstallationToken, getRepoContributors } from "@tripwire/github"
 
 import type { TRPCRouterRecord } from "@trpc/server"
 
-import { isValidGithubLogin } from "#/lib/github-login-validation"
+import { isValidGithubLogin } from "#/lib/github/login-validation"
 
 // Validate GitHub user exists and get their info
 async function validateGitHubUser(username: string): Promise<{

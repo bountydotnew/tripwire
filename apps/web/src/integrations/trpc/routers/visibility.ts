@@ -15,14 +15,14 @@ import {
   type EventSeverity,
 } from "@tripwire/db"
 import { inngest } from "#/inngest/client"
-import { isValidGithubLogin } from "#/lib/github-login-validation"
+import { isValidGithubLogin } from "#/lib/github/login-validation"
 import {
   blacklistJoinClause,
   excludeMaintainerSelf,
   excludeRepoOwner,
   lowerInArray,
   whitelistJoinClause,
-} from "#/lib/visibility-queries"
+} from "#/lib/visibility/queries"
 import type { TRPCRouterRecord } from "@trpc/server"
 
 const sortColumnEnum = z.enum([

@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query"
 import { FlaskConical, LayoutDashboard, ShieldUser } from "lucide-react"
 import { AuthProvider } from "@tripwire/auth/components"
 import { useTRPC } from "#/integrations/trpc/react"
-import { TripwireLogo } from "#/components/icons/tripwire-logo"
+import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
 
 export const Route = createFileRoute("/_admin")({
   component: AdminShell,

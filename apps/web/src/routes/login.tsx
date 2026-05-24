@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { authClient } from "@tripwire/auth/client"
 import { useEffect } from "react"
 import { Button } from "@tripwire/ui/button"
-import { TripwireLogo } from "#/components/icons/tripwire-logo"
+import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,

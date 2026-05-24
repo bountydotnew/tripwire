@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTRPC } from "#/integrations/trpc/react"
-import { StepShell } from "#/components/onboarding/step-shell"
+import { StepShell } from "#/components/layout/onboarding/step-shell"
 import { toastFromError } from "#/lib/toast-error"
 
 export const Route = createFileRoute("/onboarding/step/1")({

@@ -11,23 +11,24 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-} from "#/components/ui/dialog"
+} from "@tripwire/ui/dialog"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChatComposer } from "#/components/chat/chat-composer"
-import { EventGroupCard } from "#/components/home/event-group-card"
-import { toastManager } from "#/components/ui/toast"
+import { ChatComposer } from "#/components/layout/app/chat/chat-composer"
+import { EventGroupCard } from "#/components/layout/app/home/event-group-card"
+import { toastManager } from "@tripwire/ui/toast"
 import type { TripwireEvent, EventAction } from "#/types/home"
 import { useAuth } from "@tripwire/auth/components"
-import { useWorkspace, useWorkspacePath } from "#/lib/workspace-context"
+import { useWorkspace, useWorkspacePath } from "#/providers/workspace-context"
 import { useTRPC } from "#/integrations/trpc/react"
-import { TripwireLogo } from "#/components/icons/tripwire-logo"
+import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
 import {
   OnboardingCheckCircleIcon14,
   SmallCheckStrokeIcon12,
   StrokeXIcon10Muted,
-} from "#/components/icons/app-chrome-icons"
-import { parseCommand } from "#/lib/chat-commands"
+} from "@tripwire/ui/icons/app-chrome-icons"
+import { parseCommand } from "#/lib/chat/commands"
+import { formatRelativeTime } from "#/lib/format"
 
 export const Route = createFileRoute("/_app/$orgHandle/home")({
   component: HomePage,
@@ -567,20 +568,6 @@ function getEventAction(action: string): EventAction | null {
     issue_closed: { label: "Close issue", kind: "close" },
   }
   return actions[action] || null
-}
-
-function formatRelativeTime(date: Date): string {
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-
-  if (minutes < 1) return "just now"
-  if (minutes < 60) return `${minutes}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days === 1) return "yesterday"
-  return `${days}d ago`
 }
 
 interface IntegrationChipProps {

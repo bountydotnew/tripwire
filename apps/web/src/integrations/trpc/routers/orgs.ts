@@ -13,7 +13,7 @@ import {
 import {
   isReservedOrgSlug,
   ORG_SLUG_PATTERN,
-} from "#/lib/reserved-org-slugs"
+} from "#/constants/reserved-org-slugs"
 
 import type { TRPCRouterRecord } from "@trpc/server"
 

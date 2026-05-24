@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { RulesWorkspaceLayoutRoute } from "#/components/rules/rules-workspace-layout"
-import { RulesWorkspaceSkeleton } from "#/components/rules/rules-workspace-skeleton"
+import { RulesWorkspaceLayoutRoute } from "#/components/layout/app/rules/rules-workspace-layout"
+import { RulesWorkspaceSkeleton } from "#/components/layout/app/rules/rules-workspace-skeleton"
 
 function tabFromLocationSearch(search: unknown): string | null {
   if (search == null) return null

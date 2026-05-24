@@ -2,21 +2,21 @@ import { useMemo, useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@tripwire/ui/button"
-import { EmptyState } from "#/components/layout/empty-state"
-import { ContributorsTable, type SortColumn } from "#/components/visibility/contributors-table"
-import { ContributorDetailDrawer } from "#/components/visibility/contributor-detail-drawer"
+import { EmptyState } from "#/components/shared/empty-state"
+import { ContributorsTable, type SortColumn } from "#/components/layout/app/visibility/contributors-table"
+import { ContributorDetailDrawer } from "#/components/layout/app/visibility/contributor-detail-drawer"
 import {
   SuggestedWhitelistPanel,
   RiskAlertsPanel,
-} from "#/components/visibility/recommendation-panels"
-import { SyncBar } from "#/components/visibility/sync-bar"
+} from "#/components/layout/app/visibility/recommendation-panels"
+import { SyncBar } from "#/components/layout/app/visibility/sync-bar"
 import { useTRPC } from "#/integrations/trpc/react"
-import { useWorkspace } from "#/lib/workspace-context"
+import { useWorkspace } from "#/providers/workspace-context"
 import { routes } from "#/lib/routes"
 import { invalidateRepoData } from "#/lib/cache"
 import { formatCompact } from "#/lib/format"
 import { toastFromError } from "#/lib/toast-error"
-import { toastManager } from "#/components/ui/toast"
+import { toastManager } from "@tripwire/ui/toast"
 
 export const Route = createFileRoute("/_app/$orgHandle/visibility")({
   component: VisibilityPage,

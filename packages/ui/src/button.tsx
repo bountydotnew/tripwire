@@ -5,7 +5,7 @@ import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 import type * as React from "react"
 import { useWebHaptics as useHaptics } from "web-haptics/react"
-import { cn } from "@tripwire/ui/utils"
+import { cn } from "./utils"
 import { Spinner } from "./spinner"
 
 export const buttonVariants = cva(

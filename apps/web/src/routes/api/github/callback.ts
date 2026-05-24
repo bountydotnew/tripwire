@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { createContext } from "#/integrations/trpc/init"
 import { INSTALL_STATE_COOKIE, verifyInstallState } from "@tripwire/github"
-import { ensureInstallation } from "#/lib/github-install"
+import { ensureInstallation } from "#/lib/github/install"
 
 type CallbackError =
   | "invalid_state"

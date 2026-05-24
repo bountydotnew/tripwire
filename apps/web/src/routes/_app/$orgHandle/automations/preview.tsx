@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Button } from "@tripwire/ui/button"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useWorkspace } from "#/lib/workspace-context"
+import { useWorkspace } from "#/providers/workspace-context"
 import { useTRPC } from "#/integrations/trpc/react"
-import { WorkflowEditor } from "#/components/automations/workflow-editor"
-import { templates } from "#/components/automations/templates"
+import { WorkflowEditor } from "#/components/layout/app/automations/workflow-editor"
+import { templates } from "#/constants/automation-templates"
 import type { Node, Edge } from "@xyflow/react"
-import { ChevronLeftStrokeIcon14 } from "#/components/icons/app-chrome-icons"
+import { ChevronLeftStrokeIcon14 } from "@tripwire/ui/icons/app-chrome-icons"
 
 export const Route = createFileRoute("/_app/$orgHandle/automations/preview")({
   component: TemplatePreviewPage,

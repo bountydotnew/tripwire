@@ -28,7 +28,7 @@ import {
   fetchWorkflowRunContext,
   simulateWorkflowDefinition,
   workflowSupportsManualRun,
-} from "#/lib/workflow-simulation"
+} from "#/lib/workflow/simulation"
 
 function isPostgresUniqueViolation(err: unknown): boolean {
   let cur: unknown = err

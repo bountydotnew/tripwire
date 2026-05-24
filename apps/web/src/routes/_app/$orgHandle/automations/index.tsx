@@ -4,10 +4,10 @@ import { Button } from "@tripwire/ui/button"
 import { AnimatePresence, motion } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { parseAsStringEnum, useQueryState } from "nuqs"
-import { useWorkspace } from "#/lib/workspace-context"
+import { useWorkspace } from "#/providers/workspace-context"
 import { useTRPC } from "#/integrations/trpc/react"
-import { templates } from "#/components/automations/templates"
-import type { WorkflowTemplate } from "#/components/automations/templates"
+import { templates } from "#/constants/automation-templates"
+import type { WorkflowTemplate } from "#/constants/automation-templates"
 import type { Node, Edge } from "@xyflow/react"
 import {
   PlusStrokeIcon14,
@@ -17,7 +17,7 @@ import {
   StrokeXIcon10Muted,
   SaveBarSuccessCheckIcon12,
   UserCircleMutedIcon13,
-} from "#/components/icons/app-chrome-icons"
+} from "@tripwire/ui/icons/app-chrome-icons"
 
 export const Route = createFileRoute("/_app/$orgHandle/automations/")({
   component: AutomationsPage,

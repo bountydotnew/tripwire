@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
-import { HeroStat } from "#/components/insights/hero-stat"
-import { StatCard } from "#/components/insights/stat-card"
-import { SpamTrendChart } from "#/components/insights/spam-trend-chart"
-import { BlacklistTrendChart } from "#/components/insights/blacklist-trend-chart"
-import { EmptyState } from "#/components/layout/empty-state"
+import { HeroStat } from "#/components/layout/app/home/insights/hero-stat"
+import { StatCard } from "#/components/layout/app/home/insights/stat-card"
+import { SpamTrendChart } from "#/components/layout/app/home/insights/spam-trend-chart"
+import { BlacklistTrendChart } from "#/components/layout/app/home/insights/blacklist-trend-chart"
+import { EmptyState } from "#/components/shared/empty-state"
 import { useTRPC } from "#/integrations/trpc/react"
-import { useWorkspace } from "#/lib/workspace-context"
+import { useWorkspace } from "#/providers/workspace-context"
 import {
   AreaChart,
   Area,

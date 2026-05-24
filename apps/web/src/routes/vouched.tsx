@@ -9,15 +9,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "#/components/ui/dialog"
+} from "@tripwire/ui/dialog"
 import { toastFromError } from "#/lib/toast-error"
-import { TripwireLogo } from "#/components/icons/tripwire-logo"
-import { GithubIcon } from "#/components/icons/github"
+import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
+import { GithubIcon } from "@tripwire/ui/icons/github"
 import { buildSeoMeta, canonicalLink } from "#/lib/seo"
 import {
   SearchLoupeOutlineIcon14,
   SmallXStrokeIcon12,
-} from "#/components/icons/app-chrome-icons"
+} from "@tripwire/ui/icons/app-chrome-icons"
 
 export const Route = createFileRoute("/vouched")({
   component: VouchedUsersPage,

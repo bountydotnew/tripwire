@@ -28,11 +28,11 @@ import {
 } from "@tripwire/db"
 import { and, eq } from "drizzle-orm"
 import type { ProviderError } from "#/types/chat"
-import { asConversationStoredMessages } from "#/lib/conversation-stored"
+import { asConversationStoredMessages } from "#/lib/chat/conversation-stored"
 import {
   mergeClientMessagesWithStored,
   sanitizeMessages,
-} from "#/lib/chat-server"
+} from "#/lib/chat/server"
 
 function isCustomerNotFoundError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false

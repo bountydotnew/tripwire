@@ -1,5 +1,5 @@
 import { parseError } from "evlog"
-import { toastManager } from "#/components/ui/toast"
+import { toastManager } from "@tripwire/ui/toast"
 
 interface ToastErrorOptions {
   /** Override the title (defaults to the parsed error's `message`). */

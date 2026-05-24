@@ -3,8 +3,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { parseAsString, useQueryStates } from "nuqs"
 import { authClient } from "@tripwire/auth/client"
 import { Button } from "@tripwire/ui/button"
-import { TripwireSparkIcon } from "#/components/icons/nav-icons"
-import { OauthConsentCheckRingIcon20 } from "#/components/icons/oauth-consent-check-ring-icon"
+import { TripwireSparkIcon } from "@tripwire/ui/icons/nav-icons"
+import { OauthConsentCheckRingIcon20 } from "@tripwire/ui/icons/oauth-consent-check-ring-icon"
 
 export const Route = createFileRoute("/oauth/consent")({
   component: ConsentPage,

@@ -5,7 +5,7 @@ import { parseAsString, parseAsStringEnum, useQueryStates } from "nuqs"
 import { authClient } from "@tripwire/auth/client"
 import { useTRPC } from "#/integrations/trpc/react"
 import { Button } from "@tripwire/ui/button"
-import { TripwireLogo } from "#/components/icons/tripwire-logo"
+import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
 import { toastFromError } from "#/lib/toast-error"
 
 export const Route = createFileRoute("/request/$owner/$repo")({

@@ -16,8 +16,8 @@ import {
   DialogPanel,
   DialogFooter,
   DialogClose,
-} from "#/components/ui/dialog"
-import { SessionMonitorIcon16 } from "#/components/icons/app-chrome-icons"
+} from "@tripwire/ui/dialog"
+import { SessionMonitorIcon16 } from "@tripwire/ui/icons/app-chrome-icons"
 
 export const Route = createFileRoute("/_app/settings/account")({
   component: AccountSettingsPage,

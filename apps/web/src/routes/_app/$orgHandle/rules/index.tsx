@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { RULES_WORKSPACE_TAB_SEGMENTS } from "#/components/rules/rules-tab-paths"
+import { RULES_WORKSPACE_TAB_SEGMENTS } from "#/constants/rules-tab-paths"
 
 const TAB_SET = new Set<string>(RULES_WORKSPACE_TAB_SEGMENTS)
 

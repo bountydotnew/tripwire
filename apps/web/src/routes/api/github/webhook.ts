@@ -17,7 +17,7 @@ import { eq } from "drizzle-orm"
 import {
   handleInstallation,
   handleInstallationRepositories,
-} from "#/lib/github-webhook"
+} from "#/lib/github/webhook"
 
 async function handler({ request }: { request: Request }) {
   const secret = process.env.GITHUB_WEBHOOK_SECRET

@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useState, useCallback } from "react"
 import { buildSeoMeta, canonicalLink } from "#/lib/seo"
 import { authClient } from "@tripwire/auth/client"
-import { LandingHeader } from "#/components/landing/header"
-import { useSpaceInvaders } from "#/components/landing/space-invaders"
-import FaultyTerminal from "#/components/landing/faulty-terminal"
+import { LandingHeader } from "#/components/layout/landing/header"
+import { useSpaceInvaders } from "#/components/layout/landing/space-invaders"
+import FaultyTerminal from "#/components/layout/landing/faulty-terminal"
 import {
   TRIPWIRE_EYE_OUTER_PATH,
   TRIPWIRE_EYE_OUTER_VIEWBOX,
@@ -14,7 +14,7 @@ import {
   TRIPWIRE_EYE_PUPIL_PATH,
   TRIPWIRE_EYE_PUPIL_VIEWBOX,
   TRIPWIRE_EYE_PUPIL_RECT_IN_OUTER,
-} from "#/components/icons/tripwire-eye"
+} from "@tripwire/ui/icons/tripwire-eye"
 
 const EYE_CURSOR_MASK = {
   viewBox: TRIPWIRE_EYE_OUTER_VIEWBOX,

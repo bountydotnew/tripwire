@@ -2,17 +2,17 @@ import { lazy, Suspense } from "react"
 import { Button } from "@tripwire/ui/button"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
-import { useWorkspace } from "#/lib/workspace-context"
+import { useWorkspace } from "#/providers/workspace-context"
 import { useTRPC } from "#/integrations/trpc/react"
 import type {
   CustomRuleDefinition,
   CustomRuleAction,
   CustomRuleScopeOverride,
 } from "@tripwire/db"
-import { ChevronLeftStrokeIcon14 } from "#/components/icons/app-chrome-icons"
+import { ChevronLeftStrokeIcon14 } from "@tripwire/ui/icons/app-chrome-icons"
 
 const RuleBuilderEditor = lazy(() =>
-  import("#/components/rules/rule-builder-editor").then((m) => ({
+  import("#/components/layout/app/rules/custom/rule-builder-editor").then((m) => ({
     default: m.RuleBuilderEditor,
   }))
 )

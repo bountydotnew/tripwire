@@ -1,0 +1,331 @@
+import { Button } from "@tripwire/ui/button"
+import { ContextUsageRingIcon } from "@tripwire/ui/icons/context-usage-ring-icon"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@tripwire/ui/hover-card"
+import { Progress } from "@tripwire/ui/progress"
+import { cn } from "@tripwire/ui/utils"
+import {
+  formatPercent,
+  formatCompact,
+  formatUSD,
+  safePercent,
+} from "#/lib/format"
+import type { ComponentProps } from "react"
+import { createContext, useContext, useMemo } from "react"
+
+interface LanguageModelUsage {
+  inputTokens?: number
+  outputTokens?: number
+  reasoningTokens?: number
+  cachedInputTokens?: number
+  totalTokens?: number
+}
+
+const PERCENT_MAX = 100
+const ICON_RADIUS = 10
+
+type ModelId = string
+
+interface ContextSchema {
+  usedTokens: number
+  maxTokens: number
+  usage?: LanguageModelUsage
+  modelId?: ModelId
+  /** Pre-computed total cost in USD from the server (via tokenlens). */
+  costUSD?: number
+}
+
+const ContextContext = createContext<ContextSchema | null>(null)
+
+const useContextValue = () => {
+  const context = useContext(ContextContext)
+
+  if (!context) {
+    throw new Error("Context components must be used within Context")
+  }
+
+  return context
+}
+
+export type ContextProps = ComponentProps<typeof HoverCard> & ContextSchema
+
+export const Context = ({
+  usedTokens,
+  maxTokens,
+  usage,
+  modelId,
+  costUSD,
+  ...props
+}: ContextProps) => {
+  const contextValue = useMemo(
+    () => ({ maxTokens, modelId, usage, usedTokens, costUSD }),
+    [maxTokens, modelId, usage, usedTokens, costUSD]
+  )
+
+  return (
+    <ContextContext.Provider value={contextValue}>
+      <HoverCard closeDelay={0} openDelay={0} {...props} />
+    </ContextContext.Provider>
+  )
+}
+
+const ContextIcon = () => {
+  const { usedTokens, maxTokens } = useContextValue()
+  const circumference = 2 * Math.PI * ICON_RADIUS
+  const usedPercent = safePercent(usedTokens, maxTokens)
+  const dashOffset = circumference * (1 - usedPercent)
+
+  return (
+    <ContextUsageRingIcon
+      circumference={circumference}
+      dashOffset={dashOffset}
+    />
+  )
+}
+
+export type ContextTriggerProps = ComponentProps<typeof Button>
+
+export const ContextTrigger = ({ children, ...props }: ContextTriggerProps) => {
+  const { usedTokens, maxTokens } = useContextValue()
+  const usedPercent = safePercent(usedTokens, maxTokens)
+  const renderedPercent = formatPercent(usedPercent)
+
+  return (
+    <HoverCardTrigger asChild>
+      {children ?? (
+        <Button type="button" variant="ghost" {...props}>
+          <span className="font-medium text-muted-foreground">
+            {renderedPercent}
+          </span>
+          <ContextIcon />
+        </Button>
+      )}
+    </HoverCardTrigger>
+  )
+}
+
+export type ContextContentProps = ComponentProps<typeof HoverCardContent>
+
+export const ContextContent = ({
+  className,
+  ...props
+}: ContextContentProps) => (
+  <HoverCardContent
+    className={cn("min-w-60 divide-y overflow-hidden p-0", className)}
+    {...props}
+  />
+)
+
+export type ContextContentHeaderProps = ComponentProps<"div">
+
+export const ContextContentHeader = ({
+  children,
+  className,
+  ...props
+}: ContextContentHeaderProps) => {
+  const { usedTokens, maxTokens } = useContextValue()
+  const usedPercent = safePercent(usedTokens, maxTokens)
+  const displayPct = formatPercent(usedPercent)
+  const used = formatCompact(usedTokens)
+  const total = formatCompact(maxTokens)
+
+  return (
+    <div className={cn("w-full space-y-2 p-3", className)} {...props}>
+      {children ?? (
+        <>
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <p>{displayPct}</p>
+            <p className="font-mono text-muted-foreground">
+              {used} / {total}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Progress className="bg-muted" value={usedPercent * PERCENT_MAX} />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+export type ContextContentBodyProps = ComponentProps<"div">
+
+export const ContextContentBody = ({
+  children,
+  className,
+  ...props
+}: ContextContentBodyProps) => (
+  <div className={cn("w-full p-3", className)} {...props}>
+    {children}
+  </div>
+)
+
+export type ContextContentFooterProps = ComponentProps<"div">
+
+export const ContextContentFooter = ({
+  children,
+  className,
+  ...props
+}: ContextContentFooterProps) => {
+  const { costUSD } = useContextValue()
+  const totalCost = formatUSD(costUSD ?? 0)
+
+  return (
+    <div
+      className={cn(
+        "bg-secondary flex w-full items-center justify-between gap-3 p-3 text-xs",
+        className
+      )}
+      {...props}
+    >
+      {children ?? (
+        <>
+          <span className="text-muted-foreground">Total cost</span>
+          <span>{totalCost}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
+const TokensWithCost = ({
+  tokens,
+  costText,
+}: {
+  tokens?: number
+  costText?: string
+}) => (
+  <span>
+    {tokens === undefined ? "—" : formatCompact(tokens)}
+    {costText ? (
+      <span className="ml-2 text-muted-foreground">• {costText}</span>
+    ) : null}
+  </span>
+)
+
+export type ContextInputUsageProps = ComponentProps<"div">
+
+export const ContextInputUsage = ({
+  className,
+  children,
+  ...props
+}: ContextInputUsageProps) => {
+  const { usage } = useContextValue()
+  const inputTokens = usage?.inputTokens ?? 0
+
+  if (children) {
+    return children
+  }
+
+  if (!inputTokens) {
+    return null
+  }
+
+  const inputCostText: string | undefined = undefined
+
+  return (
+    <div
+      className={cn("flex items-center justify-between text-xs", className)}
+      {...props}
+    >
+      <span className="text-muted-foreground">Input</span>
+      <TokensWithCost costText={inputCostText} tokens={inputTokens} />
+    </div>
+  )
+}
+
+export type ContextOutputUsageProps = ComponentProps<"div">
+
+export const ContextOutputUsage = ({
+  className,
+  children,
+  ...props
+}: ContextOutputUsageProps) => {
+  const { usage } = useContextValue()
+  const outputTokens = usage?.outputTokens ?? 0
+
+  if (children) {
+    return children
+  }
+
+  if (!outputTokens) {
+    return null
+  }
+
+  const outputCostText: string | undefined = undefined
+
+  return (
+    <div
+      className={cn("flex items-center justify-between text-xs", className)}
+      {...props}
+    >
+      <span className="text-muted-foreground">Output</span>
+      <TokensWithCost costText={outputCostText} tokens={outputTokens} />
+    </div>
+  )
+}
+
+export type ContextReasoningUsageProps = ComponentProps<"div">
+
+export const ContextReasoningUsage = ({
+  className,
+  children,
+  ...props
+}: ContextReasoningUsageProps) => {
+  const { usage } = useContextValue()
+  const reasoningTokens = usage?.reasoningTokens ?? 0
+
+  if (children) {
+    return children
+  }
+
+  if (!reasoningTokens) {
+    return null
+  }
+
+  const reasoningCostText: string | undefined = undefined
+
+  return (
+    <div
+      className={cn("flex items-center justify-between text-xs", className)}
+      {...props}
+    >
+      <span className="text-muted-foreground">Reasoning</span>
+      <TokensWithCost costText={reasoningCostText} tokens={reasoningTokens} />
+    </div>
+  )
+}
+
+export type ContextCacheUsageProps = ComponentProps<"div">
+
+export const ContextCacheUsage = ({
+  className,
+  children,
+  ...props
+}: ContextCacheUsageProps) => {
+  const { usage } = useContextValue()
+  const cacheTokens = usage?.cachedInputTokens ?? 0
+
+  if (children) {
+    return children
+  }
+
+  if (!cacheTokens) {
+    return null
+  }
+
+  const cacheCostText: string | undefined = undefined
+
+  return (
+    <div
+      className={cn("flex items-center justify-between text-xs", className)}
+      {...props}
+    >
+      <span className="text-muted-foreground">Cache</span>
+      <TokensWithCost costText={cacheCostText} tokens={cacheTokens} />
+    </div>
+  )
+}

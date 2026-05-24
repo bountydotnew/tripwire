@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTRPC } from "#/integrations/trpc/react"
-import { StepShell } from "#/components/onboarding/step-shell"
+import { StepShell } from "#/components/layout/onboarding/step-shell"
 import { toastFromError } from "#/lib/toast-error"
-import { Spinner } from "#/components/ui/spinner"
+import { Spinner } from "@tripwire/ui/spinner"
 
 export const Route = createFileRoute("/onboarding/step/4")({
   component: Step4Page,

@@ -4,9 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { authClient } from "@tripwire/auth/client"
 import { useAuth } from "@tripwire/auth/components"
 import { Button } from "@tripwire/ui/button"
-import { useWorkspace } from "#/lib/workspace-context"
+import { useWorkspace } from "#/providers/workspace-context"
 import { toastFromError } from "#/lib/toast-error"
-import { toastManager } from "#/components/ui/toast"
+import { toastManager } from "@tripwire/ui/toast"
 
 export const Route = createFileRoute("/_app/$orgHandle/settings")({
   component: OrgSettingsPage,

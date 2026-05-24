@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useOrgRedirect } from "#/lib/use-org-redirect"
+import { useOrgRedirect } from "#/hooks/use-org-redirect"
 
 function RulesRedirect() {
   useOrgRedirect((slug) => `/${slug}/rules`)

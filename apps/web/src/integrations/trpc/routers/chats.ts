@@ -5,16 +5,16 @@ import { assertRepoOwner, authedProcedure } from "../init"
 import { db } from "@tripwire/db/client"
 import { conversations } from "@tripwire/db"
 import type { TRPCRouterRecord } from "@trpc/server"
-import { mergeMessagesPreservingResults } from "#/lib/chat-persistence"
-import { asConversationStoredMessages } from "#/lib/conversation-stored"
-import { extractChatTitle } from "#/lib/extract-chat-title"
+import { mergeMessagesPreservingResults } from "#/lib/chat/persistence"
+import { asConversationStoredMessages } from "#/lib/chat/conversation-stored"
+import { extractChatTitle } from "#/lib/chat/extract-title"
 
 const TITLE_MODEL_FALLBACK = "moonshotai/kimi-k2.6"
 import { generateText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { trackCreditUsage } from "@tripwire/ai/credit-middleware"
 import { TITLE_SYSTEM_PROMPT } from "@tripwire/ai/prompt"
-import { parseCommand } from "#/lib/chat-commands"
+import { parseCommand } from "#/lib/chat/commands"
 import {
   filterToolsForSurface,
   runToolForChat,

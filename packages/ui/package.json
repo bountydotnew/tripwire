@@ -6,15 +6,23 @@
   "exports": {
     ".": "./src/index.ts",
     "./button": "./src/button.tsx",
+    "./carousel": "./src/carousel.tsx",
     "./catalog": "./src/catalog.ts",
     "./checkbox": "./src/checkbox.tsx",
     "./dialog": "./src/dialog.tsx",
+    "./dither": "./src/dither/index.jsx",
+    "./dither.css": "./src/dither/dither.css",
+    "./hover-card": "./src/hover-card.tsx",
+    "./menu": "./src/menu.tsx",
+    "./progress": "./src/progress.tsx",
     "./registry": "./src/registry.tsx",
     "./scroll-area": "./src/scroll-area.tsx",
     "./skeleton": "./src/skeleton.tsx",
     "./spinner": "./src/spinner.tsx",
+    "./toast": "./src/toast.tsx",
     "./unicode-spinner": "./src/unicode-spinner.tsx",
-    "./utils": "./src/utils.ts"
+    "./utils": "./src/utils.ts",
+    "./icons/*": "./src/icons/*.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -23,12 +31,17 @@
     "@base-ui/react": "^1.4.1",
     "@json-render/core": "^0.18.0",
     "@json-render/react": "^0.18.0",
+    "@react-three/fiber": "^9.6.1",
+    "@react-three/postprocessing": "^3.0.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "embla-carousel-react": "^8.6.0",
     "lucide-react": "^0.577.0",
+    "postprocessing": "^6.39.1",
+    "radix-ui": "^1.4.3",
     "react": "^19.2.0",
     "tailwind-merge": "^3.0.2",
+    "three": "^0.167.1",
     "web-haptics": "^0.0.6",
     "zod": "^4.3.6"
   },

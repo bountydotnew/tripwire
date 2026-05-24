@@ -1,17 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useTRPC } from "#/integrations/trpc/react"
-import { useWorkspace } from "#/lib/workspace-context"
-import { EmptyState } from "#/components/layout/empty-state"
+import { useWorkspace } from "#/providers/workspace-context"
+import { EmptyState } from "#/components/shared/empty-state"
 import { useEffect, useState } from "react"
 import { Button } from "@tripwire/ui/button"
-import { markEventsViewed } from "#/lib/use-events-unread"
+import { markEventsViewed } from "#/hooks/use-events-unread"
 import { routes } from "#/lib/routes"
 import {
   isCustomRuleName,
   stripCustomRulePrefix,
-} from "#/lib/custom-rules-utils"
-import { ChevronRightIndicatorIcon12 } from "#/components/icons/app-chrome-icons"
+} from "#/lib/rules/custom-utils"
+import { ChevronRightIndicatorIcon12 } from "@tripwire/ui/icons/app-chrome-icons"
 
 export const Route = createFileRoute("/_app/$orgHandle/events/")({
   component: EventsPage,

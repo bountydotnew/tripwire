@@ -2,9 +2,9 @@ import { useState } from "react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTRPC } from "#/integrations/trpc/react"
-import { StepShell } from "#/components/onboarding/step-shell"
+import { StepShell } from "#/components/layout/onboarding/step-shell"
 import { toastFromError } from "#/lib/toast-error"
-import { Checkbox } from "#/components/ui/checkbox"
+import { Checkbox } from "@tripwire/ui/checkbox"
 import { Button } from "@tripwire/ui/button"
 
 export const Route = createFileRoute("/onboarding/step/3")({

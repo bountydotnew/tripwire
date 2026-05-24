@@ -3,15 +3,16 @@ import { Button } from "@tripwire/ui/button"
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTRPC } from "#/integrations/trpc/react"
-import { useWorkspace, useWorkspacePath } from "#/lib/workspace-context"
-import { useGitHubUserFormatted } from "#/lib/use-github-user"
-import { toastManager } from "#/components/ui/toast"
+import { useWorkspace, useWorkspacePath } from "#/providers/workspace-context"
+import { formatRelativeTime } from "#/lib/format"
+import { useGitHubUserFormatted } from "#/hooks/use-github-user"
+import { toastManager } from "@tripwire/ui/toast"
 import { toastFromError } from "#/lib/toast-error"
 import { invalidateListCaches } from "#/lib/cache"
 import {
   isCustomRuleName,
   stripCustomRulePrefix,
-} from "#/lib/custom-rules-utils"
+} from "#/lib/rules/custom-utils"
 import {
   EventPageExternalLinkIcon11,
   EventIssueDotCircleIcon12,
@@ -19,7 +20,7 @@ import {
   EventShieldCheckStrokeIcon14,
   EventUserPlusStrokeIcon14,
   EventRuleResultGlyph,
-} from "#/components/icons/event-detail-icons"
+} from "@tripwire/ui/icons/event-detail-icons"
 
 export const Route = createFileRoute("/_app/$orgHandle/events/$eventId")({
   component: EventDetailPage,
@@ -801,21 +802,6 @@ function formatRuleName(ruleName: string): string {
   return (
     (RULE_META as Record<string, { name: string }>)[ruleName]?.name ?? ruleName
   )
-}
-
-function formatRelativeTime(date: Date | undefined | null): string {
-  if (!date) return "Unknown time"
-  const now = new Date()
-  const diff = now.getTime() - new Date(date).getTime()
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-
-  if (minutes < 1) return "just now"
-  if (minutes < 60) return `${minutes}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days === 1) return "yesterday"
-  return `${days}d ago`
 }
 
 function buildGitHubRefUrl(

@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { useAuth, AuthProvider } from "@tripwire/auth/components"
-import { TripwireLogo } from "#/components/icons/tripwire-logo"
+import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
 
 export const Route = createFileRoute("/onboarding")({
   component: OnboardingLayout,

@@ -1,6 +1,6 @@
 import { Loader2Icon } from "lucide-react"
 import type React from "react"
-import { cn } from "@tripwire/ui/utils"
+import { cn } from "./utils"
 
 export function Spinner({
   className,

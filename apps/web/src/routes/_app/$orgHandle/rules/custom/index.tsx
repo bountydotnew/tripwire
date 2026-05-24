@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { CustomRulesTab } from "#/components/rules/custom-rules-tab"
-import { useWorkspace } from "#/lib/workspace-context"
-import { EmptyState } from "#/components/layout/empty-state"
+import { CustomRulesTab } from "#/components/layout/app/rules/custom/custom-rules-tab"
+import { useWorkspace } from "#/providers/workspace-context"
+import { EmptyState } from "#/components/shared/empty-state"
 import { env } from "@tripwire/env/client"
 
 export const Route = createFileRoute("/_app/$orgHandle/rules/custom/")({

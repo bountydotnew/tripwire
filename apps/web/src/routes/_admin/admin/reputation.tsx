@@ -3,10 +3,10 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@tripwire/ui/button"
 import { eventScoreImpact } from "@tripwire/core/contributor-score"
-import { Checkbox } from "#/components/ui/checkbox"
+import { Checkbox } from "@tripwire/ui/checkbox"
 import { useTRPC } from "#/integrations/trpc/react"
 import { toastFromError } from "#/lib/toast-error"
-import { toastManager } from "#/components/ui/toast"
+import { toastManager } from "@tripwire/ui/toast"
 import { formatRelativeTime } from "#/lib/format"
 
 export const Route = createFileRoute("/_admin/admin/reputation")({
