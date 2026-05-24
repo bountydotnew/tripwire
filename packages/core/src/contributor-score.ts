@@ -327,12 +327,46 @@ function scoreCommunitySignals(
 }
 
 /** Time-decay multiplier: recent events weigh more. */
-function eventDecayMultiplier(createdAt: Date): number {
+export function eventDecayMultiplier(createdAt: Date): number {
   const ageDays = Math.floor((Date.now() - createdAt.getTime()) / 86_400_000)
   if (ageDays <= 90) return 1.0
   if (ageDays <= 180) return 0.5
   if (ageDays <= 365) return 0.25
   return 0.1
+}
+
+export interface EventScoreImpact {
+  /** Signed decay-weighted contribution to repoHistory before category caps. */
+  delta: number
+  /** Optional note explaining cap / neutralization caveats. */
+  note?: string
+}
+
+/**
+ * Per-event contribution to the rich score, decay-weighted. Useful for UIs
+ * that want to show "this event cost N points." The returned delta is the
+ * raw input to scoreRepoHistory before its [0, 20] clamp and before the
+ * allowed-events +10 cap, so it's an indicator rather than an exact
+ * attribution. Returns null for actions that don't move the score.
+ */
+export function eventScoreImpact(event: {
+  action: string
+  createdAt: Date
+}): EventScoreImpact | null {
+  const decay = eventDecayMultiplier(event.createdAt)
+  switch (event.action) {
+    case "pipeline_allowed":
+      return { delta: 2 * decay, note: "capped at +10 across all allowed" }
+    case "pipeline_blocked":
+    case "blacklist_blocked":
+      return { delta: -2 * decay }
+    case "rule_near_miss":
+      return { delta: -1 * decay }
+    case "block_cleared":
+      return { delta: 2, note: "neutralizes one block" }
+    default:
+      return null
+  }
 }
 
 function scoreRepoHistory(input: ScoreInput, sink: ScoreLineItem[]): number {

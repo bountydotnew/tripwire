@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@tripwire/ui/button"
+import { eventScoreImpact } from "@tripwire/core"
 import { useTRPC } from "#/integrations/trpc/react"
 import { toastFromError } from "#/lib/toast-error"
 import { toastManager } from "#/components/ui/toast"
@@ -342,6 +343,7 @@ function EventsTable({ events, username, onChanged }: EventsTableProps) {
             <th className="px-3 py-2 text-left">When</th>
             <th className="px-3 py-2 text-left">Action</th>
             <th className="px-3 py-2 text-left">Severity</th>
+            <th className="px-3 py-2 text-right">Δ Score</th>
             <th className="px-3 py-2 text-left">Ref</th>
             <th className="px-3 py-2 text-left">Description</th>
           </tr>
@@ -365,6 +367,9 @@ function EventsTable({ events, username, onChanged }: EventsTableProps) {
               </td>
               <td className="px-3 py-2 font-mono text-white">{e.action}</td>
               <td className="px-3 py-2 text-zinc-400">{e.severity ?? "—"}</td>
+              <td className="px-3 py-2 text-right">
+                <ImpactCell action={e.action} createdAt={e.createdAt} />
+              </td>
               <td className="px-3 py-2 font-mono text-zinc-400">
                 {e.githubRef ?? "—"}
               </td>
@@ -376,5 +381,31 @@ function EventsTable({ events, username, onChanged }: EventsTableProps) {
         </tbody>
       </table>
     </div>
+  )
+}
+
+interface ImpactCellProps {
+  action: string
+  createdAt: Date
+}
+
+function ImpactCell({ action, createdAt }: ImpactCellProps) {
+  const impact = eventScoreImpact({ action, createdAt: new Date(createdAt) })
+  if (!impact) return <span className="text-zinc-600">—</span>
+  const sign = impact.delta > 0 ? "+" : ""
+  const tone =
+    impact.delta > 0
+      ? "text-emerald-400"
+      : impact.delta < 0
+        ? "text-rose-400"
+        : "text-zinc-500"
+  return (
+    <span
+      className={`font-mono tabular-nums ${tone}`}
+      title={impact.note ?? undefined}
+    >
+      {sign}
+      {impact.delta.toFixed(1)}
+    </span>
   )
 }
