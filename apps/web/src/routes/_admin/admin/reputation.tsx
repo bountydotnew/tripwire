@@ -3,9 +3,11 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@tripwire/ui/button"
 import { eventScoreImpact } from "@tripwire/core"
+import { Checkbox } from "#/components/ui/checkbox"
 import { useTRPC } from "#/integrations/trpc/react"
 import { toastFromError } from "#/lib/toast-error"
 import { toastManager } from "#/components/ui/toast"
+import { formatRelativeTime } from "#/lib/format"
 
 export const Route = createFileRoute("/_admin/admin/reputation")({
   component: AdminReputationPage,
@@ -54,6 +56,17 @@ interface EventsTableProps {
   onChanged: () => void
 }
 
+interface NumberFieldProps {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}
+
+interface ImpactCellProps {
+  action: string
+  createdAt: Date
+}
+
 function AdminReputationPage() {
   const trpc = useTRPC()
   const [input, setInput] = useState("")
@@ -77,12 +90,14 @@ function AdminReputationPage() {
   }, [data])
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
-      <div className="mb-6 flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Reputation</h1>
-        <p className="text-sm text-zinc-500">
-          Look up a contributor across repos, edit their counters/score, or
-          delete events surgically.
+    <div className="mx-auto flex w-full max-w-[900px] flex-col gap-8 px-4 py-10 md:px-8">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="m-0 font-['Inter',system-ui,sans-serif] text-2xl leading-7 font-semibold text-[#FFFFFFEB] md:text-[28px]">
+          Reputation
+        </h1>
+        <p className="m-0 font-['Inter',system-ui,sans-serif] text-sm leading-5 text-tw-text-secondary">
+          Look up a contributor across repos, edit their counters or score,
+          and delete events surgically.
         </p>
       </div>
 
@@ -91,7 +106,7 @@ function AdminReputationPage() {
           e.preventDefault()
           setSubmitted(input.trim())
         }}
-        className="mb-8 flex items-center gap-2"
+        className="flex items-center gap-2"
       >
         <input
           type="text"
@@ -100,7 +115,8 @@ function AdminReputationPage() {
           placeholder="github-handle"
           autoComplete="off"
           spellCheck={false}
-          className="h-9 flex-1 rounded border border-white/10 bg-zinc-950 px-3 font-mono text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+          aria-label="GitHub username"
+          className="h-9 flex-1 rounded-lg border border-tw-border bg-tw-inner px-2.5 font-mono text-[13px] text-tw-text-primary outline-none placeholder:text-tw-text-muted focus:border-tw-accent"
         />
         <Button type="submit" variant="default" size="sm">
           Look up
@@ -108,14 +124,19 @@ function AdminReputationPage() {
       </form>
 
       {lookup.isLoading && submitted ? (
-        <p className="text-sm text-zinc-500">Loading…</p>
+        <div className="rounded-xl border border-tw-border bg-tw-card px-4 py-6 text-[13px] text-tw-text-muted">
+          Loading…
+        </div>
       ) : null}
 
       {data && submitted ? (
         data.reputations.length === 0 ? (
-          <div className="rounded border border-white/10 bg-zinc-950 px-4 py-6 text-sm text-zinc-500">
-            No reputation rows for @{submitted}. The user has never been seen
-            in any repo.
+          <div className="rounded-xl border border-tw-border bg-tw-card px-4 py-6 text-[13px] text-tw-text-muted">
+            No reputation rows for{" "}
+            <span className="font-mono text-tw-text-secondary">
+              @{submitted}
+            </span>
+            . The user has never been seen in any repo.
           </div>
         ) : (
           <div className="flex flex-col gap-8">
@@ -147,8 +168,12 @@ function ReputationCard({ row, onChanged }: ReputationCardProps) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const [score, setScore] = useState<string>(String(row.score))
-  const [totalAllows, setTotalAllows] = useState<string>(String(row.totalAllows))
-  const [totalBlocks, setTotalBlocks] = useState<string>(String(row.totalBlocks))
+  const [totalAllows, setTotalAllows] = useState<string>(
+    String(row.totalAllows)
+  )
+  const [totalBlocks, setTotalBlocks] = useState<string>(
+    String(row.totalBlocks)
+  )
   const [totalNearMisses, setTotalNearMisses] = useState<string>(
     String(row.totalNearMisses)
   )
@@ -199,14 +224,14 @@ function ReputationCard({ row, onChanged }: ReputationCardProps) {
   }
 
   return (
-    <div className="rounded border border-white/10 bg-zinc-950">
-      <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
+    <div className="overflow-clip rounded-2xl border border-tw-border bg-tw-card">
+      <div className="flex items-center justify-between border-b border-tw-border px-4 py-3">
         <div className="flex items-center gap-3">
-          <span className="font-mono text-sm text-white">
+          <span className="font-mono text-[13px] font-medium text-tw-text-primary">
             {row.repoFullName ?? row.repoId}
           </span>
-          <span className="text-xs text-zinc-500">
-            last seen {new Date(row.lastSeenAt).toLocaleString()}
+          <span className="text-[11px] text-tw-text-muted">
+            last seen {formatRelativeTime(row.lastSeenAt)}
           </span>
         </div>
         <Button
@@ -224,7 +249,7 @@ function ReputationCard({ row, onChanged }: ReputationCardProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 p-4">
+      <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
         <NumberField label="Score" value={score} onChange={setScore} />
         <NumberField
           label="Total Allows"
@@ -243,7 +268,7 @@ function ReputationCard({ row, onChanged }: ReputationCardProps) {
         />
       </div>
 
-      <div className="flex items-center justify-end border-t border-white/5 px-4 py-3">
+      <div className="flex items-center justify-end border-t border-tw-border bg-tw-bg/30 px-4 py-3">
         <Button
           variant="default"
           size="sm"
@@ -258,23 +283,17 @@ function ReputationCard({ row, onChanged }: ReputationCardProps) {
   )
 }
 
-interface NumberFieldProps {
-  label: string
-  value: string
-  onChange: (v: string) => void
-}
-
 function NumberField({ label, value, onChange }: NumberFieldProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-[11px] tracking-wide text-zinc-500 uppercase">
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
         {label}
       </label>
       <input
         type="number"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 w-full rounded border border-white/10 bg-black px-2 text-sm tabular-nums text-white outline-none focus:border-zinc-500"
+        className="h-9 w-full rounded-lg border border-tw-border bg-tw-inner px-2.5 text-[13px] tabular-nums text-tw-text-primary outline-none focus:border-tw-accent"
       />
     </div>
   )
@@ -305,8 +324,9 @@ function EventsTable({ events, username, onChanged }: EventsTableProps) {
 
   if (events.length === 0) {
     return (
-      <div className="rounded border border-white/10 bg-zinc-950 px-4 py-6 text-xs text-zinc-500">
-        No events on this repo for @{username}.
+      <div className="rounded-2xl border border-tw-border bg-tw-card px-4 py-5 text-[12px] text-tw-text-muted">
+        No events on this repo for{" "}
+        <span className="font-mono text-tw-text-secondary">@{username}</span>.
       </div>
     )
   }
@@ -319,9 +339,9 @@ function EventsTable({ events, username, onChanged }: EventsTableProps) {
   }
 
   return (
-    <div className="rounded border border-white/10 bg-zinc-950">
-      <div className="flex items-center justify-between border-b border-white/5 px-4 py-2">
-        <span className="text-xs text-zinc-500">
+    <div className="overflow-clip rounded-2xl border border-tw-border bg-tw-card">
+      <div className="flex items-center justify-between border-b border-tw-border px-4 py-2.5">
+        <span className="text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
           Recent events ({events.length})
         </span>
         <Button
@@ -336,76 +356,107 @@ function EventsTable({ events, username, onChanged }: EventsTableProps) {
           Delete {selected.size > 0 ? `(${selected.size})` : ""}
         </Button>
       </div>
-      <table className="w-full text-xs">
-        <thead className="text-[10px] text-zinc-500 uppercase">
-          <tr>
-            <th className="w-8 px-3 py-2 text-left"></th>
-            <th className="px-3 py-2 text-left">When</th>
-            <th className="px-3 py-2 text-left">Action</th>
-            <th className="px-3 py-2 text-left">Severity</th>
-            <th className="px-3 py-2 text-right">Δ Score</th>
-            <th className="px-3 py-2 text-left">Ref</th>
-            <th className="px-3 py-2 text-left">Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map((e) => (
-            <tr
-              key={e.id}
-              className="border-t border-white/5 hover:bg-white/[0.02]"
-            >
-              <td className="px-3 py-2">
-                <input
-                  type="checkbox"
-                  checked={selected.has(e.id)}
-                  onChange={() => toggle(e.id)}
-                  className="size-3.5 accent-zinc-300"
-                />
-              </td>
-              <td className="px-3 py-2 font-mono text-zinc-400">
-                {new Date(e.createdAt).toLocaleString()}
-              </td>
-              <td className="px-3 py-2 font-mono text-white">{e.action}</td>
-              <td className="px-3 py-2 text-zinc-400">{e.severity ?? "—"}</td>
-              <td className="px-3 py-2 text-right">
-                <ImpactCell action={e.action} createdAt={e.createdAt} />
-              </td>
-              <td className="px-3 py-2 font-mono text-zinc-400">
-                {e.githubRef ?? "—"}
-              </td>
-              <td className="px-3 py-2 text-zinc-300">
-                {e.description ?? "—"}
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12px]">
+          <thead>
+            <tr className="border-b border-tw-border/60">
+              <th className="w-8 px-3 py-2 text-left" />
+              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
+                When
+              </th>
+              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
+                Action
+              </th>
+              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
+                Severity
+              </th>
+              <th className="px-3 py-2 text-right text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
+                Δ Score
+              </th>
+              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
+                Ref
+              </th>
+              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
+                Description
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {events.map((e) => (
+              <tr
+                key={e.id}
+                className="border-b border-tw-border/40 transition-colors last:border-b-0 hover:bg-tw-hover"
+              >
+                <td className="px-3 py-2.5">
+                  <Checkbox
+                    checked={selected.has(e.id)}
+                    onCheckedChange={() => toggle(e.id)}
+                    aria-label={`Select event ${e.id}`}
+                  />
+                </td>
+                <td className="px-3 py-2.5 font-mono text-tw-text-secondary">
+                  {formatRelativeTime(e.createdAt)}
+                </td>
+                <td className="px-3 py-2.5 font-mono text-tw-text-primary">
+                  {e.action}
+                </td>
+                <td className="px-3 py-2.5">
+                  <SeverityBadge severity={e.severity} />
+                </td>
+                <td className="px-3 py-2.5 text-right">
+                  <ImpactCell action={e.action} createdAt={e.createdAt} />
+                </td>
+                <td className="px-3 py-2.5 font-mono text-tw-text-tertiary">
+                  {e.githubRef ?? "—"}
+                </td>
+                <td className="max-w-[280px] truncate px-3 py-2.5 text-tw-text-secondary">
+                  {e.description ?? "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
 
-interface ImpactCellProps {
-  action: string
-  createdAt: Date
-}
-
 function ImpactCell({ action, createdAt }: ImpactCellProps) {
   const impact = eventScoreImpact({ action, createdAt: new Date(createdAt) })
-  if (!impact) return <span className="text-zinc-600">—</span>
+  if (!impact) return <span className="text-tw-text-tertiary">—</span>
   const sign = impact.delta > 0 ? "+" : ""
   const tone =
     impact.delta > 0
-      ? "text-emerald-400"
+      ? "text-tw-success"
       : impact.delta < 0
-        ? "text-rose-400"
-        : "text-zinc-500"
+        ? "text-tw-error"
+        : "text-tw-text-muted"
   return (
     <span
-      className={`font-mono tabular-nums ${tone}`}
+      className={`font-mono text-[12px] tabular-nums ${tone}`}
       title={impact.note ?? undefined}
     >
       {sign}
       {impact.delta.toFixed(1)}
+    </span>
+  )
+}
+
+function SeverityBadge({ severity }: { severity: string | null }) {
+  if (!severity) return <span className="text-tw-text-tertiary">—</span>
+  const tone =
+    severity === "error"
+      ? "border-tw-error/20 bg-tw-error/10 text-tw-error"
+      : severity === "warning"
+        ? "border-tw-warning/20 bg-tw-warning/10 text-tw-warning"
+        : severity === "success"
+          ? "border-tw-success/20 bg-tw-success/10 text-tw-success"
+          : "border-tw-border bg-tw-inner text-tw-text-secondary"
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase ${tone}`}
+    >
+      {severity}
     </span>
   )
 }
