@@ -43,19 +43,19 @@ function ResearchRunDetailPage() {
   const run = status.data
 
   return (
-    <div className="mx-auto flex w-full max-w-[900px] flex-col gap-6 px-4 py-10 md:px-8">
-      <div className="flex flex-col gap-3">
+    <div className="mx-auto flex w-full max-w-[900px] flex-col gap-6 px-4 py-10 md:px-[50px]">
+      <div className="flex flex-col gap-2">
         <Link
           to="/admin/research"
-          className="text-[12px] text-tw-text-muted transition-colors hover:text-tw-text-secondary"
+          className="text-[12px] text-tw-text-tertiary transition-colors hover:text-tw-text-secondary"
         >
           ← All runs
         </Link>
-        <div className="flex flex-col gap-1.5">
-          <h1 className="m-0 font-['Inter',system-ui,sans-serif] text-2xl leading-7 font-semibold text-[#FFFFFFEB] md:text-[28px]">
+        <div className="flex flex-col gap-1">
+          <h1 className="m-0 text-[16px] font-semibold text-tw-text-primary">
             {run?.name ?? "Loading…"}
           </h1>
-          <p className="m-0 flex items-center gap-2 font-['Inter',system-ui,sans-serif] text-[12px] text-tw-text-muted">
+          <p className="m-0 flex items-center gap-2 text-[11px] text-tw-text-tertiary">
             <span className="font-mono">{run?.id}</span>
             {run ? (
               <>
@@ -69,7 +69,7 @@ function ResearchRunDetailPage() {
 
       {run ? (
         <>
-          <div className="grid grid-cols-2 gap-px overflow-clip rounded-2xl border border-tw-border bg-tw-border md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
             <Stat label="Status">
               <StatusBadge status={run.status} />
             </Stat>
@@ -80,7 +80,7 @@ function ResearchRunDetailPage() {
           </div>
 
           {run.status === "running" || run.status === "queued" ? (
-            <div className="rounded-xl border border-tw-border bg-tw-card px-4 py-3 text-[12px] text-tw-text-muted">
+            <div className="rounded-xl border border-tw-border-card bg-tw-card p-3 text-[12px] text-tw-text-tertiary">
               In progress, this page refreshes every 2 seconds.
             </div>
           ) : null}
@@ -90,15 +90,15 @@ function ResearchRunDetailPage() {
               <ExportButton
                 runId={runId}
                 kind="contributors"
-                label="Download contributors.csv"
+                label="contributors.csv"
               />
-              <ExportButton runId={runId} kind="prs" label="Download prs.csv" />
+              <ExportButton runId={runId} kind="prs" label="prs.csv" />
               <JsonlButton runId={runId} />
             </div>
           ) : null}
 
           {run.errorMessage ? (
-            <pre className="overflow-x-auto rounded-xl border border-tw-error/20 bg-tw-error/10 px-3 py-2.5 text-[12px] text-tw-error">
+            <pre className="overflow-x-auto rounded-xl border border-tw-error/20 bg-tw-error/10 p-3 text-[12px] text-tw-error">
               {run.errorMessage}
             </pre>
           ) : null}
@@ -110,11 +110,11 @@ function ResearchRunDetailPage() {
 
 function Stat({ label, value, children }: StatProps) {
   return (
-    <div className="flex flex-col gap-1 bg-tw-card px-4 py-3">
-      <span className="text-[10px] font-medium tracking-wide text-tw-text-muted uppercase">
+    <div className="flex flex-col gap-1 rounded-xl border border-tw-border-card bg-tw-card p-3">
+      <span className="text-[10px] tracking-wide text-tw-text-tertiary uppercase">
         {label}
       </span>
-      <div className="text-[18px] leading-tight font-semibold tabular-nums text-tw-text-primary">
+      <div className="text-[15px] leading-tight font-semibold tabular-nums text-tw-text-primary">
         {children ?? value}
       </div>
     </div>
@@ -124,20 +124,16 @@ function Stat({ label, value, children }: StatProps) {
 function StatusBadge({ status }: StatusBadgeProps) {
   const tone =
     status === "queued"
-      ? "border-tw-warning/20 bg-tw-warning/10 text-tw-warning"
+      ? "text-tw-warning"
       : status === "running"
-        ? "border-tw-accent/20 bg-tw-accent/10 text-tw-accent"
+        ? "text-tw-accent"
         : status === "completed"
-          ? "border-tw-success/20 bg-tw-success/10 text-tw-success"
+          ? "text-tw-success"
           : status === "failed"
-            ? "border-tw-error/20 bg-tw-error/10 text-tw-error"
-            : "border-tw-border bg-tw-inner text-tw-text-secondary"
+            ? "text-tw-error"
+            : "text-tw-text-tertiary"
   return (
-    <span
-      className={`inline-flex shrink-0 items-center self-start rounded-md border px-2 py-0.5 text-[11px] font-medium tracking-wide capitalize ${tone}`}
-    >
-      {status}
-    </span>
+    <span className={`font-mono text-[13px] capitalize ${tone}`}>{status}</span>
   )
 }
 
@@ -156,8 +152,8 @@ function ExportButton({ runId, kind, label }: ExportButtonProps) {
 
   return (
     <Button
+      size="xs"
       variant="outline"
-      size="sm"
       onClick={handleClick}
       loading={query.isFetching}
     >
@@ -185,12 +181,12 @@ function JsonlButton({ runId }: JsonlButtonProps) {
 
   return (
     <Button
+      size="xs"
       variant="outline"
-      size="sm"
       onClick={handleClick}
       loading={query.isFetching}
     >
-      Download .jsonl
+      .jsonl
     </Button>
   )
 }

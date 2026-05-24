@@ -50,7 +50,7 @@ interface ReputationCardProps {
   onChanged: () => void
 }
 
-interface EventsTableProps {
+interface EventsCardProps {
   events: EventRow[]
   username: string
   onChanged: () => void
@@ -65,6 +65,10 @@ interface NumberFieldProps {
 interface ImpactCellProps {
   action: string
   createdAt: Date
+}
+
+interface SeverityBadgeProps {
+  severity: string | null
 }
 
 function AdminReputationPage() {
@@ -90,12 +94,12 @@ function AdminReputationPage() {
   }, [data])
 
   return (
-    <div className="mx-auto flex w-full max-w-[900px] flex-col gap-8 px-4 py-10 md:px-8">
-      <div className="flex flex-col gap-1.5">
-        <h1 className="m-0 font-['Inter',system-ui,sans-serif] text-2xl leading-7 font-semibold text-[#FFFFFFEB] md:text-[28px]">
+    <div className="mx-auto flex w-full max-w-[900px] flex-col gap-6 px-4 py-10 md:px-[50px]">
+      <div className="flex flex-col gap-1">
+        <h1 className="m-0 text-[16px] font-semibold text-tw-text-primary">
           Reputation
         </h1>
-        <p className="m-0 font-['Inter',system-ui,sans-serif] text-sm leading-5 text-tw-text-secondary">
+        <p className="m-0 text-[13px] text-tw-text-muted">
           Look up a contributor across repos, edit their counters or score,
           and delete events surgically.
         </p>
@@ -116,22 +120,20 @@ function AdminReputationPage() {
           autoComplete="off"
           spellCheck={false}
           aria-label="GitHub username"
-          className="h-9 flex-1 rounded-lg border border-tw-border bg-tw-inner px-2.5 font-mono text-[13px] text-tw-text-primary outline-none placeholder:text-tw-text-muted focus:border-tw-accent"
+          className="w-full rounded-lg border border-tw-border bg-tw-surface p-2.5 font-mono text-[13px] text-tw-text-primary transition-colors outline-none placeholder:text-tw-text-tertiary focus:border-tw-accent"
         />
-        <Button type="submit" variant="default" size="sm">
+        <Button type="submit" size="xs">
           Look up
         </Button>
       </form>
 
       {lookup.isLoading && submitted ? (
-        <div className="rounded-xl border border-tw-border bg-tw-card px-4 py-6 text-[13px] text-tw-text-muted">
-          Loading…
-        </div>
+        <div className="py-4 text-[13px] text-tw-text-tertiary">Loading…</div>
       ) : null}
 
       {data && submitted ? (
         data.reputations.length === 0 ? (
-          <div className="rounded-xl border border-tw-border bg-tw-card px-4 py-6 text-[13px] text-tw-text-muted">
+          <div className="rounded-xl border border-tw-border-card bg-tw-card p-4 text-[13px] text-tw-text-tertiary">
             No reputation rows for{" "}
             <span className="font-mono text-tw-text-secondary">
               @{submitted}
@@ -139,7 +141,7 @@ function AdminReputationPage() {
             . The user has never been seen in any repo.
           </div>
         ) : (
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-6">
             {(data.reputations as ReputationRow[])
               .filter(
                 (row): row is ReputationRowWithRepo => row.repoId !== null
@@ -150,7 +152,7 @@ function AdminReputationPage() {
                     row={row}
                     onChanged={() => lookup.refetch()}
                   />
-                  <EventsTable
+                  <EventsCard
                     events={eventsByRepo.get(row.repoId) ?? []}
                     username={row.githubUsername}
                     onChanged={() => lookup.refetch()}
@@ -224,19 +226,19 @@ function ReputationCard({ row, onChanged }: ReputationCardProps) {
   }
 
   return (
-    <div className="overflow-clip rounded-2xl border border-tw-border bg-tw-card">
-      <div className="flex items-center justify-between border-b border-tw-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[13px] font-medium text-tw-text-primary">
+    <div className="flex flex-col gap-3 rounded-xl border border-tw-border-card bg-tw-card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate font-mono text-[13px] font-medium text-tw-text-primary">
             {row.repoFullName ?? row.repoId}
           </span>
-          <span className="text-[11px] text-tw-text-muted">
+          <span className="text-[11px] text-tw-text-tertiary">
             last seen {formatRelativeTime(row.lastSeenAt)}
           </span>
         </div>
         <Button
-          variant="outline"
-          size="sm"
+          size="xs"
+          variant="ghost"
           loading={rescoreMutation.isPending}
           onClick={() =>
             rescoreMutation.mutate({
@@ -249,34 +251,33 @@ function ReputationCard({ row, onChanged }: ReputationCardProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <NumberField label="Score" value={score} onChange={setScore} />
         <NumberField
-          label="Total Allows"
+          label="Allows"
           value={totalAllows}
           onChange={setTotalAllows}
         />
         <NumberField
-          label="Total Blocks"
+          label="Blocks"
           value={totalBlocks}
           onChange={setTotalBlocks}
         />
         <NumberField
-          label="Total Near Misses"
+          label="Near misses"
           value={totalNearMisses}
           onChange={setTotalNearMisses}
         />
       </div>
 
-      <div className="flex items-center justify-end border-t border-tw-border bg-tw-bg/30 px-4 py-3">
+      <div className="flex items-center justify-end">
         <Button
-          variant="default"
-          size="sm"
+          size="xs"
           disabled={!dirty || setMutation.isPending}
           loading={setMutation.isPending}
           onClick={onSave}
         >
-          Save changes
+          Save
         </Button>
       </div>
     </div>
@@ -285,21 +286,19 @@ function ReputationCard({ row, onChanged }: ReputationCardProps) {
 
 function NumberField({ label, value, onChange }: NumberFieldProps) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-        {label}
-      </label>
+    <div className="flex flex-col gap-1">
+      <label className="text-[11px] text-tw-text-tertiary">{label}</label>
       <input
         type="number"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 w-full rounded-lg border border-tw-border bg-tw-inner px-2.5 text-[13px] tabular-nums text-tw-text-primary outline-none focus:border-tw-accent"
+        className="w-full rounded-lg border border-tw-border bg-tw-surface p-2.5 text-[13px] tabular-nums text-tw-text-primary transition-colors outline-none focus:border-tw-accent"
       />
     </div>
   )
 }
 
-function EventsTable({ events, username, onChanged }: EventsTableProps) {
+function EventsCard({ events, username, onChanged }: EventsCardProps) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -324,7 +323,7 @@ function EventsTable({ events, username, onChanged }: EventsTableProps) {
 
   if (events.length === 0) {
     return (
-      <div className="rounded-2xl border border-tw-border bg-tw-card px-4 py-5 text-[12px] text-tw-text-muted">
+      <div className="rounded-xl border border-tw-border-card bg-tw-card p-4 text-[12px] text-tw-text-tertiary">
         No events on this repo for{" "}
         <span className="font-mono text-tw-text-secondary">@{username}</span>.
       </div>
@@ -339,84 +338,51 @@ function EventsTable({ events, username, onChanged }: EventsTableProps) {
   }
 
   return (
-    <div className="overflow-clip rounded-2xl border border-tw-border bg-tw-card">
-      <div className="flex items-center justify-between border-b border-tw-border px-4 py-2.5">
-        <span className="text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
+    <div className="divide-y divide-[#27272A] rounded-xl border border-tw-border-card bg-tw-card">
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="text-[11px] text-tw-text-tertiary">
           Recent events ({events.length})
         </span>
         <Button
+          size="xs"
           variant="destructive-outline"
-          size="sm"
           disabled={selected.size === 0 || deleteMutation.isPending}
           loading={deleteMutation.isPending}
           onClick={() =>
             deleteMutation.mutate({ eventIds: Array.from(selected) })
           }
         >
-          Delete {selected.size > 0 ? `(${selected.size})` : ""}
+          Delete{selected.size > 0 ? ` (${selected.size})` : ""}
         </Button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-[12px]">
-          <thead>
-            <tr className="border-b border-tw-border/60">
-              <th className="w-8 px-3 py-2 text-left" />
-              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                When
-              </th>
-              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                Action
-              </th>
-              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                Severity
-              </th>
-              <th className="px-3 py-2 text-right text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                Δ Score
-              </th>
-              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                Ref
-              </th>
-              <th className="px-3 py-2 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                Description
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((e) => (
-              <tr
-                key={e.id}
-                className="border-b border-tw-border/40 transition-colors last:border-b-0 hover:bg-tw-hover"
-              >
-                <td className="px-3 py-2.5">
-                  <Checkbox
-                    checked={selected.has(e.id)}
-                    onCheckedChange={() => toggle(e.id)}
-                    aria-label={`Select event ${e.id}`}
-                  />
-                </td>
-                <td className="px-3 py-2.5 font-mono text-tw-text-secondary">
-                  {formatRelativeTime(e.createdAt)}
-                </td>
-                <td className="px-3 py-2.5 font-mono text-tw-text-primary">
-                  {e.action}
-                </td>
-                <td className="px-3 py-2.5">
-                  <SeverityBadge severity={e.severity} />
-                </td>
-                <td className="px-3 py-2.5 text-right">
-                  <ImpactCell action={e.action} createdAt={e.createdAt} />
-                </td>
-                <td className="px-3 py-2.5 font-mono text-tw-text-tertiary">
-                  {e.githubRef ?? "—"}
-                </td>
-                <td className="max-w-[280px] truncate px-3 py-2.5 text-tw-text-secondary">
-                  {e.description ?? "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {events.map((e) => (
+        <div
+          key={e.id}
+          className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-tw-hover"
+        >
+          <Checkbox
+            checked={selected.has(e.id)}
+            onCheckedChange={() => toggle(e.id)}
+            aria-label={`Select event ${e.id}`}
+          />
+          <span className="w-[120px] shrink-0 font-mono text-[11px] text-tw-text-tertiary">
+            {formatRelativeTime(e.createdAt)}
+          </span>
+          <span className="w-[140px] shrink-0 font-mono text-[12px] text-tw-text-primary">
+            {e.action}
+          </span>
+          <SeverityBadge severity={e.severity} />
+          <span className="w-[60px] shrink-0 text-right">
+            <ImpactCell action={e.action} createdAt={e.createdAt} />
+          </span>
+          <span className="w-[60px] shrink-0 font-mono text-[11px] text-tw-text-tertiary">
+            {e.githubRef ?? "—"}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[12px] text-tw-text-secondary">
+            {e.description ?? "—"}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -430,10 +396,10 @@ function ImpactCell({ action, createdAt }: ImpactCellProps) {
       ? "text-tw-success"
       : impact.delta < 0
         ? "text-tw-error"
-        : "text-tw-text-muted"
+        : "text-tw-text-tertiary"
   return (
     <span
-      className={`font-mono text-[12px] tabular-nums ${tone}`}
+      className={`font-mono text-[11px] tabular-nums ${tone}`}
       title={impact.note ?? undefined}
     >
       {sign}
@@ -442,19 +408,24 @@ function ImpactCell({ action, createdAt }: ImpactCellProps) {
   )
 }
 
-function SeverityBadge({ severity }: { severity: string | null }) {
-  if (!severity) return <span className="text-tw-text-tertiary">—</span>
+function SeverityBadge({ severity }: SeverityBadgeProps) {
+  if (!severity)
+    return (
+      <span className="w-[70px] shrink-0 text-[11px] text-tw-text-tertiary">
+        —
+      </span>
+    )
   const tone =
     severity === "error"
-      ? "border-tw-error/20 bg-tw-error/10 text-tw-error"
+      ? "text-tw-error"
       : severity === "warning"
-        ? "border-tw-warning/20 bg-tw-warning/10 text-tw-warning"
+        ? "text-tw-warning"
         : severity === "success"
-          ? "border-tw-success/20 bg-tw-success/10 text-tw-success"
-          : "border-tw-border bg-tw-inner text-tw-text-secondary"
+          ? "text-tw-success"
+          : "text-tw-text-tertiary"
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase ${tone}`}
+      className={`w-[70px] shrink-0 font-mono text-[11px] tracking-wide ${tone}`}
     >
       {severity}
     </span>

@@ -17,97 +17,67 @@ function ResearchRunsPage() {
   const runs = useQuery({ ...trpc.research.list.queryOptions({ limit: 50 }) })
 
   return (
-    <div className="mx-auto flex w-full max-w-[900px] flex-col gap-8 px-4 py-10 md:px-8">
+    <div className="mx-auto flex w-full max-w-[900px] flex-col gap-6 px-4 py-10 md:px-[50px]">
       <div className="flex items-end justify-between gap-4">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="m-0 font-['Inter',system-ui,sans-serif] text-2xl leading-7 font-semibold text-[#FFFFFFEB] md:text-[28px]">
+        <div className="flex flex-col gap-1">
+          <h1 className="m-0 text-[16px] font-semibold text-tw-text-primary">
             Research Runs
           </h1>
-          <p className="m-0 font-['Inter',system-ui,sans-serif] text-sm leading-5 text-tw-text-secondary">
+          <p className="m-0 text-[13px] text-tw-text-muted">
             Bulk-score contributor cohorts against the rule pipeline.
           </p>
         </div>
         <Link to="/admin/research/new">
-          <Button variant="default" size="sm">
-            New run
-          </Button>
+          <Button size="xs">New run</Button>
         </Link>
       </div>
 
       {runs.isLoading ? (
-        <div className="rounded-2xl border border-tw-border bg-tw-card px-4 py-6 text-[13px] text-tw-text-muted">
-          Loading…
-        </div>
+        <div className="py-4 text-[13px] text-tw-text-tertiary">Loading…</div>
       ) : runs.data && runs.data.length > 0 ? (
-        <div className="overflow-clip rounded-2xl border border-tw-border bg-tw-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="border-b border-tw-border/60">
-                  <th className="px-3 py-2.5 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                    Name
-                  </th>
-                  <th className="px-3 py-2.5 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                    Status
-                  </th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                    Requested
-                  </th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                    Done
-                  </th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                    Errored
-                  </th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                    PRs
-                  </th>
-                  <th className="px-3 py-2.5 text-left text-[11px] font-medium tracking-wide text-tw-text-muted uppercase">
-                    Created
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.data.map((run) => (
-                  <tr
-                    key={run.id}
-                    className="border-b border-tw-border/40 transition-colors last:border-b-0 hover:bg-tw-hover"
-                  >
-                    <td className="px-3 py-2.5">
-                      <Link
-                        to="/admin/research/$runId"
-                        params={{ runId: run.id }}
-                        className="font-medium text-tw-accent hover:underline"
-                      >
-                        {run.name}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <StatusBadge status={run.status} />
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-tw-text-secondary">
-                      {run.stats.requested}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-tw-text-secondary">
-                      {run.stats.completed}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-tw-text-secondary">
-                      {run.stats.errored}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-tw-text-secondary">
-                      {run.stats.prs}
-                    </td>
-                    <td className="px-3 py-2.5 text-tw-text-muted">
-                      {formatRelativeTime(run.createdAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="divide-y divide-[#27272A] rounded-xl border border-tw-border-card bg-tw-card">
+          <div className="grid grid-cols-[1fr_90px_repeat(4,72px)_120px] items-center gap-3 px-3 py-2 text-[10px] tracking-wide text-tw-text-tertiary uppercase">
+            <span>Name</span>
+            <span>Status</span>
+            <span className="text-right">Req</span>
+            <span className="text-right">Done</span>
+            <span className="text-right">Err</span>
+            <span className="text-right">PRs</span>
+            <span>Created</span>
           </div>
+          {runs.data.map((run) => (
+            <div
+              key={run.id}
+              className="grid grid-cols-[1fr_90px_repeat(4,72px)_120px] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-tw-hover"
+            >
+              <Link
+                to="/admin/research/$runId"
+                params={{ runId: run.id }}
+                className="truncate text-[13px] font-medium text-tw-text-primary hover:text-tw-accent"
+              >
+                {run.name}
+              </Link>
+              <StatusBadge status={run.status} />
+              <span className="text-right text-[12px] tabular-nums text-tw-text-secondary">
+                {run.stats.requested}
+              </span>
+              <span className="text-right text-[12px] tabular-nums text-tw-text-secondary">
+                {run.stats.completed}
+              </span>
+              <span className="text-right text-[12px] tabular-nums text-tw-text-secondary">
+                {run.stats.errored}
+              </span>
+              <span className="text-right text-[12px] tabular-nums text-tw-text-secondary">
+                {run.stats.prs}
+              </span>
+              <span className="text-[11px] text-tw-text-tertiary">
+                {formatRelativeTime(run.createdAt)}
+              </span>
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-tw-border bg-tw-card px-4 py-12 text-center text-[13px] text-tw-text-muted">
+        <div className="rounded-xl border border-tw-border-card bg-tw-card p-6 text-center text-[13px] text-tw-text-tertiary">
           No runs yet. Click{" "}
           <span className="font-mono text-tw-text-secondary">New run</span> to
           get started.
@@ -120,17 +90,17 @@ function ResearchRunsPage() {
 function StatusBadge({ status }: StatusBadgeProps) {
   const tone =
     status === "queued"
-      ? "border-tw-warning/20 bg-tw-warning/10 text-tw-warning"
+      ? "text-tw-warning"
       : status === "running"
-        ? "border-tw-accent/20 bg-tw-accent/10 text-tw-accent"
+        ? "text-tw-accent"
         : status === "completed"
-          ? "border-tw-success/20 bg-tw-success/10 text-tw-success"
+          ? "text-tw-success"
           : status === "failed"
-            ? "border-tw-error/20 bg-tw-error/10 text-tw-error"
-            : "border-tw-border bg-tw-inner text-tw-text-secondary"
+            ? "text-tw-error"
+            : "text-tw-text-tertiary"
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[10px] font-medium tracking-wide capitalize ${tone}`}
+      className={`font-mono text-[11px] tracking-wide capitalize ${tone}`}
     >
       {status}
     </span>
