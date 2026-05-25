@@ -11,7 +11,11 @@
     "./repo-files": "./src/repo-files.ts",
     "./user": "./src/user.ts",
     "./public": "./src/public.ts",
-    "./data-factory": "./src/data-factory.ts"
+    "./data-factory": "./src/data-factory.ts",
+    "./cache": "./src/cache.ts",
+    "./request": "./src/request.ts",
+    "./signal-broker": "./src/signal-broker.ts",
+    "./auth-errors": "./src/auth-errors.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

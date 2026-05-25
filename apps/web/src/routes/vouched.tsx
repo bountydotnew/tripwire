@@ -13,23 +13,29 @@ import {
 import { toastFromError } from "#/lib/toast-error"
 import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
 import { GithubIcon } from "@tripwire/ui/icons/github"
-import { buildSeoMeta, canonicalLink } from "#/lib/seo"
+import { buildSeo, formatPageTitle } from "#/lib/seo"
 import {
   SearchLoupeOutlineIcon14,
   SmallXStrokeIcon12,
 } from "@tripwire/ui/icons/app-chrome-icons"
 
 export const Route = createFileRoute("/vouched")({
+  // Public list of vouched contributors — prefetched so the initial
+  // page paints from cache. Filters/pagination on the page itself
+  // start fresh.
+  loader: ({ context }) => {
+    void context.queryClient.prefetchQuery(
+      context.trpc.vouches.list.queryOptions({ limit: 50, offset: 0 }),
+    )
+  },
   component: VouchedUsersPage,
-  head: () => ({
-    meta: buildSeoMeta({
-      title: "Vouched Contributors",
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Vouched contributors"),
       description:
-        "GitHub users verified by Tripwire maintainers. Vouched contributors can be auto-trusted across repositories.",
-      path: "/vouched",
+        "GitHub users vouched for by Tripwire maintainers. Vouched contributors can be auto-trusted across repositories.",
     }),
-    links: [canonicalLink("/vouched")],
-  }),
 })
 
 function VouchedUsersPage() {

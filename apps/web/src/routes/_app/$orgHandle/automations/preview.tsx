@@ -1,108 +1,23 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { Button } from "@tripwire/ui/button"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useWorkspace } from "#/providers/workspace-context"
-import { useTRPC } from "#/integrations/trpc/react"
-import { WorkflowEditor } from "#/components/layout/app/automations/workflow-editor"
-import { templates } from "#/constants/automation-templates"
-import type { Node, Edge } from "@xyflow/react"
-import { ChevronLeftStrokeIcon14 } from "@tripwire/ui/icons/app-chrome-icons"
+import { createFileRoute } from "@tanstack/react-router"
+import { TemplatePreviewPage } from "#/components/layout/app/automations/automation-preview-page"
+import {
+  buildSeo,
+  formatPageTitle,
+  PRIVATE_ROUTE_HEADERS,
+} from "#/lib/seo"
 
 export const Route = createFileRoute("/_app/$orgHandle/automations/preview")({
-  component: TemplatePreviewPage,
   validateSearch: (search: Record<string, unknown>) => ({
     template: (search.template as string) ?? "",
   }),
+  component: TemplatePreviewPage,
+  headers: () => PRIVATE_ROUTE_HEADERS,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Automation preview"),
+      description:
+        "Preview a Tripwire automation template before saving it to your workspace.",
+      robots: "noindex",
+    }),
 })
-
-function TemplatePreviewPage() {
-  const { orgHandle } = Route.useParams()
-  const { template: templateId } = Route.useSearch()
-  const trpc = useTRPC()
-  const queryClient = useQueryClient()
-  const navigate = useNavigate()
-  const { repo } = useWorkspace()
-
-  const template = templates.find((t) => t.id === templateId)
-  const createWf = useMutation(trpc.workflows.create.mutationOptions())
-
-  const handleSaveToWorkflows = (nodes: Node[], edges: Edge[]) => {
-    if (!repo?.id || !template) return
-    createWf.mutate(
-      {
-        repoId: repo.id,
-        name: template.name,
-        definition: {
-          nodes: nodes.map((n) => ({
-            id: n.id,
-            type: n.type as string,
-            position: n.position,
-            data: n.data as Record<string, unknown>,
-          })),
-          edges: edges.map((e) => ({
-            id: e.id,
-            source: e.source,
-            target: e.target,
-            sourceHandle: e.sourceHandle,
-            targetHandle: e.targetHandle,
-            label: typeof e.label === "string" ? e.label : undefined,
-            animated: e.animated,
-          })),
-        },
-      },
-      {
-        onSuccess: (wf) => {
-          queryClient.invalidateQueries({
-            queryKey: trpc.workflows.list.queryKey({ repoId: repo!.id }),
-          })
-          navigate({ to: `/${orgHandle}/automations/${wf.id}` })
-        },
-      }
-    )
-  }
-
-  if (!template) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <span className="text-sm text-tw-text-muted">Template not found.</span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-3 border-b border-tw-border px-4 py-3">
-        <Button
-          variant="ghost"
-          type="button"
-          onClick={() => navigate({ to: `/${orgHandle}/automations` })}
-          className="flex size-7 items-center justify-center rounded-lg transition-colors hover:bg-tw-hover"
-        >
-          <ChevronLeftStrokeIcon14 className="text-[#9F9FA9]" />
-        </Button>
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-[14px] font-medium text-tw-text-primary">
-              {template.name}
-            </span>
-            <span className="truncate text-[11px] text-tw-text-muted">
-              {template.description}
-            </span>
-          </div>
-        </div>
-        <span className="rounded-md bg-tw-warning/10 px-2 py-0.5 text-[11px] font-medium text-tw-warning">
-          Preview
-        </span>
-      </div>
-      <div className="min-h-0 flex-1">
-        <WorkflowEditor
-          initialNodes={template.nodes}
-          initialEdges={template.edges}
-          onSave={handleSaveToWorkflows}
-          saveLabel="Save to Workflows"
-          repoId={repo?.id}
-        />
-      </div>
-    </div>
-  )
-}

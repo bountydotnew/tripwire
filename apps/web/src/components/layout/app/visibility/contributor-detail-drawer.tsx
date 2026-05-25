@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Dialog,
@@ -9,10 +10,11 @@ import { ScrollArea } from "@tripwire/ui/scroll-area"
 import { useTRPC } from "#/integrations/trpc/react"
 import { ScoreBadge } from "./score-badge"
 import { ContributorAvatar } from "./contributor-avatar"
-import { invalidateRepoData } from "#/lib/cache"
 import { formatCompact, formatRelativeTime } from "#/lib/format"
 import { toastFromError } from "#/lib/toast-error"
 import { toastManager } from "@tripwire/ui/toast"
+import { githubRevalidationSignalKeys } from "#/lib/github/revalidation"
+import { useGitHubSignalStream } from "#/lib/github/use-signal-stream"
 import type { ContributorRow } from "./contributors-table"
 
 type BulkAction =
@@ -105,17 +107,96 @@ export function ContributorDetailDrawer({
   const queryClient = useQueryClient()
   const username = contributor?.githubUsername ?? ""
 
-  const eventsQuery = useQuery(
-    trpc.events.list.queryOptions(
-      { repoId, targetUsername: username, limit: 30 },
-      { enabled: !!contributor && open }
-    )
+  // Persist this query so reopening the drawer for the same contributor
+  // renders the last-known events instantly while a fresh fetch runs.
+  // Subscribe to `user:USERNAME` so a webhook for this contributor
+  // invalidates the events list within ~20s — no manual refresh needed.
+  const eventsQueryOptions = useMemo(
+    () =>
+      trpc.events.list.queryOptions(
+        { repoId, targetUsername: username, limit: 30 },
+        { enabled: !!contributor && open },
+      ),
+    [trpc, repoId, username, contributor, open],
   )
+  const eventsQuery = useQuery({
+    ...eventsQueryOptions,
+    meta: { ...eventsQueryOptions.meta, persist: true },
+  })
+
+  const streamTargets = useMemo(
+    () =>
+      contributor && open && username
+        ? [
+            {
+              queryKey: eventsQueryOptions.queryKey,
+              signalKeys: [
+                githubRevalidationSignalKeys.user({ username }),
+              ],
+            },
+          ]
+        : [],
+    [eventsQueryOptions.queryKey, contributor, open, username],
+  )
+  // SSE for sub-second push + 20s poll fallback under the hood.
+  useGitHubSignalStream(streamTargets)
 
   const mutation = useMutation(
     trpc.visibility.bulkAction.mutationOptions({
+      // Optimistic flip on every cached `listContributors` for this repo
+      // so the parent table updates instantly when the user clicks the
+      // action button. The drawer closes on success; even if the server
+      // call hasn't returned yet, the parent already reflects the change.
+      onMutate: (vars) => {
+        const newStatus: "whitelisted" | "blacklisted" | "normal" =
+          vars.action === "whitelist"
+            ? "whitelisted"
+            : vars.action === "blacklist"
+              ? "blacklisted"
+              : "normal"
+        const targetSet = new Set(
+          vars.usernames.map((u) => u.toLowerCase()),
+        )
+        const matchPredicate = (q: { queryKey: readonly unknown[] }) => {
+          const segment = JSON.stringify(q.queryKey)
+          return (
+            segment.includes("listContributors") &&
+            segment.includes(`"repoId":"${vars.repoId}"`)
+          )
+        }
+        const snapshot = queryClient.getQueriesData({
+          predicate: matchPredicate,
+        })
+        queryClient.setQueriesData(
+          { predicate: matchPredicate },
+          (current: unknown) => {
+            if (current === undefined) return current
+            const list = current as {
+              items: Array<{ githubUsername: string; status: string }>
+              total: number
+            }
+            return {
+              ...list,
+              items: list.items.map((row) =>
+                targetSet.has(row.githubUsername.toLowerCase())
+                  ? { ...row, status: newStatus }
+                  : row,
+              ),
+            }
+          },
+        )
+        return { snapshot }
+      },
+      onError: (err, _vars, context) => {
+        if (context?.snapshot) {
+          for (const [key, data] of context.snapshot) {
+            queryClient.setQueryData(key, data)
+          }
+        }
+        toastFromError(err, { fallbackTitle: "Action failed" })
+      },
       onSuccess: (_data, vars) => {
-        invalidateRepoData(queryClient, repoId)
+        // Skip invalidate; signal stream brings canonical data.
         toastManager.add({
           type: "success",
           title:
@@ -124,9 +205,7 @@ export function ContributorDetailDrawer({
         })
         onOpenChange(false)
       },
-      onError: (err) =>
-        toastFromError(err, { fallbackTitle: "Action failed" }),
-    })
+    }),
   )
 
   if (!contributor) return null

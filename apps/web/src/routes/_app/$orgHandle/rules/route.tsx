@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { RulesWorkspaceLayoutRoute } from "#/components/layout/app/rules/rules-workspace-layout"
 import { RulesWorkspaceSkeleton } from "#/components/layout/app/rules/rules-workspace-skeleton"
+import { PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
 
 function tabFromLocationSearch(search: unknown): string | null {
   if (search == null) return null
@@ -43,6 +44,7 @@ export const Route = createFileRoute("/_app/$orgHandle/rules")({
     })
   },
   preload: false,
+  headers: () => PRIVATE_ROUTE_HEADERS,
   pendingComponent: RulesWorkspaceSkeleton,
   component: RulesWorkspaceLayoutRoute,
 })

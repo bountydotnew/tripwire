@@ -66,12 +66,14 @@ import { Route as AppOrgHandleRulesIndexRouteImport } from './routes/_app/$orgHa
 import { Route as AppOrgHandleEventsIndexRouteImport } from './routes/_app/$orgHandle/events/index'
 import { Route as AppOrgHandleAutomationsIndexRouteImport } from './routes/_app/$orgHandle/automations/index'
 import { Route as AdminAdminResearchIndexRouteImport } from './routes/_admin/admin/research/index'
+import { Route as ApiGithubSignalsStreamRouteImport } from './routes/api/github/signals/stream'
 import { Route as AppOrgHandleRulesWorkflowsRouteImport } from './routes/_app/$orgHandle/rules/workflows'
 import { Route as AppOrgHandleRulesRequestsRouteImport } from './routes/_app/$orgHandle/rules/requests'
 import { Route as AppOrgHandleRulesPeopleRouteImport } from './routes/_app/$orgHandle/rules/people'
 import { Route as AppOrgHandleRulesMarketplaceRouteImport } from './routes/_app/$orgHandle/rules/marketplace'
 import { Route as AppOrgHandleRulesInstalledRouteImport } from './routes/_app/$orgHandle/rules/installed'
 import { Route as AppOrgHandleRulesFilesRouteImport } from './routes/_app/$orgHandle/rules/files'
+import { Route as AppOrgHandleRules0RouteImport } from './routes/_app/$orgHandle/rules/0'
 import { Route as AppOrgHandleEventsEventIdRouteImport } from './routes/_app/$orgHandle/events/$eventId'
 import { Route as AppOrgHandleAutomationsPreviewRouteImport } from './routes/_app/$orgHandle/automations/preview'
 import { Route as AppOrgHandleAutomationsAutomationIdRouteImport } from './routes/_app/$orgHandle/automations/$automationId'
@@ -369,6 +371,11 @@ const AdminAdminResearchIndexRoute = AdminAdminResearchIndexRouteImport.update({
   path: '/admin/research/',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiGithubSignalsStreamRoute = ApiGithubSignalsStreamRouteImport.update({
+  id: '/api/github/signals/stream',
+  path: '/api/github/signals/stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppOrgHandleRulesWorkflowsRoute =
   AppOrgHandleRulesWorkflowsRouteImport.update({
     id: '/workflows',
@@ -401,6 +408,11 @@ const AppOrgHandleRulesInstalledRoute =
 const AppOrgHandleRulesFilesRoute = AppOrgHandleRulesFilesRouteImport.update({
   id: '/files',
   path: '/files',
+  getParentRoute: () => AppOrgHandleRulesRouteRoute,
+} as any)
+const AppOrgHandleRules0Route = AppOrgHandleRules0RouteImport.update({
+  id: '/0',
+  path: '/0',
   getParentRoute: () => AppOrgHandleRulesRouteRoute,
 } as any)
 const AppOrgHandleEventsEventIdRoute =
@@ -501,12 +513,14 @@ export interface FileRoutesByFullPath {
   '/$orgHandle/automations/$automationId': typeof AppOrgHandleAutomationsAutomationIdRoute
   '/$orgHandle/automations/preview': typeof AppOrgHandleAutomationsPreviewRoute
   '/$orgHandle/events/$eventId': typeof AppOrgHandleEventsEventIdRoute
+  '/$orgHandle/rules/0': typeof AppOrgHandleRules0Route
   '/$orgHandle/rules/files': typeof AppOrgHandleRulesFilesRoute
   '/$orgHandle/rules/installed': typeof AppOrgHandleRulesInstalledRoute
   '/$orgHandle/rules/marketplace': typeof AppOrgHandleRulesMarketplaceRoute
   '/$orgHandle/rules/people': typeof AppOrgHandleRulesPeopleRoute
   '/$orgHandle/rules/requests': typeof AppOrgHandleRulesRequestsRoute
   '/$orgHandle/rules/workflows': typeof AppOrgHandleRulesWorkflowsRoute
+  '/api/github/signals/stream': typeof ApiGithubSignalsStreamRoute
   '/admin/research/': typeof AdminAdminResearchIndexRoute
   '/$orgHandle/automations/': typeof AppOrgHandleAutomationsIndexRoute
   '/$orgHandle/events/': typeof AppOrgHandleEventsIndexRoute
@@ -570,12 +584,14 @@ export interface FileRoutesByTo {
   '/$orgHandle/automations/$automationId': typeof AppOrgHandleAutomationsAutomationIdRoute
   '/$orgHandle/automations/preview': typeof AppOrgHandleAutomationsPreviewRoute
   '/$orgHandle/events/$eventId': typeof AppOrgHandleEventsEventIdRoute
+  '/$orgHandle/rules/0': typeof AppOrgHandleRules0Route
   '/$orgHandle/rules/files': typeof AppOrgHandleRulesFilesRoute
   '/$orgHandle/rules/installed': typeof AppOrgHandleRulesInstalledRoute
   '/$orgHandle/rules/marketplace': typeof AppOrgHandleRulesMarketplaceRoute
   '/$orgHandle/rules/people': typeof AppOrgHandleRulesPeopleRoute
   '/$orgHandle/rules/requests': typeof AppOrgHandleRulesRequestsRoute
   '/$orgHandle/rules/workflows': typeof AppOrgHandleRulesWorkflowsRoute
+  '/api/github/signals/stream': typeof ApiGithubSignalsStreamRoute
   '/admin/research': typeof AdminAdminResearchIndexRoute
   '/$orgHandle/automations': typeof AppOrgHandleAutomationsIndexRoute
   '/$orgHandle/events': typeof AppOrgHandleEventsIndexRoute
@@ -643,12 +659,14 @@ export interface FileRoutesById {
   '/_app/$orgHandle/automations/$automationId': typeof AppOrgHandleAutomationsAutomationIdRoute
   '/_app/$orgHandle/automations/preview': typeof AppOrgHandleAutomationsPreviewRoute
   '/_app/$orgHandle/events/$eventId': typeof AppOrgHandleEventsEventIdRoute
+  '/_app/$orgHandle/rules/0': typeof AppOrgHandleRules0Route
   '/_app/$orgHandle/rules/files': typeof AppOrgHandleRulesFilesRoute
   '/_app/$orgHandle/rules/installed': typeof AppOrgHandleRulesInstalledRoute
   '/_app/$orgHandle/rules/marketplace': typeof AppOrgHandleRulesMarketplaceRoute
   '/_app/$orgHandle/rules/people': typeof AppOrgHandleRulesPeopleRoute
   '/_app/$orgHandle/rules/requests': typeof AppOrgHandleRulesRequestsRoute
   '/_app/$orgHandle/rules/workflows': typeof AppOrgHandleRulesWorkflowsRoute
+  '/api/github/signals/stream': typeof ApiGithubSignalsStreamRoute
   '/_admin/admin/research/': typeof AdminAdminResearchIndexRoute
   '/_app/$orgHandle/automations/': typeof AppOrgHandleAutomationsIndexRoute
   '/_app/$orgHandle/events/': typeof AppOrgHandleEventsIndexRoute
@@ -715,12 +733,14 @@ export interface FileRouteTypes {
     | '/$orgHandle/automations/$automationId'
     | '/$orgHandle/automations/preview'
     | '/$orgHandle/events/$eventId'
+    | '/$orgHandle/rules/0'
     | '/$orgHandle/rules/files'
     | '/$orgHandle/rules/installed'
     | '/$orgHandle/rules/marketplace'
     | '/$orgHandle/rules/people'
     | '/$orgHandle/rules/requests'
     | '/$orgHandle/rules/workflows'
+    | '/api/github/signals/stream'
     | '/admin/research/'
     | '/$orgHandle/automations/'
     | '/$orgHandle/events/'
@@ -784,12 +804,14 @@ export interface FileRouteTypes {
     | '/$orgHandle/automations/$automationId'
     | '/$orgHandle/automations/preview'
     | '/$orgHandle/events/$eventId'
+    | '/$orgHandle/rules/0'
     | '/$orgHandle/rules/files'
     | '/$orgHandle/rules/installed'
     | '/$orgHandle/rules/marketplace'
     | '/$orgHandle/rules/people'
     | '/$orgHandle/rules/requests'
     | '/$orgHandle/rules/workflows'
+    | '/api/github/signals/stream'
     | '/admin/research'
     | '/$orgHandle/automations'
     | '/$orgHandle/events'
@@ -856,12 +878,14 @@ export interface FileRouteTypes {
     | '/_app/$orgHandle/automations/$automationId'
     | '/_app/$orgHandle/automations/preview'
     | '/_app/$orgHandle/events/$eventId'
+    | '/_app/$orgHandle/rules/0'
     | '/_app/$orgHandle/rules/files'
     | '/_app/$orgHandle/rules/installed'
     | '/_app/$orgHandle/rules/marketplace'
     | '/_app/$orgHandle/rules/people'
     | '/_app/$orgHandle/rules/requests'
     | '/_app/$orgHandle/rules/workflows'
+    | '/api/github/signals/stream'
     | '/_admin/admin/research/'
     | '/_app/$orgHandle/automations/'
     | '/_app/$orgHandle/events/'
@@ -893,6 +917,7 @@ export interface RootRouteChildren {
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ApiV1VouchedRoute: typeof ApiV1VouchedRoute
   RequestOwnerRepoRoute: typeof RequestOwnerRepoRoute
+  ApiGithubSignalsStreamRoute: typeof ApiGithubSignalsStreamRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1296,6 +1321,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminResearchIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/github/signals/stream': {
+      id: '/api/github/signals/stream'
+      path: '/api/github/signals/stream'
+      fullPath: '/api/github/signals/stream'
+      preLoaderRoute: typeof ApiGithubSignalsStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/$orgHandle/rules/workflows': {
       id: '/_app/$orgHandle/rules/workflows'
       path: '/workflows'
@@ -1336,6 +1368,13 @@ declare module '@tanstack/react-router' {
       path: '/files'
       fullPath: '/$orgHandle/rules/files'
       preLoaderRoute: typeof AppOrgHandleRulesFilesRouteImport
+      parentRoute: typeof AppOrgHandleRulesRouteRoute
+    }
+    '/_app/$orgHandle/rules/0': {
+      id: '/_app/$orgHandle/rules/0'
+      path: '/0'
+      fullPath: '/$orgHandle/rules/0'
+      preLoaderRoute: typeof AppOrgHandleRules0RouteImport
       parentRoute: typeof AppOrgHandleRulesRouteRoute
     }
     '/_app/$orgHandle/events/$eventId': {
@@ -1427,6 +1466,7 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppOrgHandleRulesRouteRouteChildren {
+  AppOrgHandleRules0Route: typeof AppOrgHandleRules0Route
   AppOrgHandleRulesFilesRoute: typeof AppOrgHandleRulesFilesRoute
   AppOrgHandleRulesInstalledRoute: typeof AppOrgHandleRulesInstalledRoute
   AppOrgHandleRulesMarketplaceRoute: typeof AppOrgHandleRulesMarketplaceRoute
@@ -1440,6 +1480,7 @@ interface AppOrgHandleRulesRouteRouteChildren {
 
 const AppOrgHandleRulesRouteRouteChildren: AppOrgHandleRulesRouteRouteChildren =
   {
+    AppOrgHandleRules0Route: AppOrgHandleRules0Route,
     AppOrgHandleRulesFilesRoute: AppOrgHandleRulesFilesRoute,
     AppOrgHandleRulesInstalledRoute: AppOrgHandleRulesInstalledRoute,
     AppOrgHandleRulesMarketplaceRoute: AppOrgHandleRulesMarketplaceRoute,
@@ -1596,6 +1637,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ApiV1VouchedRoute: ApiV1VouchedRoute,
   RequestOwnerRepoRoute: RequestOwnerRepoRoute,
+  ApiGithubSignalsStreamRoute: ApiGithubSignalsStreamRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

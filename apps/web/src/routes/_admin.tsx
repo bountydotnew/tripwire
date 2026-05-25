@@ -11,9 +11,13 @@ import { FlaskConical, LayoutDashboard, ShieldUser } from "lucide-react"
 import { AuthProvider } from "@tripwire/auth/components"
 import { useTRPC } from "#/integrations/trpc/react"
 import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
+import { PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
 
 export const Route = createFileRoute("/_admin")({
   component: AdminShell,
+  // Admin routes are gated by role on the server. No reason to expose
+  // them to crawlers — noindex at the layout level.
+  headers: () => PRIVATE_ROUTE_HEADERS,
 })
 
 function AdminShell() {

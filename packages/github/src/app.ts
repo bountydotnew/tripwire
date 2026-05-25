@@ -11,9 +11,18 @@ import { SignJWT, importPKCS8 } from "jose"
 import * as crypto from "crypto"
 import { createError } from "evlog"
 import { env } from "@tripwire/env/server"
+import { createGitHubRequestSignal } from "./request"
 
 // Cache installation tokens: installationId -> { token, expiresAt }
 const tokenCache = new Map<number, { token: string; expiresAt: number }>()
+
+/**
+ * In-flight mint promises keyed by installationId. When N concurrent
+ * callers ask for the same installation's token, only the first one
+ * actually hits GitHub; the rest await the same Promise. Cleaned up
+ * after settlement.
+ */
+const inFlightTokenMints = new Map<number, Promise<string>>()
 
 /**
  * Create a JWT signed with the GitHub App's private key.
@@ -81,17 +90,43 @@ export async function deleteInstallation(
 
 /**
  * Get an installation access token for a GitHub App installation.
- * Caches tokens until 5 minutes before expiry.
+ *
+ * Three layers of work avoidance:
+ * 1. In-memory token cache — usable until 5min before expiry.
+ * 2. In-flight dedup — concurrent callers waiting on the same install
+ *    share one mint Promise. Prevents thundering-herd when a worker
+ *    boots and many requests for the same install land at once.
+ * 3. The mint itself, only run when both layers miss.
  */
 export async function getInstallationToken(
   installationId: number
 ): Promise<string> {
-  // Check cache
   const cached = tokenCache.get(installationId)
   if (cached && cached.expiresAt > Date.now() + 5 * 60 * 1000) {
     return cached.token
   }
 
+  const inflight = inFlightTokenMints.get(installationId)
+  if (inflight) {
+    return inflight
+  }
+
+  const mintPromise = mintInstallationToken(installationId)
+  inFlightTokenMints.set(installationId, mintPromise)
+
+  try {
+    return await mintPromise
+  } finally {
+    // Only clear if we're still the active promise — defensive against
+    // a slow concurrent caller that might have already started a fresh mint
+    // (e.g. after invalidateInstallationToken cleared our entry mid-flight).
+    if (inFlightTokenMints.get(installationId) === mintPromise) {
+      inFlightTokenMints.delete(installationId)
+    }
+  }
+}
+
+async function mintInstallationToken(installationId: number): Promise<string> {
   const jwt = await createAppJwt()
 
   const res = await fetch(
@@ -128,13 +163,31 @@ export async function getInstallationToken(
   return data.token
 }
 
+/**
+ * Drops the cached token + any in-flight mint for an installation. Call
+ * this when a webhook signals an installation token may have been
+ * invalidated server-side (e.g. permission change, suspension).
+ */
+export function invalidateInstallationToken(installationId: number): void {
+  tokenCache.delete(installationId)
+  inFlightTokenMints.delete(installationId)
+}
+
 export async function githubApi(
   endpoint: string,
   token: string,
   options: RequestInit = {}
 ) {
+  // Compose caller's signal (if any) with a 12s timeout so every call
+  // gets cancellation + a deadline. Caller can still pass their own
+  // signal in options.signal — both fire whichever comes first.
+  const composedSignal = createGitHubRequestSignal(
+    options.signal ?? undefined,
+  )
+
   const res = await fetch(`https://api.github.com${endpoint}`, {
     ...options,
+    signal: composedSignal,
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",

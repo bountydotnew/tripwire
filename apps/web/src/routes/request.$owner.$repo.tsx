@@ -7,9 +7,17 @@ import { useTRPC } from "#/integrations/trpc/react"
 import { Button } from "@tripwire/ui/button"
 import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
 import { toastFromError } from "#/lib/toast-error"
+import { buildSeo, formatPageTitle } from "#/lib/seo"
 
 export const Route = createFileRoute("/request/$owner/$repo")({
   component: RequestPage,
+  head: ({ match, params }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle(`Request access to ${params.owner}/${params.repo}`),
+      description: `Submit an unblock or access request to the maintainers of ${params.owner}/${params.repo}.`,
+      robots: "noindex",
+    }),
 })
 
 function RequestPage() {

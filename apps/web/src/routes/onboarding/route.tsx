@@ -2,9 +2,13 @@ import { useEffect } from "react"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { useAuth, AuthProvider } from "@tripwire/auth/components"
 import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
+import { PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
 
 export const Route = createFileRoute("/onboarding")({
   component: OnboardingLayout,
+  // Onboarding pages are gated behind a session redirect — never useful
+  // to search engines.
+  headers: () => PRIVATE_ROUTE_HEADERS,
 })
 
 function OnboardingLayout() {

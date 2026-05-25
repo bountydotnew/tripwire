@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server"
 import { authedProcedure } from "../init"
 import { assertRepoOwner } from "@tripwire/core"
 import { db } from "@tripwire/db/client"
-import { customRules, events, githubUserCache } from "@tripwire/db"
+import { customRules, events } from "@tripwire/db"
 import {
   logEvent,
   getCustomRuleLimits,
@@ -19,7 +19,10 @@ import {
   customRuleDefinitionSchema,
 } from "@tripwire/core"
 import { getUserPlanId } from "#/lib/billing"
-import type { GitHubUserGraphQL } from "@tripwire/github/user"
+import {
+  peekCachedUserGraphql,
+  peekCachedUserProfile,
+} from "@tripwire/github/data-factory"
 
 import type { TRPCRouterRecord } from "@trpc/server"
 import type { CustomRuleDefinition } from "@tripwire/db"
@@ -343,15 +346,12 @@ export const customRulesRouter = {
       let wouldNearMiss = 0
 
       for (const username of uniqueUsernames) {
-        const [cached] = await db
-          .select()
-          .from(githubUserCache)
-          .where(
-            sql`lower(${githubUserCache.githubUsername}) = ${username.toLowerCase()}`
-          )
-          .limit(1)
-
-        const profile = cached?.profileJson ?? null
+        const [profileSlot, graphql] = await Promise.all([
+          peekCachedUserProfile(username),
+          peekCachedUserGraphql(username),
+        ])
+        const profile = profileSlot?.profile ?? null
+        const githubUserId = profileSlot?.githubUserId ?? 0
         const avatarUrl = profile
           ? (((profile as Record<string, unknown>).avatar_url as
               | string
@@ -359,15 +359,11 @@ export const customRulesRouter = {
           : null
 
         const signals = resolveSignals(
-          { senderLogin: username, senderId: cached?.githubUserId ?? 0 },
-          profile as Record<string, unknown> | null,
+          { senderLogin: username, senderId: githubUserId },
+          profile,
           undefined,
           null,
-          cached?.graphqlJson
-            ? {
-                graphql: cached.graphqlJson as unknown as GitHubUserGraphQL,
-              }
-            : undefined
+          graphql ? { graphql } : undefined
         )
 
         const result = evaluateCustomRule(

@@ -11,9 +11,17 @@ import {
 } from "lucide-react"
 import { useTRPC } from "#/integrations/trpc/react"
 import { formatRelativeTime } from "#/lib/format"
+import { buildSeo, formatPageTitle } from "#/lib/seo"
 
 export const Route = createFileRoute("/_admin/admin/")({
   component: AdminOverviewPage,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Admin overview"),
+      description: "Tripwire admin dashboard.",
+      robots: "noindex",
+    }),
 })
 
 interface StatTileProps {

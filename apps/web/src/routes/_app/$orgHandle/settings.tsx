@@ -7,9 +7,23 @@ import { Button } from "@tripwire/ui/button"
 import { useWorkspace } from "#/providers/workspace-context"
 import { toastFromError } from "#/lib/toast-error"
 import { toastManager } from "@tripwire/ui/toast"
+import {
+  buildSeo,
+  formatPageTitle,
+  PRIVATE_ROUTE_HEADERS,
+} from "#/lib/seo"
 
 export const Route = createFileRoute("/_app/$orgHandle/settings")({
   component: OrgSettingsPage,
+  headers: () => PRIVATE_ROUTE_HEADERS,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Organization settings"),
+      description:
+        "Manage organization members, roles, and invitations for your Tripwire workspace.",
+      robots: "noindex",
+    }),
 })
 
 interface OrgMemberUser {

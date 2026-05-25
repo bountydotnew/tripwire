@@ -31,3 +31,6 @@ todos.json
 /.claude
 /.deepsec
 skills-lock.json
+scripts/dump-db-to-csv.mjs
+scripts/load-csv-from-db.mjs
+/db-dump

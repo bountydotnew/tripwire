@@ -5,9 +5,23 @@ import { useTRPC } from "#/integrations/trpc/react"
 import { Button } from "@tripwire/ui/button"
 import { toastManager } from "@tripwire/ui/toast"
 import { toastFromError } from "#/lib/toast-error"
+import {
+  buildSeo,
+  formatPageTitle,
+  PRIVATE_ROUTE_HEADERS,
+} from "#/lib/seo"
 
 export const Route = createFileRoute("/_app/settings/developers")({
   component: DevelopersSettingsPage,
+  headers: () => PRIVATE_ROUTE_HEADERS,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Developers"),
+      description:
+        "API keys, webhook secrets, and integration tokens for your Tripwire workspace.",
+      robots: "noindex",
+    }),
 })
 
 function DevelopersSettingsPage() {

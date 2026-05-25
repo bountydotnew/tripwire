@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import superjson from "superjson"
 import { createTRPCClient, httpBatchStreamLink } from "@trpc/client"
@@ -6,6 +6,10 @@ import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query"
 
 import type { TRPCRouter } from "#/integrations/trpc/router"
 import { TRPCProvider } from "#/integrations/trpc/react"
+import {
+  restorePersistedQueryCache,
+  startQueryCachePersistence,
+} from "./persistence"
 
 function getUrl() {
   const base = (() => {
@@ -34,6 +38,10 @@ export function createQueryContext() {
     },
   })
 
+  // Hydrate synchronously from localStorage so SSR'd pages can find
+  // already-cached data on first render. No-op on server.
+  restorePersistedQueryCache(queryClient)
+
   const trpc = createTRPCOptionsProxy({
     client: trpcClient,
     queryClient,
@@ -52,6 +60,10 @@ export default function TanStackQueryProvider({
   // Create QueryClient once per React tree instance using useState initializer
   // This ensures fresh context per SSR request while remaining stable on client
   const [{ queryClient }] = useState(createQueryContext)
+
+  // Subscribe to cache changes + persist (browser only — server effects don't run).
+  // Hydration already happened in createQueryContext; this just starts the writer.
+  useEffect(() => startQueryCachePersistence(queryClient), [queryClient])
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -13,13 +13,38 @@ import { CommandConfirmation } from "#/components/layout/app/chat/command-confir
 import { ChevronLeftStrokeIcon14 } from "@tripwire/ui/icons/app-chrome-icons"
 import { uiMessagesFromStored } from "#/lib/chat/conversation-stored"
 import { Provider as ChatStoreProvider } from "@ai-sdk-tools/store"
+import {
+  buildSeo,
+  formatPageTitle,
+  PRIVATE_ROUTE_HEADERS,
+} from "#/lib/seo"
 
-export const Route = createFileRoute("/_app/chat/$chatId")({
-  component: () => (
+function ChatRoute() {
+  return (
     <ChatStoreProvider>
       <ChatPage />
     </ChatStoreProvider>
-  ),
+  )
+}
+
+export const Route = createFileRoute("/_app/chat/$chatId")({
+  // Prefetch the chat's conversation thread so the page renders against
+  // a warm cache when the user navigates in from anywhere.
+  loader: ({ context, params }) => {
+    void context.queryClient.prefetchQuery(
+      context.trpc.chats.get.queryOptions({ chatId: params.chatId }),
+    )
+  },
+  component: ChatRoute,
+  headers: () => PRIVATE_ROUTE_HEADERS,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Chat"),
+      description:
+        "Ask Tripwire about contributors, rules, events, and your repo's protection posture.",
+      robots: "noindex",
+    }),
 })
 
 function ChatPage() {

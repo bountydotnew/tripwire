@@ -4,9 +4,17 @@ import { useMutation } from "@tanstack/react-query"
 import { Button } from "@tripwire/ui/button"
 import { useTRPC } from "#/integrations/trpc/react"
 import { toastFromError } from "#/lib/toast-error"
+import { buildSeo, formatPageTitle } from "#/lib/seo"
 
 export const Route = createFileRoute("/_admin/admin/research/new")({
   component: NewResearchRunPage,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("New research run"),
+      description: "Configure a new batch contributor research run.",
+      robots: "noindex",
+    }),
 })
 
 interface FieldProps {

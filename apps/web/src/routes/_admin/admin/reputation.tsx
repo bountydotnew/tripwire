@@ -8,9 +8,18 @@ import { useTRPC } from "#/integrations/trpc/react"
 import { toastFromError } from "#/lib/toast-error"
 import { toastManager } from "@tripwire/ui/toast"
 import { formatRelativeTime } from "#/lib/format"
+import { buildSeo, formatPageTitle } from "#/lib/seo"
 
 export const Route = createFileRoute("/_admin/admin/reputation")({
   component: AdminReputationPage,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Admin: reputation"),
+      description:
+        "Review and adjust contributor reputation scores across all repos.",
+      robots: "noindex",
+    }),
 })
 
 interface ReputationRow {

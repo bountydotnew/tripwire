@@ -1,10 +1,15 @@
-import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router"
+import {
+  createRootRouteWithContext,
+  HeadContent,
+  Scripts,
+} from "@tanstack/react-router"
 import { createMiddleware } from "@tanstack/react-start"
 import { AutumnProvider } from "autumn-js/react"
 import { evlogErrorHandler } from "evlog/nitro/v3"
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router"
 import { AnchoredToastProvider, ToastProvider } from "@tripwire/ui/toast"
 import RootProvider from "#/integrations/tanstack-query/root-provider"
+import type { QueryContext } from "#/integrations/tanstack-query/root-provider"
 import { useEffect, useState } from "react"
 import { isReactGrabEnabled, isReactScanEnabled } from "#/lib/feature-flags"
 import { FeedbackProvider, FeedbackOverlay } from "@tripwire/feedback"
@@ -21,7 +26,7 @@ function ClientOnlyDevtools() {
   return Devtools ? <Devtools /> : null
 }
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<QueryContext>()({
   server: {
     middleware: [createMiddleware().server(evlogErrorHandler)],
   },

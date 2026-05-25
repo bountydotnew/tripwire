@@ -4,10 +4,34 @@ import { Button } from "@tripwire/ui/button"
 import { useTRPC } from "#/integrations/trpc/react"
 import { ScoreBadge } from "./score-badge"
 import { ContributorAvatar } from "./contributor-avatar"
-import { invalidateRepoData } from "#/lib/cache"
 import { formatRelativeTime } from "#/lib/format"
 import { toastFromError } from "#/lib/toast-error"
 import { toastManager } from "@tripwire/ui/toast"
+import { useWorkspace } from "#/providers/workspace-context"
+import { githubRevalidationSignalKeys } from "#/lib/github/revalidation"
+import { useGitHubSignalStream } from "#/lib/github/use-signal-stream"
+
+/**
+ * Build the targets array for both recommendation queries on this repo.
+ * Shared between SuggestedWhitelist and RiskAlerts since they consume
+ * the same signal (any webhook for the repo updates scoring inputs).
+ */
+function useRepoSignalTargets(
+  repoFullName: string | null,
+  queryKey: readonly unknown[],
+) {
+  return useMemo(() => {
+    if (!repoFullName) return []
+    const [owner, name] = repoFullName.split("/")
+    if (!owner || !name) return []
+    return [
+      {
+        queryKey,
+        signalKeys: [githubRevalidationSignalKeys.repo({ owner, repo: name })],
+      },
+    ]
+  }, [repoFullName, queryKey])
+}
 
 interface PanelProps {
   repoId: string
@@ -34,10 +58,16 @@ function isSelf<T extends SuggestedRow>(
 export function SuggestedWhitelistPanel({ repoId, onSelect }: PanelProps) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
+  const { repo } = useWorkspace()
   const meQuery = useQuery(trpc.auth.me.queryOptions())
   const selfGithubId = meQuery.data?.githubId ?? null
-  const query = useQuery(
-    trpc.visibility.suggestedWhitelist.queryOptions({ repoId, limit: 6 })
+  const queryOpts = trpc.visibility.suggestedWhitelist.queryOptions({
+    repoId,
+    limit: 6,
+  })
+  const query = useQuery({ ...queryOpts, meta: { persist: true } })
+  useGitHubSignalStream(
+    useRepoSignalTargets(repo?.fullName ?? null, queryOpts.queryKey),
   )
   const rows = useMemo(
     () => (query.data ?? []).filter((c) => !isSelf(c, selfGithubId)),
@@ -45,16 +75,40 @@ export function SuggestedWhitelistPanel({ repoId, onSelect }: PanelProps) {
   )
   const mutation = useMutation(
     trpc.visibility.bulkAction.mutationOptions({
+      // Optimistically remove the row from THIS panel's list — whitelisted
+      // contributors no longer belong in "suggested whitelist."
+      onMutate: (vars) => {
+        const target = vars.usernames[0]?.toLowerCase()
+        if (!target) return { previous: undefined }
+        const previous = queryClient.getQueryData(queryOpts.queryKey)
+        queryClient.setQueryData(queryOpts.queryKey, (current) =>
+          current
+            ? current.filter(
+                (row) => row.githubUsername.toLowerCase() !== target,
+              )
+            : current,
+        )
+        return { previous }
+      },
+      onError: (err, _vars, context) => {
+        if (context?.previous !== undefined) {
+          queryClient.setQueryData(
+            queryOpts.queryKey,
+            context.previous as never,
+          )
+        }
+        toastFromError(err, { fallbackTitle: "Failed to whitelist" })
+      },
       onSuccess: (_data, vars) => {
-        invalidateRepoData(queryClient, repoId)
+        // Skip invalidate — signal stream brings canonical data when
+        // the score-user job propagates server-side. See visibility.tsx
+        // bulkMutation for the full rationale.
         toastManager.add({
           type: "success",
           title: `Whitelisted @${vars.usernames[0]}`,
         })
       },
-      onError: (err) =>
-        toastFromError(err, { fallbackTitle: "Failed to whitelist" }),
-    })
+    }),
   )
 
   return (
@@ -95,10 +149,16 @@ export function SuggestedWhitelistPanel({ repoId, onSelect }: PanelProps) {
 export function RiskAlertsPanel({ repoId, onSelect }: PanelProps) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
+  const { repo } = useWorkspace()
   const meQuery = useQuery(trpc.auth.me.queryOptions())
   const selfGithubId = meQuery.data?.githubId ?? null
-  const query = useQuery(
-    trpc.visibility.riskAlerts.queryOptions({ repoId, limit: 6 })
+  const queryOpts = trpc.visibility.riskAlerts.queryOptions({
+    repoId,
+    limit: 6,
+  })
+  const query = useQuery({ ...queryOpts, meta: { persist: true } })
+  useGitHubSignalStream(
+    useRepoSignalTargets(repo?.fullName ?? null, queryOpts.queryKey),
   )
   const rows = useMemo(
     () => (query.data ?? []).filter((c) => !isSelf(c, selfGithubId)),
@@ -106,16 +166,37 @@ export function RiskAlertsPanel({ repoId, onSelect }: PanelProps) {
   )
   const mutation = useMutation(
     trpc.visibility.bulkAction.mutationOptions({
+      // Mirror of the suggested-whitelist panel: blocking a row should
+      // remove it from the risk-alerts list immediately.
+      onMutate: (vars) => {
+        const target = vars.usernames[0]?.toLowerCase()
+        if (!target) return { previous: undefined }
+        const previous = queryClient.getQueryData(queryOpts.queryKey)
+        queryClient.setQueryData(queryOpts.queryKey, (current) =>
+          current
+            ? current.filter(
+                (row) => row.githubUsername.toLowerCase() !== target,
+              )
+            : current,
+        )
+        return { previous }
+      },
+      onError: (err, _vars, context) => {
+        if (context?.previous !== undefined) {
+          queryClient.setQueryData(
+            queryOpts.queryKey,
+            context.previous as never,
+          )
+        }
+        toastFromError(err, { fallbackTitle: "Failed to block" })
+      },
       onSuccess: (_data, vars) => {
-        invalidateRepoData(queryClient, repoId)
         toastManager.add({
           type: "success",
           title: `Blocked @${vars.usernames[0]}`,
         })
       },
-      onError: (err) =>
-        toastFromError(err, { fallbackTitle: "Failed to block" }),
-    })
+    }),
   )
 
   return (

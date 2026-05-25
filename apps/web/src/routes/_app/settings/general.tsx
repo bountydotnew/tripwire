@@ -1,9 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { env } from "@tripwire/env/client"
+import {
+  buildSeo,
+  formatPageTitle,
+  PRIVATE_ROUTE_HEADERS,
+} from "#/lib/seo"
 
 export const Route = createFileRoute("/_app/settings/general")({
   component: GeneralSettingsPage,
+  headers: () => PRIVATE_ROUTE_HEADERS,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("General settings"),
+      description: "App preferences and GitHub install configuration.",
+      robots: "noindex",
+    }),
 })
 
 function GeneralSettingsPage() {

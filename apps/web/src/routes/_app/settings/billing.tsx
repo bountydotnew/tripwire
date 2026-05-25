@@ -3,9 +3,23 @@ import { Button } from "@tripwire/ui/button"
 import { useCustomer } from "autumn-js/react"
 import { useWorkspace } from "#/providers/workspace-context"
 import { PlusStrokeIcon14 } from "@tripwire/ui/icons/app-chrome-icons"
+import {
+  buildSeo,
+  formatPageTitle,
+  PRIVATE_ROUTE_HEADERS,
+} from "#/lib/seo"
 
 export const Route = createFileRoute("/_app/settings/billing")({
   component: BillingSettingsPage,
+  headers: () => PRIVATE_ROUTE_HEADERS,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Billing"),
+      description:
+        "Manage your Tripwire subscription, invoices, and usage limits.",
+      robots: "noindex",
+    }),
 })
 
 function BillingSettingsPage() {

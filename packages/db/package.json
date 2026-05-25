@@ -15,7 +15,8 @@
   "dependencies": {
     "@tripwire/env": "workspace:*",
     "drizzle-orm": "^0.45.1",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "pg-copy-streams": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

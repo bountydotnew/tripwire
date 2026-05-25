@@ -3,9 +3,23 @@ import { useQuery } from "@tanstack/react-query"
 import { Button } from "@tripwire/ui/button"
 import { useTRPC } from "#/integrations/trpc/react"
 import { formatRelativeTime } from "#/lib/format"
+import { buildSeo, formatPageTitle } from "#/lib/seo"
 
 export const Route = createFileRoute("/_admin/admin/research/$runId")({
+  // Prefetch the run status so the page paints from cache.
+  loader: ({ context, params }) => {
+    void context.queryClient.prefetchQuery(
+      context.trpc.research.status.queryOptions({ runId: params.runId }),
+    )
+  },
   component: ResearchRunDetailPage,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Research run"),
+      description: "Detail view for a single research run.",
+      robots: "noindex",
+    }),
 })
 
 interface StatProps {

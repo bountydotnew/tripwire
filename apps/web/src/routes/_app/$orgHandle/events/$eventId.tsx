@@ -21,9 +21,42 @@ import {
   EventUserPlusStrokeIcon14,
   EventRuleResultGlyph,
 } from "@tripwire/ui/icons/event-detail-icons"
+import {
+  buildSeo,
+  formatPageTitle,
+  PRIVATE_ROUTE_HEADERS,
+} from "#/lib/seo"
+
+function EventDetailSkeleton() {
+  return (
+    <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-6 px-4 py-6 md:px-[50px] md:py-8">
+      <div className="h-6 w-48 animate-pulse rounded bg-white/5" />
+      <div className="h-32 w-full animate-pulse rounded-xl bg-white/5" />
+      <div className="h-64 w-full animate-pulse rounded-xl bg-white/5" />
+    </div>
+  )
+}
 
 export const Route = createFileRoute("/_app/$orgHandle/events/$eventId")({
+  // Prefetch the event detail so the page paints against a warm cache.
+  // Chained navigations from the events list will hit this same query
+  // and re-use the entry that page already populated.
+  loader: ({ context, params }) => {
+    void context.queryClient.prefetchQuery(
+      context.trpc.events.get.queryOptions({ eventId: params.eventId }),
+    )
+  },
   component: EventDetailPage,
+  pendingComponent: EventDetailSkeleton,
+  headers: () => PRIVATE_ROUTE_HEADERS,
+  head: ({ match }) =>
+    buildSeo({
+      path: match.pathname,
+      title: formatPageTitle("Event"),
+      description:
+        "Full audit trail for a single Tripwire event — the contributor, the rules that fired, and what the pipeline did.",
+      robots: "noindex",
+    }),
 })
 
 function EventDetailPage() {
