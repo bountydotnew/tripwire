@@ -9,6 +9,7 @@ import {
   whitelistEntries,
   blacklistEntries,
   visibilitySyncRuns,
+  organizations,
   repositories,
   user,
   type EventAction,
@@ -310,6 +311,7 @@ export const visibilityRouter = {
         })
         .from(githubReputation)
         .innerJoin(repositories, eq(repositories.id, githubReputation.repoId))
+        .innerJoin(organizations, eq(organizations.id, repositories.orgId))
         .leftJoin(whitelistEntries, whitelistJoinClause(input.repoId))
         .leftJoin(blacklistEntries, blacklistJoinClause(input.repoId))
         .where(
@@ -364,6 +366,7 @@ export const visibilityRouter = {
         })
         .from(githubReputation)
         .innerJoin(repositories, eq(repositories.id, githubReputation.repoId))
+        .innerJoin(organizations, eq(organizations.id, repositories.orgId))
         .leftJoin(whitelistEntries, whitelistJoinClause(input.repoId))
         .leftJoin(blacklistEntries, blacklistJoinClause(input.repoId))
         .where(

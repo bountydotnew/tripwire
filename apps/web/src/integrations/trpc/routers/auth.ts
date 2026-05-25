@@ -18,6 +18,7 @@ export const authRouter = {
         email: userTable.email,
         image: userTable.image,
         role: userTable.role,
+        githubId: userTable.githubId,
       })
       .from(userTable)
       .where(eq(userTable.id, ctx.user.id))
@@ -30,6 +31,7 @@ export const authRouter = {
       image: row.image,
       role: row.role ?? null,
       isAdmin: row.role === "admin",
+      githubId: parseGithubId(row.githubId),
     }
   }),
 
@@ -42,6 +44,7 @@ export const authRouter = {
         email: userTable.email,
         image: userTable.image,
         role: userTable.role,
+        githubId: userTable.githubId,
       })
       .from(userTable)
       .where(eq(userTable.id, ctx.user.id))
@@ -53,6 +56,13 @@ export const authRouter = {
       image: row.image,
       role: row.role ?? null,
       isAdmin: row.role === "admin",
+      githubId: parseGithubId(row.githubId),
     }
   }),
 } satisfies TRPCRouterRecord
+
+function parseGithubId(value: string | null | undefined): number | null {
+  if (!value) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}

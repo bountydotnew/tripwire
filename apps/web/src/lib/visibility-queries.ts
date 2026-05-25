@@ -2,6 +2,7 @@ import { and, eq, sql, type Column, type SQL } from "drizzle-orm"
 import {
   blacklistEntries,
   githubReputation,
+  organizations,
   repositories,
   whitelistEntries,
 } from "@tripwire/db"
@@ -20,7 +21,22 @@ export function blacklistJoinClause(repoId: string): SQL | undefined {
   )
 }
 
-export const excludeRepoOwner: SQL = sql`lower(${githubReputation.githubUsername}) <> lower(split_part(${repositories.fullName}, '/', 1))`
+/**
+ * Excludes the repo's GitHub account owner from contributor result sets.
+ *
+ * Matches by GitHub account ID (canonical, immune to rename / case) AND by
+ * the username string parsed from `repositories.fullName` (catches rows that
+ * have a null `githubUserId` but a stringly known username).
+ *
+ * Requires the `organizations` table to be joined in the parent query (via
+ * `repositories.orgId = organizations.id`).
+ */
+export const excludeRepoOwner: SQL = sql`
+  (${githubReputation.githubUserId} is null
+    or ${githubReputation.githubUserId} <> ${organizations.githubAccountId})
+  and lower(${githubReputation.githubUsername}) <> lower(${organizations.githubAccountLogin})
+  and lower(${githubReputation.githubUsername}) <> lower(split_part(${repositories.fullName}, '/', 1))
+`
 
 export function excludeMaintainerSelf(
   githubUserId: number | null

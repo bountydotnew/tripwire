@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@tripwire/ui/button"
 import { useTRPC } from "#/integrations/trpc/react"
@@ -13,11 +14,34 @@ interface PanelProps {
   onSelect: (username: string) => void
 }
 
+interface SuggestedRow {
+  githubUsername: string
+  githubUserId: number | null
+}
+
+/**
+ * Defense-in-depth filter for "is this row the viewing user?".
+ * Server already excludes by id + username, but client repeats the check so
+ * any stale cache or upstream regression can't leak the viewer into the list.
+ */
+function isSelf<T extends SuggestedRow>(
+  row: T,
+  selfGithubId: number | null
+): boolean {
+  return selfGithubId != null && row.githubUserId === selfGithubId
+}
+
 export function SuggestedWhitelistPanel({ repoId, onSelect }: PanelProps) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
+  const meQuery = useQuery(trpc.auth.me.queryOptions())
+  const selfGithubId = meQuery.data?.githubId ?? null
   const query = useQuery(
     trpc.visibility.suggestedWhitelist.queryOptions({ repoId, limit: 6 })
+  )
+  const rows = useMemo(
+    () => (query.data ?? []).filter((c) => !isSelf(c, selfGithubId)),
+    [query.data, selfGithubId]
   )
   const mutation = useMutation(
     trpc.visibility.bulkAction.mutationOptions({
@@ -38,10 +62,10 @@ export function SuggestedWhitelistPanel({ repoId, onSelect }: PanelProps) {
       title="Suggested whitelist"
       hint="High-score contributors not yet on either list."
       isLoading={query.isLoading}
-      isEmpty={!query.isLoading && (query.data?.length ?? 0) === 0}
+      isEmpty={!query.isLoading && rows.length === 0}
       emptyLabel="No suggestions right now — nice and quiet."
     >
-      {query.data?.map((c) => (
+      {rows.map((c) => (
         <PanelRow
           key={c.githubUsername}
           username={c.githubUsername}
@@ -71,8 +95,14 @@ export function SuggestedWhitelistPanel({ repoId, onSelect }: PanelProps) {
 export function RiskAlertsPanel({ repoId, onSelect }: PanelProps) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
+  const meQuery = useQuery(trpc.auth.me.queryOptions())
+  const selfGithubId = meQuery.data?.githubId ?? null
   const query = useQuery(
     trpc.visibility.riskAlerts.queryOptions({ repoId, limit: 6 })
+  )
+  const rows = useMemo(
+    () => (query.data ?? []).filter((c) => !isSelf(c, selfGithubId)),
+    [query.data, selfGithubId]
   )
   const mutation = useMutation(
     trpc.visibility.bulkAction.mutationOptions({
@@ -93,10 +123,10 @@ export function RiskAlertsPanel({ repoId, onSelect }: PanelProps) {
       title="Risk alerts"
       hint="Low-score contributors with activity in the last 14 days."
       isLoading={query.isLoading}
-      isEmpty={!query.isLoading && (query.data?.length ?? 0) === 0}
+      isEmpty={!query.isLoading && rows.length === 0}
       emptyLabel="No recent risky activity."
     >
-      {query.data?.map((c) => (
+      {rows.map((c) => (
         <PanelRow
           key={c.githubUsername}
           username={c.githubUsername}
