@@ -83,7 +83,7 @@ export function EventGroupCard({ group, onOpenEvent }: EventGroupCardProps) {
             </span>
           </div>
           {first.action ? (
-            <button
+            <Button
               type="button"
               onClick={handleAction}
               onKeyDown={handleActionKeyDown}
@@ -99,7 +99,7 @@ export function EventGroupCard({ group, onOpenEvent }: EventGroupCardProps) {
               <span className="text-center text-[13px] leading-none text-tw-text-primary">
                 {first.action.label}
               </span>
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>
