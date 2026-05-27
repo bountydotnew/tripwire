@@ -50,7 +50,13 @@ export function MenuPopup({
           data-slot="menu-popup"
           {...props}
         >
-          <div className="max-h-(--available-height) w-full overflow-y-auto p-1">
+          <div
+            className="w-full overflow-y-auto p-1"
+            style={{
+              maxHeight:
+                "min(var(--available-height, calc(100vh - 5rem)), calc(100vh - 5rem))",
+            }}
+          >
             {children}
           </div>
         </MenuPrimitive.Popup>

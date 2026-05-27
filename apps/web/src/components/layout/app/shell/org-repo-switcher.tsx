@@ -69,7 +69,10 @@ export function OrgSwitcher() {
         </span>
         <MenuChevronDownIcon10 className="text-tw-text-tertiary" />
       </MenuTrigger>
-      <MenuPopup align="end" className="border-tw-border bg-tw-card">
+      <MenuPopup
+        align="end"
+        className="w-[220px] max-w-[calc(100vw-1rem)] border-tw-border bg-tw-card"
+      >
         {orgs.map((o) => (
           <MenuItem
             key={o.id}
@@ -78,7 +81,7 @@ export function OrgSwitcher() {
             }}
             className="flex items-center justify-between"
           >
-            <span className="flex items-center gap-2">
+            <span className="flex min-w-0 items-center gap-2">
               {o.logo ? (
                 <img src={o.logo} alt="" className="h-4 w-4 rounded-full" />
               ) : (
@@ -91,7 +94,7 @@ export function OrgSwitcher() {
                   }}
                 />
               )}
-              {o.name}
+              <span className="min-w-0 truncate">{o.name}</span>
             </span>
             {org?.id === o.id && (
               <SmallCheckStrokeIcon12 className="shrink-0 text-tw-accent" />
@@ -149,17 +152,21 @@ export function RepoSwitcher() {
         </span>
         <MenuChevronDownIcon10 className="text-tw-text-tertiary" />
       </MenuTrigger>
-      <MenuPopup align="end" className="border-tw-border bg-tw-card">
+      <MenuPopup
+        align="end"
+        className="w-[360px] max-w-[calc(100vw-1rem)] border-tw-border bg-tw-card"
+      >
         {repos.map((r) => (
           <MenuItem
             key={r.id}
             onClick={() => {
               setRepo(r)
             }}
-            className="flex items-center justify-between"
+            className="flex items-center justify-between gap-3"
+            title={r.fullName}
           >
-            <span className="flex items-center gap-2">
-              <span className="text-[12px] text-tw-text-primary">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="min-w-0 truncate text-[12px] text-tw-text-primary">
                 {r.fullName}
               </span>
             </span>
