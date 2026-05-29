@@ -1,14 +1,17 @@
+/** Requirement criterion extracted from a bounty issue body. */
 export interface BountyRequirementCriterion {
   id: string
   sourceHeading: string
   text: string
 }
 
+/** Matched submission terms for a single bounty requirement. */
 export interface BountyRequirementMatch {
   criterion: BountyRequirementCriterion
   matchedTerms: string[]
 }
 
+/** Aggregate validation result for a PR submission against bounty criteria. */
 export interface BountyRequirementValidation {
   status: "no_criteria" | "valid" | "missing_requirements"
   coverage: number
@@ -118,6 +121,7 @@ function makeCriterion(
   }
 }
 
+/** Extracts checklist-style criteria from requirement-like sections. */
 export function extractBountyRequirementCriteria(
   body: string
 ): BountyRequirementCriterion[] {
@@ -176,6 +180,7 @@ function criterionMatchesSubmission(
   return { criterion, matchedTerms }
 }
 
+/** Validates whether a submission references all extracted bounty criteria. */
 export function validateBountySubmissionRequirements(opts: {
   bountyBody: string
   submissionText: string
@@ -212,6 +217,7 @@ export function validateBountySubmissionRequirements(opts: {
   }
 }
 
+/** Formats missing criteria for a concise decline comment. */
 export function formatBountyRequirementValidation(
   validation: BountyRequirementValidation
 ): string | null {
