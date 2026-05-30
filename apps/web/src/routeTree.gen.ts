@@ -45,6 +45,7 @@ import { Route as ApiOauthAppInfoRouteImport } from './routes/api/oauth/app-info
 import { Route as ApiGithubWebhookRouteImport } from './routes/api/github/webhook'
 import { Route as ApiGithubInstallRouteImport } from './routes/api/github/install'
 import { Route as ApiGithubCallbackRouteImport } from './routes/api/github/callback'
+import { Route as ApiDevLoginRouteImport } from './routes/api/dev/login'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppUsersUsernameRouteImport } from './routes/_app/users/$username'
 import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/general'
@@ -260,6 +261,11 @@ const ApiGithubInstallRoute = ApiGithubInstallRouteImport.update({
 const ApiGithubCallbackRoute = ApiGithubCallbackRouteImport.update({
   id: '/api/github/callback',
   path: '/api/github/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevLoginRoute = ApiDevLoginRouteImport.update({
+  id: '/api/dev/login',
+  path: '/api/dev/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -494,6 +500,7 @@ export interface FileRoutesByFullPath {
   '/settings/general': typeof AppSettingsGeneralRoute
   '/users/$username': typeof AppUsersUsernameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/dev/login': typeof ApiDevLoginRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/install': typeof ApiGithubInstallRoute
   '/api/github/webhook': typeof ApiGithubWebhookRoute
@@ -565,6 +572,7 @@ export interface FileRoutesByTo {
   '/settings/general': typeof AppSettingsGeneralRoute
   '/users/$username': typeof AppUsersUsernameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/dev/login': typeof ApiDevLoginRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/install': typeof ApiGithubInstallRoute
   '/api/github/webhook': typeof ApiGithubWebhookRoute
@@ -640,6 +648,7 @@ export interface FileRoutesById {
   '/_app/settings/general': typeof AppSettingsGeneralRoute
   '/_app/users/$username': typeof AppUsersUsernameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/dev/login': typeof ApiDevLoginRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/install': typeof ApiGithubInstallRoute
   '/api/github/webhook': typeof ApiGithubWebhookRoute
@@ -714,6 +723,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/users/$username'
     | '/api/auth/$'
+    | '/api/dev/login'
     | '/api/github/callback'
     | '/api/github/install'
     | '/api/github/webhook'
@@ -785,6 +795,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/users/$username'
     | '/api/auth/$'
+    | '/api/dev/login'
     | '/api/github/callback'
     | '/api/github/install'
     | '/api/github/webhook'
@@ -859,6 +870,7 @@ export interface FileRouteTypes {
     | '/_app/settings/general'
     | '/_app/users/$username'
     | '/api/auth/$'
+    | '/api/dev/login'
     | '/api/github/callback'
     | '/api/github/install'
     | '/api/github/webhook'
@@ -909,6 +921,7 @@ export interface RootRouteChildren {
   ApiMcpRoute: typeof ApiMcpRoute
   OauthConsentRoute: typeof OauthConsentRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiDevLoginRoute: typeof ApiDevLoginRoute
   ApiGithubCallbackRoute: typeof ApiGithubCallbackRoute
   ApiGithubInstallRoute: typeof ApiGithubInstallRoute
   ApiGithubWebhookRoute: typeof ApiGithubWebhookRoute
@@ -1172,6 +1185,13 @@ declare module '@tanstack/react-router' {
       path: '/api/github/callback'
       fullPath: '/api/github/callback'
       preLoaderRoute: typeof ApiGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/login': {
+      id: '/api/dev/login'
+      path: '/api/dev/login'
+      fullPath: '/api/dev/login'
+      preLoaderRoute: typeof ApiDevLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -1629,6 +1649,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMcpRoute: ApiMcpRoute,
   OauthConsentRoute: OauthConsentRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiDevLoginRoute: ApiDevLoginRoute,
   ApiGithubCallbackRoute: ApiGithubCallbackRoute,
   ApiGithubInstallRoute: ApiGithubInstallRoute,
   ApiGithubWebhookRoute: ApiGithubWebhookRoute,

@@ -42,6 +42,9 @@ export const auth = betterAuth({
       scope: ["read:user", "user:email", "read:org"],
     },
   },
+  emailAndPassword: {
+    enabled: env.NODE_ENV === "development",
+  },
   user: {
     deleteUser: {
       enabled: true,
@@ -223,15 +226,16 @@ export const auth = betterAuth({
             console.error("[Tripwire] Failed to auto-create org:", err)
           }
 
-          // Create Autumn billing customer (idempotent)
-          try {
-            await autumnClient.customers.getOrCreate({
-              customerId: user.id,
-              name: user.name,
-              email: user.email,
-            })
-          } catch (err) {
-            console.error("[Tripwire] Failed to create Autumn customer:", err)
+          if (env.AUTUMN_SECRET_KEY) {
+            try {
+              await autumnClient.customers.getOrCreate({
+                customerId: user.id,
+                name: user.name,
+                email: user.email,
+              })
+            } catch (err) {
+              console.error("[Tripwire] Failed to create Autumn customer:", err)
+            }
           }
         },
       },

@@ -1,4 +1,4 @@
-import type { AnyRouter, RouterEvents } from "@tanstack/router-core"
+import type { AnyRouter, RouterEvents } from "@tanstack/react-router"
 
 /** Dev-only: logs client navigations from route resolve through first paint hook. */
 export function attachDevRouterTiming(router: AnyRouter): void {

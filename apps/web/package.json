@@ -12,6 +12,7 @@
     "lint": "biome check . --formatter-enabled=false --assist-enabled=false",
     "lint:fix": "biome check --write . --formatter-enabled=false --assist-enabled=false",
     "test": "vitest run",
+    "dev:seed-login": "NODE_ENV=development tsx src/scripts/seed-dev-login.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

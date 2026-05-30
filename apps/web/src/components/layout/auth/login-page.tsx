@@ -1,6 +1,5 @@
-import { useNavigate } from "@tanstack/react-router"
 import { authClient } from "@tripwire/auth/client"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@tripwire/ui/button"
 import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
 
@@ -13,22 +12,45 @@ export function LoginPageSkeleton() {
 }
 
 export function LoginPage() {
-  const navigate = useNavigate()
   const { data: session, isPending } = authClient.useSession()
+  const [devLoginPending, setDevLoginPending] = useState(false)
+  const [devLoginError, setDevLoginError] = useState<string | null>(null)
 
-  // Redirect to / if already logged in. The root resolver picks up
-  // from there and routes the user into their org workspace.
+  // Redirect signed-in users into the app shell. The legacy /home route
+  // resolves the active workspace and lands on the org-scoped home page.
   useEffect(() => {
     if (!isPending && session) {
-      navigate({ to: "/" })
+      window.location.assign("/home")
     }
-  }, [session, isPending, navigate])
+  }, [session, isPending])
 
-  async function handleLogin() {
+  async function handleGithubLogin() {
     await authClient.signIn.social({
       provider: "github",
       callbackURL: "/rules",
     })
+  }
+
+  async function handleDevLogin() {
+    setDevLoginPending(true)
+    setDevLoginError(null)
+
+    try {
+      const seedResponse = await fetch("/api/dev/login", {
+        method: "POST",
+      })
+
+      if (!seedResponse.ok) {
+        throw new Error("Dev login is only available while running locally.")
+      }
+
+      window.location.assign("/home")
+    } catch (error) {
+      setDevLoginError(
+        error instanceof Error ? error.message : "Dev login failed."
+      )
+      setDevLoginPending(false)
+    }
   }
 
   if (isPending) {
@@ -39,13 +61,19 @@ export function LoginPage() {
     <div className="flex h-screen w-full shrink-0 flex-col items-center justify-center gap-10 bg-[#191919] px-0 antialiased [font-synthesis:none]">
       <TripwireLogo className="h-10 w-10 text-white" />
       <Button
-        onClick={handleLogin}
+        onClick={import.meta.env.DEV ? handleDevLogin : handleGithubLogin}
         variant="outline"
         size="sm"
+        loading={devLoginPending}
         className="border-[#CDCDCD] bg-white text-black hover:bg-white/90"
       >
-        Log in
+        {import.meta.env.DEV ? "Dev login" : "Log in"}
       </Button>
+      {devLoginError && (
+        <p className="max-w-72 text-center text-sm text-tw-error">
+          {devLoginError}
+        </p>
+      )}
     </div>
   )
 }
