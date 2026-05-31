@@ -2,6 +2,7 @@ import { authClient } from "@tripwire/auth/client"
 import { useEffect, useState } from "react"
 import { Button } from "@tripwire/ui/button"
 import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
+import { Spinner } from "@tripwire/ui/spinner"
 
 export function LoginPageSkeleton() {
   return (
@@ -73,10 +74,17 @@ export function LoginPage() {
         onClick={import.meta.env.DEV ? handleDevLogin : handleGithubLogin}
         variant="outline"
         size="sm"
-        loading={devLoginPending}
-        className="border-[#CDCDCD] bg-white text-black hover:bg-white/90"
+        disabled={devLoginPending}
+        aria-label={devLoginPending ? "Logging in as dev" : undefined}
+        className="min-w-24 border-[#CDCDCD] bg-white text-black hover:bg-white/90"
       >
-        {import.meta.env.DEV ? "Dev login" : "Log in"}
+        {devLoginPending ? (
+          <Spinner className="size-4 text-black" />
+        ) : import.meta.env.DEV ? (
+          "Login as dev"
+        ) : (
+          "Log in"
+        )}
       </Button>
       {devLoginError && (
         <p className="max-w-72 text-center text-sm text-tw-error">
