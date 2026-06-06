@@ -12,6 +12,7 @@ import {
   RiskAlertsPanel,
   SuggestedWhitelistPanel,
 } from "#/components/layout/app/visibility/recommendation-panels"
+import { RepoActivityFeed } from "#/components/layout/app/visibility/repo-activity-feed"
 import { SyncBar } from "#/components/layout/app/visibility/sync-bar"
 import { useTRPC } from "#/integrations/trpc/react"
 import { useWorkspace } from "#/providers/workspace-context"
@@ -173,6 +174,7 @@ export function VisibilityPage() {
               />
               <RiskAlertsPanel repoId={repoId} onSelect={setActiveUsername} />
             </div>
+            <RepoActivityFeed repoId={repoId} repoFullName={repo?.fullName} />
           </>
         ) : null}
 
