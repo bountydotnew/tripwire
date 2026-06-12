@@ -778,6 +778,7 @@ function getEventTitle(
     rule_near_miss: "Near miss warning",
     blacklist_blocked: "Blacklisted user blocked",
     whitelist_bypass: "Whitelist bypass",
+    bot_bypass: "Bot bypass",
     pr_closed: "Pull request closed",
     issue_closed: "Issue closed",
     comment_deleted: "Comment deleted",

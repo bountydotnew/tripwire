@@ -211,6 +211,9 @@ feed is the audit log + the input to user reputation scoring.
                        (no rule evaluation happened).
 - rule_near_miss     — user passed a rule but was within 20% of failing.
 - whitelist_bypass   — content allowed because user is whitelisted.
+- bot_bypass         — content allowed because the sender is a bot
+                       (Tembo, CodeRabbit, Dependabot, etc.); bots skip
+                       all rules by default.
 - whitelist_added / whitelist_removed
 - blacklist_added / blacklist_removed
 - rule_config_updated

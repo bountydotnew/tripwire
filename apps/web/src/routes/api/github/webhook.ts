@@ -35,6 +35,7 @@ type WebhookCtx = {
   githubRepoId: number
   senderLogin: string
   senderId: number
+  senderType?: string
 }
 
 /**
@@ -221,6 +222,7 @@ async function handler({ request }: { request: Request }) {
         githubRepoId: repo.id,
         senderLogin: payload.sender?.login ?? "",
         senderId: payload.sender?.id ?? 0,
+        senderType: payload.sender?.type,
       }
       await handleRepoEvent(event, payload, ctx, repo)
     }

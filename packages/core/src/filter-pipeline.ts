@@ -31,6 +31,7 @@ import { env } from "@tripwire/env/server"
 import { logEvent, logEvents } from "./events"
 import { evaluateCustomRule } from "./rules/custom-rule-evaluator"
 import { resolveSignals } from "./rules/signal-resolver"
+import { isBotSender } from "./contributor-identity"
 
 const APP_BASE_URL = env.BETTER_AUTH_URL ?? ""
 
@@ -113,6 +114,7 @@ export interface WebhookContext {
   githubRepoId: number
   senderLogin: string
   senderId: number
+  senderType?: string // GitHub account type, e.g. "User" or "Bot"
   prNumber?: number // For PR-specific rules like maxFilesChanged
 }
 
@@ -139,6 +141,7 @@ export interface PipelineResult {
     | "warned"
     | "logged"
     | "whitelist_bypass"
+    | "bot_bypass"
     | "blacklist_blocked"
     | "repo_not_found"
     | "unable_to_verify"
@@ -436,6 +439,18 @@ export async function runFilterPipeline(
       outcome: "repo_not_found",
       evaluations,
       rulesChecked,
+    }
+  }
+
+  // 2. Auto-bypass: coding bots (Tembo, CodeRabbit, Dependabot, GitHub
+  // Actions, etc.) are never blocked by rules.
+  if (isBotSender(ctx.senderLogin, ctx.senderType)) {
+    return {
+      allowed: true,
+      outcome: "bot_bypass",
+      evaluations,
+      rulesChecked,
+      repoId: repo.id,
     }
   }
 
@@ -1271,6 +1286,16 @@ async function logPipelineEvents(
         action: "whitelist_bypass",
         severity: "info",
         description: `@${ctx.senderLogin} is whitelisted — all rules skipped`,
+        metadata: extraMetadata,
+      })
+      break
+
+    case "bot_bypass":
+      eventBatch.push({
+        ...baseEvent,
+        action: "bot_bypass",
+        severity: "info",
+        description: `@${ctx.senderLogin} is a bot — all rules skipped`,
         metadata: extraMetadata,
       })
       break

@@ -18,6 +18,7 @@ const eventActionEnum = z.enum([
   "pipeline_logged",
   "rule_near_miss",
   "whitelist_bypass",
+  "bot_bypass",
   "blacklist_blocked",
   "rule_config_updated",
   "whitelist_added",
@@ -238,6 +239,7 @@ export const eventsRouter = {
         pipelineBlocked: counts["pipeline_blocked"] ?? 0,
         nearMisses: counts["rule_near_miss"] ?? 0,
         whitelistBypasses: counts["whitelist_bypass"] ?? 0,
+        botBypasses: counts["bot_bypass"] ?? 0,
         blacklistBlocked: counts["blacklist_blocked"] ?? 0,
         workflowRuns: counts["workflow_run"] ?? 0,
       }
@@ -393,6 +395,7 @@ export const eventsRouter = {
         rule_config_updated: counts["rule_config_updated"] ?? 0,
         blacklist_blocked: counts["blacklist_blocked"] ?? 0,
         whitelist_bypass: counts["whitelist_bypass"] ?? 0,
+        bot_bypass: counts["bot_bypass"] ?? 0,
         workflow_run: counts["workflow_run"] ?? 0,
       }
     }),

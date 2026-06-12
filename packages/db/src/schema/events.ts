@@ -28,6 +28,7 @@ export type EventAction =
   | "rule_near_miss" // user was close to triggering a rule
   // List-based outcomes
   | "whitelist_bypass" // whitelisted user skipped all rules
+  | "bot_bypass" // bot sender (Tembo, CodeRabbit, etc.) skipped all rules
   | "blacklist_blocked" // blacklisted user was auto-blocked
   // Configuration changes
   | "rule_config_updated" // rule settings were changed

@@ -45,6 +45,7 @@ const ACTION_LABELS = {
   comment_deleted: "Comment Deleted",
   rule_near_miss: "Near Miss",
   whitelist_bypass: "Whitelist Bypass",
+  bot_bypass: "Bot Bypass",
   blacklist_blocked: "Blacklist Block",
   rule_config_updated: "Config Updated",
   whitelist_added: "Whitelist +",

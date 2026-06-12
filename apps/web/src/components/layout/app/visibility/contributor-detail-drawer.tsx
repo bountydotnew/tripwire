@@ -76,6 +76,7 @@ const actionLabels: Record<string, string> = {
   pipeline_logged: "Logged",
   rule_near_miss: "Near miss",
   whitelist_bypass: "Whitelist bypass",
+  bot_bypass: "Bot bypass",
   blacklist_blocked: "Blacklist blocked",
   whitelist_added: "Added to whitelist",
   whitelist_removed: "Removed from whitelist",

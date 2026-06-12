@@ -562,6 +562,7 @@ function getEventTitle(action: string, severity: string | null): string {
     rule_near_miss: "Near miss",
     blacklist_blocked: "Blacklisted user blocked",
     whitelist_bypass: "Whitelist bypass",
+    bot_bypass: "Bot bypass",
     pr_closed: "PR closed",
     issue_closed: "Issue closed",
     comment_deleted: "Comment deleted",
