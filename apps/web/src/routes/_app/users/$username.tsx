@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_app/users/$username")({
     buildSeo({
       path: match.pathname,
       title: formatPageTitle(`@${params.username}`),
-      description: `GitHub profile and Tripwire contributor score for @${params.username}.`,
+      description: `@${params.username}'s profile on Tripwire.`,
       type: "profile",
     }),
 })

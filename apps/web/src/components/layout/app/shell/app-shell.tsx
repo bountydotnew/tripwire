@@ -6,6 +6,7 @@ import { InstallGitHubPrompt } from "#/components/layout/app/shell/install-githu
 import { AskSidePanel } from "#/components/layout/app/chat/ask-side-panel"
 import { WorkspaceProvider, useWorkspace } from "#/providers/workspace-context"
 import { ChatProvider, useAIChat } from "#/providers/chat-context"
+import { RepoSwitchGateProvider } from "#/providers/repo-switch-gate"
 import { useRequestNotifications } from "#/hooks/use-request-notifications"
 import { useOnboardingRedirect } from "#/hooks/use-onboarding-redirect"
 
@@ -13,9 +14,11 @@ export function AppShell() {
   return (
     <AuthProvider>
       <WorkspaceProvider>
-        <ChatProvider>
-          <AppShellInner />
-        </ChatProvider>
+        <RepoSwitchGateProvider>
+          <ChatProvider>
+            <AppShellInner />
+          </ChatProvider>
+        </RepoSwitchGateProvider>
       </WorkspaceProvider>
     </AuthProvider>
   )

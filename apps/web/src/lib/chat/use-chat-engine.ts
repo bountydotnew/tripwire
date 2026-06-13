@@ -7,9 +7,12 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useCustomer } from "autumn-js/react"
 import { useRouterState } from "@tanstack/react-router"
+import { createLogger } from "@tripwire/logger"
 import { useTRPC } from "#/integrations/trpc/react"
 import { extractChatTitle } from "#/lib/chat/extract-title"
 import type { SerializedMessage, UIMessage } from "#/types/chat"
+
+const logger = createLogger("chat")
 
 interface ChatEngineOptions {
   chatId: string
@@ -109,7 +112,7 @@ export function useChatEngine({
         return
       }
       if (error.message.includes("Maximum update depth")) return
-      console.error("[chat]", error.message)
+      logger.error(error.message)
       setChatError((prev) => (prev?.message === error.message ? prev : error))
     },
     onFinish: ({ messages: finishedMessages }) => {

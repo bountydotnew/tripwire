@@ -61,6 +61,7 @@
     "@tripwire/env": "workspace:*",
     "@tripwire/feedback": "workspace:*",
     "@tripwire/github": "workspace:*",
+    "@tripwire/logger": "workspace:*",
     "@tripwire/mcp": "workspace:*",
     "@tripwire/ratelimit": "workspace:*",
     "@tripwire/research": "workspace:*",

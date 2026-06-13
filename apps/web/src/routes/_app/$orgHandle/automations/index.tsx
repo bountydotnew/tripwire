@@ -3,18 +3,18 @@ import {
   AutomationsPage,
   AutomationsPageSkeleton,
 } from "#/components/layout/app/automations/automations-page"
-import { buildSeo, formatPageTitle, PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
+import { buildSeo, formatPageTitle, privateHeaders } from "#/lib/seo"
 
 export const Route = createFileRoute("/_app/$orgHandle/automations/")({
   component: AutomationsPage,
   pendingComponent: AutomationsPageSkeleton,
-  headers: () => PRIVATE_ROUTE_HEADERS,
+  headers: () => privateHeaders,
   head: ({ match }) =>
     buildSeo({
       path: match.pathname,
       title: formatPageTitle("Automations"),
       description:
-        "Visual workflows that process contributors through rule chains, logic gates, and actions.",
+        "Visual workflows that pipe contributors through rules and actions.",
       robots: "noindex",
     }),
 })

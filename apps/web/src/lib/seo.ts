@@ -21,7 +21,7 @@ const SEO_ROBOTS_INDEX =
 const SEO_ROBOTS_NOINDEX = "noindex, nofollow, noarchive"
 
 /** Drop into a route's `headers` to keep the server response out of search indices. */
-export const PRIVATE_ROUTE_HEADERS = {
+export const privateHeaders = {
   "X-Robots-Tag": SEO_ROBOTS_NOINDEX,
 } as const
 

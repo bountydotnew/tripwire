@@ -3,18 +3,18 @@ import {
   HomePage,
   HomePageSkeleton,
 } from "#/components/layout/app/home/home-page"
-import { buildSeo, formatPageTitle, PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
+import { buildSeo, formatPageTitle, privateHeaders } from "#/lib/seo"
 
 export const Route = createFileRoute("/_app/$orgHandle/home")({
   component: HomePage,
   pendingComponent: HomePageSkeleton,
-  headers: () => PRIVATE_ROUTE_HEADERS,
+  headers: () => privateHeaders,
   head: ({ match }) =>
     buildSeo({
       path: match.pathname,
       title: formatPageTitle("Home"),
       description:
-        "Your tripwire dashboard — the last 48 hours of moderation activity, setup checklist, and one-shot chat composer.",
+        "The last 48 hours of moderation activity, your setup checklist, and the Tripwire chat.",
       robots: "noindex",
     }),
 })

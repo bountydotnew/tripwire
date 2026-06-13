@@ -3,7 +3,7 @@ import {
   AutomationEditorPage,
   AutomationEditorPageSkeleton,
 } from "#/components/layout/app/automations/automation-editor-page"
-import { buildSeo, formatPageTitle, PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
+import { buildSeo, formatPageTitle, privateHeaders } from "#/lib/seo"
 
 export const Route = createFileRoute(
   "/_app/$orgHandle/automations/$automationId"
@@ -18,13 +18,13 @@ export const Route = createFileRoute(
   },
   component: AutomationEditorPage,
   pendingComponent: AutomationEditorPageSkeleton,
-  headers: () => PRIVATE_ROUTE_HEADERS,
+  headers: () => privateHeaders,
   head: ({ match }) =>
     buildSeo({
       path: match.pathname,
       title: formatPageTitle("Automation editor"),
       description:
-        "Build and edit Tripwire automations visually — trigger → action chains that run on every webhook.",
+        "Build and edit Tripwire automations. Trigger → action chains that fire on every webhook.",
       robots: "noindex",
     }),
 })

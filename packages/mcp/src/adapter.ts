@@ -18,6 +18,7 @@ import {
 export function registerMcpTools(
   server: McpServer,
   userId: string,
+  orgId: string,
   tools: readonly AnyToolDefinition[]
 ): void {
   for (const tool of filterToolsForSurface(tools, "mcp")) {
@@ -45,7 +46,7 @@ export function registerMcpTools(
             handlerArgs = rawArgs
           }
 
-          const ctx: ToolContext = { userId, repoId }
+          const ctx: ToolContext = { userId, orgId, repoId }
           const args = tool.inputSchema.parse(handlerArgs)
           const output = await tool.handler(args, ctx)
 

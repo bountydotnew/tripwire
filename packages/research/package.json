@@ -18,7 +18,8 @@
   "dependencies": {
     "@tripwire/core": "workspace:*",
     "@tripwire/db": "workspace:*",
-    "@tripwire/github": "workspace:*"
+    "@tripwire/github": "workspace:*",
+    "@tripwire/logger": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

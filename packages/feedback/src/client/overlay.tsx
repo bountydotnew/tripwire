@@ -3,7 +3,10 @@ import { useMountEffect } from "./use-mount-effect"
 import { createPortal } from "react-dom"
 import { getElementContext, freeze, unfreeze } from "react-grab/primitives"
 import { getFiberFromHostInstance, getDisplayName, traverseFiber } from "bippy"
+import { createLogger } from "@tripwire/logger"
 import { useFeedback } from "./context"
+
+const logger = createLogger("feedback")
 
 type HoveredInfo = {
   rect: DOMRect
@@ -225,7 +228,7 @@ export function FeedbackOverlay() {
         unfreeze()
         setIsResolving(false)
         if (!cancelledRef.current) {
-          console.error("[feedback] Failed to resolve element context:", err)
+          logger.error("Failed to resolve element context", err)
           cancelSelectionRef.current()
         }
       }

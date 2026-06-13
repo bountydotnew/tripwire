@@ -1,30 +1,9 @@
-import {
-  createRootRouteWithContext,
-  HeadContent,
-  Scripts,
-} from "@tanstack/react-router"
+import { createRootRouteWithContext } from "@tanstack/react-router"
 import { createMiddleware } from "@tanstack/react-start"
-import { AutumnProvider } from "autumn-js/react"
 import { evlogErrorHandler } from "evlog/nitro/v3"
-import { NuqsAdapter } from "nuqs/adapters/tanstack-router"
-import { AnchoredToastProvider, ToastProvider } from "@tripwire/ui/toast"
-import RootProvider from "#/integrations/tanstack-query/root-provider"
+import { RootDocument } from "#/components/layout/root/root-document"
 import type { QueryContext } from "#/integrations/tanstack-query/root-provider"
-import { useEffect, useState } from "react"
-import { isReactGrabEnabled, isReactScanEnabled } from "#/lib/feature-flags"
-import { FeedbackProvider, FeedbackOverlay } from "@tripwire/feedback"
-import { FeedbackDialog } from "#/components/shared/feedback-dialog"
 import appCss from "../styles.css?url"
-
-function ClientOnlyDevtools() {
-  const [Devtools, setDevtools] = useState<React.ComponentType | null>(null)
-  useEffect(() => {
-    import("@ai-sdk-tools/devtools").then((m) => {
-      setDevtools(() => m.AIDevtools)
-    })
-  }, [])
-  return Devtools ? <Devtools /> : null
-}
 
 export const Route = createRootRouteWithContext<QueryContext>()({
   server: {
@@ -51,50 +30,3 @@ export const Route = createRootRouteWithContext<QueryContext>()({
   }),
   shellComponent: RootDocument,
 })
-
-function RootDocument({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        {isReactScanEnabled ? (
-          <script
-            crossOrigin="anonymous"
-            src="https://unpkg.com/react-scan/dist/auto.global.js"
-          />
-        ) : null}
-        {isReactGrabEnabled ? (
-          <script
-            crossOrigin="anonymous"
-            src="https://unpkg.com/react-grab/dist/index.global.js"
-          />
-        ) : null}
-        <HeadContent />
-      </head>
-      <body>
-        <RootProvider>
-          <NuqsAdapter>
-            <AutumnProvider useBetterAuth>
-              <ToastProvider>
-                <AnchoredToastProvider>
-                  <FeedbackProvider endpoint="/api/feedback">
-                    <FeedbackOverlay />
-                    <FeedbackDialog />
-                    {children}
-                  </FeedbackProvider>
-                </AnchoredToastProvider>
-              </ToastProvider>
-            </AutumnProvider>
-          </NuqsAdapter>
-        </RootProvider>
-        {isReactGrabEnabled ? (
-          <script
-            async
-            src="https://unpkg.com/@react-grab/cursor/dist/client.global.js"
-          />
-        ) : null}
-        <Scripts />
-        {process.env.NODE_ENV === "development" && <ClientOnlyDevtools />}
-      </body>
-    </html>
-  )
-}

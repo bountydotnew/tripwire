@@ -1,14 +1,13 @@
 import {
   createContext,
-  useContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useRouterState } from "@tanstack/react-router"
 import { authClient } from "@tripwire/auth/client"
 import { useTRPC } from "#/integrations/trpc/react"
@@ -46,29 +45,26 @@ const WorkspaceContext = createContext<WorkspaceContextValue>({
   isLoading: true,
 })
 
+/**
+ * Pathnames that are intentionally NOT org-scoped — they appear at the
+ * top level of the URL tree. `extractOrgHandle` returns null for these
+ * so we don't treat e.g. `/settings` as the slug "settings".
+ */
+const NON_ORG_PATH_PREFIXES = [
+  "/login",
+  "/settings",
+  "/onboarding",
+  "/oauth",
+  "/vouched",
+  "/request",
+  "/users",
+  "/api",
+]
+
 /** Extract orgHandle from pathname. Matches /:orgHandle/page */
 function extractOrgHandle(pathname: string): string | null {
-  // Skip known non-org paths
-  if (
-    pathname === "/" ||
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/settings") ||
-    pathname.startsWith("/chat") ||
-    pathname.startsWith("/search") ||
-    pathname.startsWith("/vouched") ||
-    pathname.startsWith("/request") ||
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/home") ||
-    pathname.startsWith("/rules") ||
-    pathname.startsWith("/events") ||
-    pathname.startsWith("/insights") ||
-    pathname.startsWith("/automations") ||
-    pathname.startsWith("/visibility") ||
-    pathname.startsWith("/integrations")
-  ) {
-    return null
-  }
-  // /:orgHandle or /:orgHandle/page
+  if (pathname === "/") return null
+  if (NON_ORG_PATH_PREFIXES.some((p) => pathname.startsWith(p))) return null
   const match = pathname.match(/^\/([^/]+)/)
   return match?.[1] ?? null
 }
@@ -85,32 +81,51 @@ export function buildWorkspacePath(orgSlug: string, page: string): string {
   return `/${orgSlug}/${page}`
 }
 
+/** localStorage key for the active repo within a specific org. */
+function repoStorageKey(orgId: string): string {
+  return `tw:activeRepo:${orgId}`
+}
+
+function readStoredRepo(orgId: string | null | undefined): Repo | null {
+  if (!orgId) return null
+  if (typeof window === "undefined") return null
+  try {
+    const raw = window.localStorage.getItem(repoStorageKey(orgId))
+    return raw ? (JSON.parse(raw) as Repo) : null
+  } catch {
+    return null
+  }
+}
+
+function writeStoredRepo(orgId: string | null | undefined, repo: Repo | null) {
+  if (!orgId) return
+  if (typeof window === "undefined") return
+  try {
+    if (repo) {
+      window.localStorage.setItem(repoStorageKey(orgId), JSON.stringify(repo))
+    } else {
+      window.localStorage.removeItem(repoStorageKey(orgId))
+    }
+  } catch {
+    /* storage disabled or quota */
+  }
+}
+
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const trpc = useTRPC()
   const navigate = useNavigate()
   const routerState = useRouterState()
   const pathname = routerState.location.pathname
-  const [repo, setRepoState] = useState<Repo | null>(() => {
-    if (typeof window === "undefined") return null
-    try {
-      const stored = localStorage.getItem("tw:activeRepo")
-      return stored ? JSON.parse(stored) : null
-    } catch {
-      return null
-    }
-  })
 
-  // Load saved preferences from DB
-  const prefsQuery = useQuery(
-    trpc.preferences.get.queryOptions(undefined, { staleTime: 60_000 })
-  )
-  const savePrefs = useMutation(trpc.preferences.update.mutationOptions())
-  const initializedFromDb = useRef(false)
+  // Better Auth is the single source of truth for active organization.
+  // `session.activeOrganizationId` lives on the session row courtesy of
+  // the `organization()` plugin. Whenever it differs from the URL or the
+  // user's selection, we reconcile via `authClient.organization.setActive`.
+  const { data: session } = authClient.useSession()
+  const sessionActiveOrgId = session?.session?.activeOrganizationId ?? null
 
-  // Extract org from URL
   const orgHandle = useMemo(() => extractOrgHandle(pathname), [pathname])
 
-  // Fetch all Better Auth organizations the user belongs to
   const { data: orgsData, isPending: orgsLoading } =
     authClient.useListOrganizations()
 
@@ -125,20 +140,50 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [orgsData]
   )
 
-  // Resolve current org from URL handle, fall back to saved preference, then first org
+  // Resolution order:
+  //   1. URL `$orgHandle` slug — explicit user intent (link or typed URL).
+  //   2. `session.activeOrganizationId` — Better Auth's persisted choice.
+  //   3. First org in the user's list — bootstrap fallback.
   const currentOrg = useMemo(() => {
     if (orgHandle) {
       const fromUrl = orgs.find((o) => o.slug === orgHandle)
       if (fromUrl) return fromUrl
     }
-    if (prefsQuery.data?.activeOrgId) {
-      const fromDb = orgs.find((o) => o.id === prefsQuery.data.activeOrgId)
-      if (fromDb) return fromDb
+    if (sessionActiveOrgId) {
+      const fromSession = orgs.find((o) => o.id === sessionActiveOrgId)
+      if (fromSession) return fromSession
     }
     return orgs[0] ?? null
-  }, [orgs, orgHandle, prefsQuery.data?.activeOrgId])
+  }, [orgs, orgHandle, sessionActiveOrgId])
 
-  // Fetch repos scoped to the current BA org
+  // Reconcile session ← URL/first-org. `setActive` is idempotent server-side;
+  // we still gate on a real mismatch to avoid an extra POST per render.
+  useEffect(() => {
+    if (!currentOrg) return
+    if (currentOrg.id === sessionActiveOrgId) return
+    authClient.organization.setActive({ organizationId: currentOrg.id })
+  }, [currentOrg, sessionActiveOrgId])
+
+  // Per-org repo selection (localStorage). Each org remembers its own
+  // active repo independently so switching orgs doesn't churn the picker.
+  const [repo, setRepoState] = useState<Repo | null>(() =>
+    readStoredRepo(currentOrg?.id)
+  )
+
+  // Whenever the active org changes, rehydrate the repo from THAT org's slot.
+  // Don't blank the state in between renders — clearing first would cause
+  // every consumer to flash "no repo selected" while the new value loads.
+  useEffect(() => {
+    if (!currentOrg?.id) return
+    const stored = readStoredRepo(currentOrg.id)
+    if (stored?.id !== repo?.id) {
+      setRepoState(stored)
+    }
+    // Intentionally depend only on org id; per-org reload should rehydrate
+    // the repo slot but we don't want to thrash on every repo state change.
+  }, [currentOrg?.id])
+
+  // Fetch repos scoped to the current org so the picker has fresh options.
   const reposQuery = useQuery(
     trpc.orgs.reposByBaOrg.queryOptions(
       { baOrgId: currentOrg?.id ?? "" },
@@ -156,59 +201,36 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [reposQuery.data]
   )
 
-  // Auto-select repo: prefer DB-saved repo, then localStorage, then first
+  // Auto-select a repo when the org has any but none is selected (or the
+  // stored selection no longer belongs to the active org).
   useEffect(() => {
+    if (!currentOrg?.id) return
     if (repos.length === 0) return
     if (repo && repos.find((r) => r.id === repo.id)) return
-
-    // Try DB preference first
-    if (!initializedFromDb.current && prefsQuery.data?.activeRepoId) {
-      const fromDb = repos.find((r) => r.id === prefsQuery.data.activeRepoId)
-      if (fromDb) {
-        initializedFromDb.current = true
-        setRepoState(fromDb)
-        try {
-          localStorage.setItem("tw:activeRepo", JSON.stringify(fromDb))
-        } catch {}
-        return
-      }
-    }
-
     const fallback = repos[0]
     setRepoState(fallback)
-    try {
-      localStorage.setItem("tw:activeRepo", JSON.stringify(fallback))
-    } catch {}
-  }, [repos, repo, prefsQuery.data?.activeRepoId])
+    writeStoredRepo(currentOrg.id, fallback)
+  }, [currentOrg?.id, repos, repo])
 
-  // setOrg navigates to the new org's current page and persists to DB
   const setOrg = useCallback(
     (newOrg: Org | null) => {
       if (!newOrg) return
       const page = orgHandle ? getCurrentPage(pathname) : "home"
       navigate({ to: buildWorkspacePath(newOrg.slug, page) })
+      // Update session immediately so other tabs and the next render
+      // already see the new value; the reconciliation effect would also
+      // catch this, but doing it eagerly avoids one stale frame.
       authClient.organization.setActive({ organizationId: newOrg.id })
-      savePrefs.mutate({ activeOrgId: newOrg.id })
     },
-    [navigate, pathname, orgHandle, savePrefs]
+    [navigate, pathname, orgHandle]
   )
 
-  // setRepo updates state, persists to localStorage and DB
   const setRepo = useCallback(
     (newRepo: Repo | null) => {
       setRepoState(newRepo)
-      try {
-        if (newRepo) {
-          localStorage.setItem("tw:activeRepo", JSON.stringify(newRepo))
-        } else {
-          localStorage.removeItem("tw:activeRepo")
-        }
-      } catch {
-        /* SSR or storage full */
-      }
-      savePrefs.mutate({ activeRepoId: newRepo?.id ?? null })
+      writeStoredRepo(currentOrg?.id, newRepo)
     },
-    [savePrefs]
+    [currentOrg?.id]
   )
 
   const value = useMemo<WorkspaceContextValue>(

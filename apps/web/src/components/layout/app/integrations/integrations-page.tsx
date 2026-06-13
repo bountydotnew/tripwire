@@ -4,6 +4,7 @@ import { Button } from "@tripwire/ui/button"
 import { SuccessCheckStrokeIcon14 } from "@tripwire/ui/icons/app-chrome-icons"
 import { GitHubMarkWhiteIcon20 } from "@tripwire/ui/icons/github-mark-icon"
 import { useWorkspace } from "#/providers/workspace-context"
+import { useRepoSwitchGate } from "#/providers/repo-switch-gate"
 import { routes } from "#/lib/routes"
 import { useRefreshOnReturn } from "#/lib/use-refresh-on-return"
 
@@ -19,7 +20,8 @@ export function IntegrationsPageSkeleton() {
 }
 
 export function IntegrationsPage() {
-  const { repos, repo, setRepo, isLoading } = useWorkspace()
+  const { repos, repo, isLoading } = useWorkspace()
+  const { requestRepoSwitch } = useRepoSwitchGate()
   const queryClient = useQueryClient()
 
   // When the user finishes configuring the GitHub App on github.com and
@@ -96,7 +98,7 @@ export function IntegrationsPage() {
                     variant="ghost"
                     key={r.id}
                     type="button"
-                    onClick={() => setRepo(r)}
+                    onClick={() => requestRepoSwitch(r)}
                     className={`w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                       isSelected
                         ? "bg-tw-hover text-tw-text-primary"

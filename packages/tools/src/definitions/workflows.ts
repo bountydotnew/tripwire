@@ -3,7 +3,7 @@ import { z } from "zod"
 import { db } from "@tripwire/db/client"
 import { workflows } from "@tripwire/db"
 import {
-  assertRepoOwner,
+  assertRepoBelongsToOrg,
   getNodesByCategory,
   NODE_REGISTRY,
   applyWorkflowOperations,
@@ -108,7 +108,7 @@ const createWorkflow = defineTool({
   }),
   handler: async ({ name, description }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [row] = await db
       .insert(workflows)
@@ -176,7 +176,7 @@ Always provide an explicit id for each add_node.`,
   }),
   handler: async ({ workflowId, operations }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [wf] = await db
       .select()
@@ -273,7 +273,7 @@ const deleteWorkflow = defineTool({
   }),
   handler: async ({ workflowId }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [wf] = await db
       .select({
@@ -320,7 +320,7 @@ const enableWorkflow = defineTool({
   }),
   handler: async ({ workflowId, enabled }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [wf] = await db
       .select({
@@ -372,7 +372,7 @@ const getWorkflow = defineTool({
   }),
   handler: async ({ workflowId }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [wf] = await db
       .select()

@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { createLogger } from "@tripwire/logger"
 import { createContext } from "#/integrations/trpc/init"
 import { INSTALL_STATE_COOKIE, verifyInstallState } from "@tripwire/github"
 import { ensureInstallation } from "#/lib/github/install"
+
+const logger = createLogger("Callback")
 
 type CallbackError =
   | "invalid_state"
@@ -39,7 +42,7 @@ async function handler({ request }: { request: Request }) {
         return redirectToIntegrations("installer_mismatch")
       }
     } catch (err) {
-      console.error("[Callback] Failed to ensure installation:", err)
+      logger.error("Failed to ensure installation", err)
     }
 
     return new Response(null, {

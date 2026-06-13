@@ -8,7 +8,7 @@ import {
   organizations,
   whitelistEntries,
 } from "@tripwire/db"
-import { assertRepoOwner } from "@tripwire/core"
+import { assertRepoBelongsToOrg } from "@tripwire/core"
 import { logEvent } from "@tripwire/core"
 import { getInstallationToken } from "@tripwire/github"
 import { resetContributorScore } from "@tripwire/core"
@@ -81,7 +81,7 @@ const listLists = defineTool({
   inputSchema: z.object({}),
   handler: async (_args, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const [whitelist, blacklist] = await Promise.all([
       db
         .select()
@@ -122,7 +122,7 @@ const getBlacklist = defineTool({
   inputSchema: z.object({}),
   handler: async (_args, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     return db
       .select()
       .from(blacklistEntries)
@@ -148,7 +148,7 @@ const getWhitelist = defineTool({
   inputSchema: z.object({}),
   handler: async (_args, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     return db
       .select()
       .from(whitelistEntries)
@@ -174,7 +174,7 @@ const checkLists = defineTool({
   inputSchema: z.object({ username: z.string().min(1) }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const [whitelist, blacklist] = await Promise.all([
       db
         .select()
@@ -220,7 +220,7 @@ const addToBlacklist = defineTool({
   inputSchema: z.object({ username: z.string().min(1) }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const token = await getTokenForRepo(repoId)
     const ghUser = await fetchGitHubUser(username, token ?? undefined).catch(
@@ -285,7 +285,7 @@ const removeFromBlacklist = defineTool({
   inputSchema: z.object({ username: z.string().min(1) }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const deleted = await db
       .delete(blacklistEntries)
       .where(
@@ -327,7 +327,7 @@ const addToWhitelist = defineTool({
   inputSchema: z.object({ username: z.string().min(1) }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const token = await getTokenForRepo(repoId)
     const ghUser = await fetchGitHubUser(username, token ?? undefined).catch(
@@ -398,7 +398,7 @@ const removeFromWhitelist = defineTool({
   inputSchema: z.object({ username: z.string().min(1) }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const deleted = await db
       .delete(whitelistEntries)
       .where(
@@ -441,7 +441,7 @@ const moveToWhitelist = defineTool({
   inputSchema: z.object({ username: z.string().min(1) }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const token = await getTokenForRepo(repoId)
     const ghUser = await fetchGitHubUser(username, token ?? undefined).catch(
@@ -508,7 +508,7 @@ const moveToBlacklist = defineTool({
   inputSchema: z.object({ username: z.string().min(1) }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const token = await getTokenForRepo(repoId)
     const ghUser = await fetchGitHubUser(username, token ?? undefined).catch(
@@ -575,7 +575,7 @@ const resetContributorScoreTool = defineTool({
   }),
   handler: async ({ username, reason }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const token = await getTokenForRepo(repoId)
     const ghUser = await fetchGitHubUser(username, token ?? undefined).catch(

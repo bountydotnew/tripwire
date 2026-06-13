@@ -1,27 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { env } from "@tripwire/env/client"
-import { buildSeo, formatPageTitle, PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
 
-export const Route = createFileRoute("/_app/settings/general")({
-  component: GeneralSettingsPage,
-  headers: () => PRIVATE_ROUTE_HEADERS,
-  head: ({ match }) =>
-    buildSeo({
-      path: match.pathname,
-      title: formatPageTitle("General settings"),
-      description: "App preferences and GitHub install configuration.",
-      robots: "noindex",
-    }),
-})
-
-function GeneralSettingsPage() {
+/**
+ * Org-scoped general settings: appearance preference (per-user but
+ * lives here for now), GitHub App permissions (org-level), notification
+ * preferences. Pure UI — no tRPC calls yet for the notification toggles.
+ */
+export function OrgGeneralSettingsPage() {
   const appSlug = env.VITE_GITHUB_APP_SLUG ?? "tripwire-dev"
   const configureUrl = `https://github.com/apps/${appSlug}/installations/new`
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Appearance */}
       <SettingsSection
         title="Appearance"
         description="Choose how Tripwire looks to you."
@@ -29,7 +19,6 @@ function GeneralSettingsPage() {
         <ThemePicker />
       </SettingsSection>
 
-      {/* Repository access */}
       <SettingsSection
         title="Repository access"
         description="Manage which GitHub organizations and repositories Tripwire can access."
@@ -57,7 +46,6 @@ function GeneralSettingsPage() {
         </div>
       </SettingsSection>
 
-      {/* Notifications */}
       <SettingsSection
         title="Notifications"
         description="Where Tripwire sends digests and alerts."

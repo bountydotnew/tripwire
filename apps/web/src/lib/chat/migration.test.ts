@@ -34,7 +34,10 @@ describe("AI SDK chat migration helpers", () => {
       },
     }
 
-    const tools = createChatTools({ userId: "u_1", repoId: "r_1" }, [tool])
+    const tools = createChatTools(
+      { userId: "u_1", orgId: "o_1", repoId: "r_1" },
+      [tool]
+    )
     const output = await (
       tools.fail_tool as unknown as ToolWithExecute
     ).execute({})

@@ -217,7 +217,7 @@ export function TopNav({ askOpen, onToggleAsk }: TopNavProps) {
             <MenuItem onClick={() => navigate({ to: "/settings/account" })}>
               Profile
             </MenuItem>
-            <MenuItem onClick={() => navigate({ to: "/settings/general" })}>
+            <MenuItem onClick={() => navigate({ to: "/settings/account" })}>
               Settings
             </MenuItem>
             <MenuItem

@@ -1,7 +1,10 @@
 import { z } from "zod"
 import { and, eq, sql } from "drizzle-orm"
-import { authedProcedure } from "../init"
-import { assertRepoOwner, computeContributorScore } from "@tripwire/core"
+import { orgProcedure } from "../init"
+import {
+  assertRepoBelongsToOrg,
+  computeContributorScore,
+} from "@tripwire/core"
 import { resetContributorScore } from "@tripwire/core"
 import { fetchUserContributions } from "@tripwire/github"
 import { db } from "@tripwire/db/client"
@@ -52,7 +55,7 @@ export const reputationRouter = {
   /**
    * Compute the contributor trust score for a GitHub user against a repo.
    */
-  getScore: authedProcedure
+  getScore: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -60,7 +63,7 @@ export const reputationRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const token = await getTokenForRepo(input.repoId)
       if (!token) return null
 
@@ -219,7 +222,7 @@ export const reputationRouter = {
    * score_breakdown / lookup_user calls ignore older events. The events
    * themselves remain in the audit feed.
    */
-  reset: authedProcedure
+  reset: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -229,7 +232,7 @@ export const reputationRouter = {
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       return resetContributorScore({
         repoId: input.repoId,
         userId: ctx.user.id,
@@ -240,7 +243,7 @@ export const reputationRouter = {
     }),
 
   /** Fetch GitHub contributions heatmap + pinned repos for a user */
-  getProfile: authedProcedure
+  getProfile: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),

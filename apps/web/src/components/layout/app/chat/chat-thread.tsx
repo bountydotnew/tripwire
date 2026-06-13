@@ -217,6 +217,20 @@ function ChatMessage({
   }
 
   const messageParts = (message.parts ?? []) as MessagePart[]
+
+  // Context-switch markers are synthetic single-part messages we
+  // inject when the user changes the chat's repo. They render as a
+  // labelled divider so the thread visually marks "everything below
+  // this is about repo X now".
+  const contextSwitch = messageParts.find(
+    (
+      part
+    ): part is Extract<MessagePart, { type: "context-switch" }> =>
+      (part as { type?: string }).type === "context-switch"
+  )
+  if (contextSwitch) {
+    return <ContextSwitchDivider repoName={contextSwitch.repoName} />
+  }
   const pendingApprovals = messageParts.filter(
     (
       part
@@ -399,6 +413,19 @@ function UserMessage({ content }: { content: string }) {
       <div className="max-w-[86%] rounded-2xl rounded-tr-sm bg-[#252528] px-3 py-2 text-[13px] leading-[19px] whitespace-pre-wrap text-tw-text-primary">
         {renderInlineText(content)}
       </div>
+    </div>
+  )
+}
+
+function ContextSwitchDivider({ repoName }: { repoName: string }) {
+  return (
+    <div className="flex items-center gap-2 py-1.5 select-none">
+      <div className="h-px flex-1 bg-tw-border" />
+      <span className="text-[11px] text-tw-text-muted">
+        Switched to{" "}
+        <span className="font-mono text-tw-text-secondary">{repoName}</span>
+      </span>
+      <div className="h-px flex-1 bg-tw-border" />
     </div>
   )
 }

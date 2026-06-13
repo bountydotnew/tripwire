@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router"
 import { eq } from "drizzle-orm"
 import { db } from "@tripwire/db/client"
 import { organizations, repositories } from "@tripwire/db"
-import { createContext, assertRepoOwner } from "#/integrations/trpc/init"
+import {
+  createContext,
+  assertRepoBelongsToOrg,
+} from "#/integrations/trpc/init"
 import {
   filterToolsForSurface,
   runToolForChat,
@@ -52,15 +55,20 @@ export const Route = createFileRoute("/api/tools/run")({
         let repoId: string | undefined =
           typeof body.repoId === "string" ? body.repoId : undefined
 
+        if (!ctx.activeOrgId) {
+          return jsonError(400, "No active organization")
+        }
+        const activeOrgId = ctx.activeOrgId
+
         if (tool.needsRepo !== false) {
           if (!repoId) {
-            repoId = await firstRepoFor(ctx.user.id)
+            repoId = await firstRepoInOrg(activeOrgId)
           }
           if (!repoId) {
             return jsonError(400, "No accessible repository")
           }
           try {
-            await assertRepoOwner(ctx.user.id, repoId)
+            await assertRepoBelongsToOrg(repoId, activeOrgId)
           } catch {
             return jsonError(403, "Repo not accessible")
           }
@@ -75,6 +83,7 @@ export const Route = createFileRoute("/api/tools/run")({
           const spec = await runToolForChat(tool, parsed.data, {
             userId: ctx.user.id,
             userName: ctx.user.name ?? ctx.user.email ?? undefined,
+            orgId: activeOrgId,
             repoId,
           })
           return new Response(JSON.stringify({ ok: true, spec }), {
@@ -93,21 +102,16 @@ export const Route = createFileRoute("/api/tools/run")({
   },
 })
 
-async function firstRepoFor(userId: string): Promise<string | undefined> {
-  const userOrgs = await db
-    .select({ id: organizations.id })
-    .from(organizations)
-    .where(eq(organizations.ownerId, userId))
-
-  for (const org of userOrgs) {
-    const [firstRepo] = await db
-      .select({ id: repositories.id })
-      .from(repositories)
-      .where(eq(repositories.orgId, org.id))
-      .limit(1)
-    if (firstRepo?.id) return firstRepo.id
-  }
-  return undefined
+async function firstRepoInOrg(
+  activeOrgId: string
+): Promise<string | undefined> {
+  const [row] = await db
+    .select({ id: repositories.id })
+    .from(repositories)
+    .innerJoin(organizations, eq(repositories.orgId, organizations.id))
+    .where(eq(organizations.betterAuthOrgId, activeOrgId))
+    .limit(1)
+  return row?.id
 }
 
 function jsonError(status: number, message: string) {

@@ -13,6 +13,14 @@ import type { z } from "zod"
 
 export interface ToolContext {
   userId: string
+  /**
+   * Better Auth active organization id. The chat surface supplies it
+   * unconditionally so cross-org isolation is enforced even if a tool
+   * is invoked with a `repoId` argument from the wrong org. MCP
+   * adapters pass it through whenever the caller authenticated as an
+   * org member.
+   */
+  orgId: string
   /** Display name. Present in chat; absent in MCP. */
   userName?: string
   /** Required for tools with needsRepo !== false. */

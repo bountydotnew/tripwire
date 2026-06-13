@@ -1,8 +1,11 @@
 import { z } from "zod"
 import { eq } from "drizzle-orm"
-import { authedProcedure } from "../init"
-import { assertRepoOwner } from "@tripwire/core"
+import { createLogger } from "@tripwire/logger"
+import { orgProcedure } from "../init"
+import { assertRepoBelongsToOrg } from "@tripwire/core"
 import { db } from "@tripwire/db/client"
+
+const logger = createLogger("repo-files")
 import {
   ruleConfigs,
   whitelistEntries,
@@ -30,10 +33,10 @@ type OrgRow = typeof organizations.$inferSelect
 
 export const rulesRouter = {
   /** Get rule config for a repo */
-  getConfig: authedProcedure
+  getConfig: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [config] = await db
         .select()
         .from(ruleConfigs)
@@ -42,7 +45,7 @@ export const rulesRouter = {
     }),
 
   /** Update rule config for a repo (upsert) */
-  updateConfig: authedProcedure
+  updateConfig: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -50,7 +53,7 @@ export const rulesRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const { repo, org } = await assertRepoOwner(ctx.user.id, input.repoId)
+      const { repo, org } = await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const [existing] = await db
         .select()
@@ -121,7 +124,7 @@ export const rulesRouter = {
     }),
 
   /** Persist a user-edited override for RULES.md or PR template content. */
-  updateRepoFileContent: authedProcedure
+  updateRepoFileContent: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -130,7 +133,7 @@ export const rulesRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [existing] = await db
         .select()
         .from(ruleConfigs)
@@ -174,7 +177,7 @@ export const rulesRouter = {
     }),
 
   /** Manually push the generated RULES.md or PR template to the repo. */
-  syncRepoFile: authedProcedure
+  syncRepoFile: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -182,7 +185,7 @@ export const rulesRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const { repo, org } = await assertRepoOwner(ctx.user.id, input.repoId)
+      const { repo, org } = await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [configRow] = await db
         .select()
         .from(ruleConfigs)
@@ -195,10 +198,10 @@ export const rulesRouter = {
     }),
 
   /** Count enabled rules for a repo */
-  countEnabled: authedProcedure
+  countEnabled: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [configRow] = await db
         .select()
         .from(ruleConfigs)
@@ -219,10 +222,10 @@ export const rulesRouter = {
     }),
 
   /** Export config as JSON (for copy-to-another-repo) */
-  exportConfig: authedProcedure
+  exportConfig: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [config] = await db
         .select()
         .from(ruleConfigs)
@@ -246,7 +249,7 @@ export const rulesRouter = {
     }),
 
   /** Import config from JSON */
-  importConfig: authedProcedure
+  importConfig: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -256,7 +259,7 @@ export const rulesRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       // Persist rule config + whitelist + blacklist atomically. If the lists
       // fail to insert we don't want the rule config drifting from them.
@@ -367,6 +370,6 @@ async function syncRepoFileSafe(
   try {
     await syncRepoFile(repo, org, kind, config)
   } catch (err) {
-    console.error(`[repo-files] auto-sync ${kind} failed for ${repo.id}:`, err)
+    logger.error("auto-sync failed", { kind, repoId: repo.id, err })
   }
 }

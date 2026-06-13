@@ -1,9 +1,8 @@
-import { Link, useMatches } from "@tanstack/react-router"
+import { Link, useRouterState } from "@tanstack/react-router"
 import { useState, useRef, useEffect } from "react"
 import { ChevronDown } from "@tripwire/ui/icons/chevron-down"
 import { CloseIcon } from "@tripwire/ui/icons/close-icon"
 import { HomeIcon } from "@tripwire/ui/icons/home-icon"
-import { SearchIcon } from "@tripwire/ui/icons/search-icon"
 import { RulesIcon } from "@tripwire/ui/icons/rules-icon"
 import { InsightsIcon } from "@tripwire/ui/icons/insights-icon"
 import { AutomationsIcon } from "@tripwire/ui/icons/automations-icon"
@@ -13,22 +12,70 @@ import { useWorkspace } from "#/providers/workspace-context"
 import { useSidebar } from "#/providers/sidebar-context"
 import { Button } from "@tripwire/ui/button"
 
-const topNav = [
-  { label: "Home", icon: HomeIcon, to: "/home" },
-  { label: "Search", icon: SearchIcon, to: "/search" },
-] as const
+/**
+ * Nav items render org-scoped routes keyed by the active org's slug.
+ * Listed explicitly per page so TanStack Router's typed `to` template
+ * can resolve them at compile time.
+ */
+type NavRoute =
+  | "/$orgHandle/home"
+  | "/$orgHandle/rules"
+  | "/$orgHandle/insights"
+  | "/$orgHandle/automations"
+  | "/$orgHandle/events"
+  | "/$orgHandle/integrations"
 
-const workspaceNav = [
-  { label: "Rules", icon: RulesIcon, to: "/rules" },
-  { label: "Insights", icon: InsightsIcon, to: "/insights" },
-  { label: "Automations", icon: AutomationsIcon, to: "/automations" },
-  { label: "Events", icon: EventsIcon, to: "/events" },
-  { label: "Integrations", icon: IntegrationsIcon, to: "/integrations" },
-] as const
+type NavItem = {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  to: NavRoute
+  pageSegment: string
+}
+
+const topNav: NavItem[] = [
+  {
+    label: "Home",
+    icon: HomeIcon,
+    to: "/$orgHandle/home",
+    pageSegment: "home",
+  },
+]
+
+const workspaceNav: NavItem[] = [
+  {
+    label: "Rules",
+    icon: RulesIcon,
+    to: "/$orgHandle/rules",
+    pageSegment: "rules",
+  },
+  {
+    label: "Insights",
+    icon: InsightsIcon,
+    to: "/$orgHandle/insights",
+    pageSegment: "insights",
+  },
+  {
+    label: "Automations",
+    icon: AutomationsIcon,
+    to: "/$orgHandle/automations",
+    pageSegment: "automations",
+  },
+  {
+    label: "Events",
+    icon: EventsIcon,
+    to: "/$orgHandle/events",
+    pageSegment: "events",
+  },
+  {
+    label: "Integrations",
+    icon: IntegrationsIcon,
+    to: "/$orgHandle/integrations",
+    pageSegment: "integrations",
+  },
+]
 
 export function Sidebar() {
-  const matches = useMatches()
-  const currentPath = matches[matches.length - 1]?.fullPath ?? ""
+  const currentPath = useRouterState({ select: (s) => s.location.pathname })
   const { org, orgs, setOrg } = useWorkspace()
   const { isOpen, close } = useSidebar()
   const [switcherOpen, setSwitcherOpen] = useState(false)
@@ -51,6 +98,29 @@ export function Sidebar() {
 
   const orgName = org?.name ?? "Workspace"
   const orgInitial = orgName.charAt(0).toUpperCase()
+  const orgSlug = org?.slug
+
+  const renderNavItem = (item: NavItem) => {
+    const Icon = item.icon
+    const isActive =
+      orgSlug !== undefined && currentPath === `/${orgSlug}/${item.pageSegment}`
+    return (
+      <Link
+        key={item.pageSegment}
+        to={item.to}
+        params={{ orgHandle: orgSlug ?? "_" }}
+        onClick={close}
+        className={`mx-0.5 flex h-[34px] items-center gap-2 rounded-lg px-2 no-underline ${
+          isActive ? "bg-tw-card" : ""
+        }`}
+      >
+        <Icon className="text-[#939393]" />
+        <span className="truncate text-base font-medium text-[#CDCDCD]">
+          {item.label}
+        </span>
+      </Link>
+    )
+  }
 
   return (
     <>
@@ -90,10 +160,13 @@ export function Sidebar() {
             <span className="min-w-0 flex-1 truncate text-left text-sm font-medium text-[#E6E6E6]">
               {orgName}
             </span>
-            <ChevronDown className="text-[#787878]" />
+            {orgs.length > 1 && (
+              <ChevronDown className="size-3 shrink-0 text-tw-text-muted" />
+            )}
           </Button>
+
           {switcherOpen && orgs.length > 1 && (
-            <div className="absolute top-full right-0 left-0 z-50 mt-1 rounded-lg border border-[#353434] bg-[#2a2a2a] py-1 shadow-lg">
+            <div className="absolute top-full left-0 z-50 mt-1 w-full overflow-hidden rounded-lg border border-tw-border bg-tw-card shadow-lg">
               {orgs.map((o) => (
                 <Button
                   variant="ghost"
@@ -103,16 +176,9 @@ export function Sidebar() {
                     setOrg(o)
                     setSwitcherOpen(false)
                   }}
-                  className={`flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-2 py-1.5 text-sm text-[#E6E6E6] hover:bg-[#353434] ${
-                    o.id === org?.id ? "font-medium" : ""
-                  }`}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-tw-text-primary hover:bg-tw-hover"
                 >
-                  <div className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-tw-accent">
-                    <span className="text-center text-[10px] leading-none font-medium text-white">
-                      {o.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  {o.name}
+                  <span>{o.name}</span>
                 </Button>
               ))}
             </div>
@@ -120,23 +186,8 @@ export function Sidebar() {
         </div>
 
         {/* Top nav */}
-        <nav className="flex w-full flex-col items-start gap-2">
-          {topNav.map((item) => {
-            const Icon = item.icon
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={close}
-                className="mx-0.5 flex h-[30px] w-full items-center gap-2 rounded-lg px-2 no-underline"
-              >
-                <Icon className="text-[#939393]" />
-                <span className="truncate text-base font-medium text-[#CDCDCD]">
-                  {item.label}
-                </span>
-              </Link>
-            )
-          })}
+        <nav className="mt-1 flex flex-col gap-1">
+          {topNav.map(renderNavItem)}
         </nav>
 
         {/* Workspace section */}
@@ -147,25 +198,7 @@ export function Sidebar() {
             </span>
           </div>
           <nav className="flex flex-col gap-2 px-2">
-            {workspaceNav.map((item) => {
-              const Icon = item.icon
-              const isActive = currentPath === item.to
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={close}
-                  className={`mx-0.5 flex h-[34px] items-center gap-2 rounded-lg px-2 no-underline ${
-                    isActive ? "bg-tw-card" : ""
-                  }`}
-                >
-                  <Icon className="text-[#939393]" />
-                  <span className="truncate text-base font-medium text-[#CDCDCD]">
-                    {item.label}
-                  </span>
-                </Link>
-              )
-            })}
+            {workspaceNav.map(renderNavItem)}
           </nav>
         </div>
       </aside>

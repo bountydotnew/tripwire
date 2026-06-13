@@ -44,6 +44,79 @@ export async function assertRepoOwner(userId: string, repoId: string) {
 }
 
 /**
+ * Confirm `repoId` belongs to the Better Auth organization `baOrgId`.
+ * Returns both rows so callers don't have to re-fetch (mirrors the shape
+ * of `assertRepoOwner`). Used to defend against cross-org repo references
+ * slipping in: even if a user is a member of both orgs A and B, a tool
+ * invoked in A's session must not be able to read B's repo by passing
+ * the other repoId.
+ */
+export async function assertRepoBelongsToOrg(repoId: string, baOrgId: string) {
+  const [row] = await db
+    .select({ repo: repositories, org: organizations })
+    .from(repositories)
+    .innerJoin(organizations, eq(repositories.orgId, organizations.id))
+    .where(
+      and(
+        eq(repositories.id, repoId),
+        eq(organizations.betterAuthOrgId, baOrgId)
+      )
+    )
+    .limit(1)
+  if (!row) throw NOT_FOUND()
+  return row
+}
+
+/**
+ * Confirm `eventId`'s repo belongs to Better Auth org `baOrgId`. Returns
+ * the event, its repo, and the owning org row.
+ */
+export async function assertEventBelongsToOrg(
+  eventId: string,
+  baOrgId: string
+) {
+  const [row] = await db
+    .select({ event: events, repo: repositories, org: organizations })
+    .from(events)
+    .innerJoin(repositories, eq(events.repoId, repositories.id))
+    .innerJoin(organizations, eq(repositories.orgId, organizations.id))
+    .where(
+      and(eq(events.id, eventId), eq(organizations.betterAuthOrgId, baOrgId))
+    )
+    .limit(1)
+  if (!row) throw NOT_FOUND()
+  return row
+}
+
+/**
+ * Confirm `requestId`'s repo belongs to Better Auth org `baOrgId`. Returns
+ * the contributor request, its repo, and the owning org row.
+ */
+export async function assertRequestBelongsToOrg(
+  requestId: string,
+  baOrgId: string
+) {
+  const [row] = await db
+    .select({
+      request: contributorRequests,
+      repo: repositories,
+      org: organizations,
+    })
+    .from(contributorRequests)
+    .innerJoin(repositories, eq(contributorRequests.repoId, repositories.id))
+    .innerJoin(organizations, eq(repositories.orgId, organizations.id))
+    .where(
+      and(
+        eq(contributorRequests.id, requestId),
+        eq(organizations.betterAuthOrgId, baOrgId)
+      )
+    )
+    .limit(1)
+  if (!row) throw NOT_FOUND()
+  return row
+}
+
+/**
  * Confirm `userId` owns the repo that emitted `eventId`. Returns the event,
  * its repo, and the owning org.
  */

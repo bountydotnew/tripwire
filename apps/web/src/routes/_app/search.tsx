@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { buildSeo, formatPageTitle, PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
+import { buildSeo, formatPageTitle, privateHeaders } from "#/lib/seo"
 
 function SearchPage() {
   return (
@@ -14,12 +14,12 @@ function SearchPage() {
 
 export const Route = createFileRoute("/_app/search")({
   component: SearchPage,
-  headers: () => PRIVATE_ROUTE_HEADERS,
+  headers: () => privateHeaders,
   head: ({ match }) =>
     buildSeo({
       path: match.pathname,
       title: formatPageTitle("Search"),
-      description: "Search across your Tripwire workspace.",
+      description: "Find chats, events, and contributors fast.",
       robots: "noindex",
     }),
 })

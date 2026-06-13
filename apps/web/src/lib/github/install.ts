@@ -1,7 +1,10 @@
 import { eq, and } from "drizzle-orm"
+import { createLogger } from "@tripwire/logger"
 import { db } from "@tripwire/db/client"
 import { organizations, repositories, account, member } from "@tripwire/db"
 import { createAppJwt, getInstallationToken } from "@tripwire/github"
+
+const logger = createLogger("Callback")
 
 interface InstallationMeta {
   accountId: number
@@ -24,10 +27,7 @@ async function fetchInstallationMeta(
     }
   )
   if (!res.ok) {
-    console.error(
-      "[Callback] Failed to fetch installation metadata:",
-      res.status
-    )
+    logger.error("Failed to fetch installation metadata", { status: res.status })
     return null
   }
   const data = (await res.json()) as {
@@ -76,16 +76,16 @@ export async function ensureInstallation(
     .where(and(eq(account.userId, userId), eq(account.providerId, "github")))
 
   if (!ghAccountRow) {
-    console.warn("[Callback] Session user has no linked GitHub account")
+    logger.warn("session user has no linked GitHub account", { userId })
     return "installer_mismatch"
   }
 
   if (meta.accountType === "User") {
     if (String(meta.accountId) !== String(ghAccountRow.accountId)) {
-      console.warn(
-        "[Callback] Installer GitHub user id does not match session user",
-        { installerAccountId: meta.accountId, linked: ghAccountRow.accountId }
-      )
+      logger.warn("installer GitHub user id does not match session user", {
+        installerAccountId: meta.accountId,
+        linked: ghAccountRow.accountId,
+      })
       return "installer_mismatch"
     }
   }
@@ -106,7 +106,7 @@ export async function ensureInstallation(
   )
 
   if (!reposRes.ok) {
-    console.error("[Callback] Failed to fetch repos:", reposRes.status)
+    logger.error("Failed to fetch repos", { status: reposRes.status })
     return "ok"
   }
 
@@ -147,7 +147,7 @@ export async function ensureInstallation(
     })
     .returning()
 
-  console.log(`[Callback] Created org "${ghAccount.login}" (ID: ${org.id})`)
+  logger.info("created org", { login: ghAccount.login, orgId: org.id })
 
   for (const repo of repos) {
     const [existingRepo] = await db

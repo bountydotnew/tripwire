@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { TRPCError, type TRPCRouterRecord } from "@trpc/server"
 import { and, eq, desc, sql } from "drizzle-orm"
-import { authedProcedure, adminProcedure } from "../init"
+import { orgProcedure, adminProcedure } from "../init"
 import { db } from "@tripwire/db/client"
 import {
   workflows,
@@ -23,7 +23,11 @@ import {
   fetchUserAchievements,
   githubApi,
 } from "@tripwire/github"
-import { computeContributorScore, logEvent } from "@tripwire/core"
+import {
+  assertRepoBelongsToOrg,
+  computeContributorScore,
+  logEvent,
+} from "@tripwire/core"
 import {
   fetchWorkflowRunContext,
   simulateWorkflowDefinition,
@@ -38,18 +42,6 @@ function isPostgresUniqueViolation(err: unknown): boolean {
     cur = o.cause
   }
   return false
-}
-
-/** Verify user owns the repo (through the org chain) */
-async function assertRepoAccess(userId: string, repoId: string) {
-  const [repo] = await db
-    .select()
-    .from(repositories)
-    .innerJoin(organizations, eq(repositories.orgId, organizations.id))
-    .where(and(eq(repositories.id, repoId), eq(organizations.ownerId, userId)))
-    .limit(1)
-  if (!repo) throw new Error("Repo not found or access denied")
-  return repo
 }
 
 const workflowDefinitionSchema = z.object({
@@ -167,10 +159,10 @@ function validateWorkflowDefinition(def: {
 }
 
 export const workflowsRouter = {
-  list: authedProcedure
+  list: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertRepoAccess(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       return db
         .select()
         .from(workflows)
@@ -178,7 +170,7 @@ export const workflowsRouter = {
         .orderBy(desc(workflows.updatedAt))
     }),
 
-  get: authedProcedure
+  get: orgProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [wf] = await db
@@ -187,11 +179,11 @@ export const workflowsRouter = {
         .where(eq(workflows.id, input.id))
         .limit(1)
       if (!wf) throw new Error("Workflow not found")
-      await assertRepoAccess(ctx.user.id, wf.repoId)
+      await assertRepoBelongsToOrg(wf.repoId, ctx.activeOrgId)
       return wf
     }),
 
-  create: authedProcedure
+  create: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -201,7 +193,7 @@ export const workflowsRouter = {
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await assertRepoAccess(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       validateWorkflowDefinition(input.definition)
 
       const [wf] = await db
@@ -216,7 +208,7 @@ export const workflowsRouter = {
       return wf
     }),
 
-  update: authedProcedure
+  update: orgProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -233,7 +225,7 @@ export const workflowsRouter = {
         .where(eq(workflows.id, input.id))
         .limit(1)
       if (!existing) throw new Error("Workflow not found")
-      await assertRepoAccess(ctx.user.id, existing.repoId)
+      await assertRepoBelongsToOrg(existing.repoId, ctx.activeOrgId)
 
       if (input.definition) {
         validateWorkflowDefinition(input.definition)
@@ -257,7 +249,7 @@ export const workflowsRouter = {
       return wf
     }),
 
-  delete: authedProcedure
+  delete: orgProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const [existing] = await db
@@ -266,26 +258,27 @@ export const workflowsRouter = {
         .where(eq(workflows.id, input.id))
         .limit(1)
       if (!existing) throw new Error("Workflow not found")
-      await assertRepoAccess(ctx.user.id, existing.repoId)
+      await assertRepoBelongsToOrg(existing.repoId, ctx.activeOrgId)
       await db.delete(workflows).where(eq(workflows.id, input.id))
       return { ok: true }
     }),
 
   /** Fetch real GitHub user data for workflow simulation */
-  simulate: authedProcedure
+  simulate: orgProcedure
     .input(
       z.object({
         username: z.string().min(1),
         repoId: z.string().uuid().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const username = input.username
 
       // Try to get an installation token for richer data
       let token: string | null = null
       let repoId: string | null = input.repoId ?? null
       if (repoId) {
+        await assertRepoBelongsToOrg(repoId, ctx.activeOrgId)
         try {
           const [repo] = await db
             .select({ orgId: repositories.orgId })
@@ -488,7 +481,7 @@ export const workflowsRouter = {
     }),
 
   /** Run a user, PR, issue, or comment through all active workflows — returns per-workflow pass/fail */
-  runReport: authedProcedure
+  runReport: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -500,7 +493,7 @@ export const workflowsRouter = {
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await assertRepoAccess(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const activeWorkflows = await db
         .select()
@@ -561,10 +554,10 @@ export const workflowsRouter = {
     }),
 
   /** Workflow IDs in this repo that currently have a queued or running manual (or other) run */
-  listInflightManualRuns: authedProcedure
+  listInflightManualRuns: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertRepoAccess(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const rows = await db
         .select({ workflowId: workflowRuns.workflowId })
         .from(workflowRuns)
@@ -580,7 +573,7 @@ export const workflowsRouter = {
     }),
 
   /** Start a manual workflow run with server-side in-flight dedupe per (workflow, repo, optional PR). */
-  manualRun: authedProcedure
+  manualRun: orgProcedure
     .input(
       z.object({
         workflowId: z.string().uuid(),
@@ -602,7 +595,7 @@ export const workflowsRouter = {
           code: "NOT_FOUND",
           message: "Workflow not found",
         })
-      await assertRepoAccess(ctx.user.id, row.repoId)
+      await assertRepoBelongsToOrg(row.repoId, ctx.activeOrgId)
 
       if (!row.enabled) {
         throw new TRPCError({

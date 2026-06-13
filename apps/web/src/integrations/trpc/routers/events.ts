@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { eq, desc, sql, and, gte, inArray, isNotNull } from "drizzle-orm"
-import { authedProcedure } from "../init"
-import { assertEventOwner, assertRepoOwner } from "@tripwire/core"
+import { orgProcedure } from "../init"
+import { assertEventBelongsToOrg, assertRepoBelongsToOrg } from "@tripwire/core"
 import { db } from "@tripwire/db/client"
 import { events } from "@tripwire/db"
 
@@ -38,10 +38,13 @@ const severityEnum = z.enum(["info", "warning", "success", "error"])
 
 export const eventsRouter = {
   /** Get a single event by ID */
-  get: authedProcedure
+  get: orgProcedure
     .input(z.object({ eventId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const { event, repo } = await assertEventOwner(ctx.user.id, input.eventId)
+      const { event, repo } = await assertEventBelongsToOrg(
+        input.eventId,
+        ctx.activeOrgId
+      )
 
       return {
         ...event,
@@ -54,7 +57,7 @@ export const eventsRouter = {
     }),
 
   /** Get digest events for the home page - recent flagged/blocked events grouped by user */
-  digest: authedProcedure
+  digest: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -63,7 +66,7 @@ export const eventsRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const since = new Date()
       since.setHours(since.getHours() - input.hours)
@@ -129,7 +132,7 @@ export const eventsRouter = {
     }),
 
   /** List events with rich filtering */
-  list: authedProcedure
+  list: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -148,7 +151,7 @@ export const eventsRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const conditions = [eq(events.repoId, input.repoId)]
 
@@ -195,10 +198,10 @@ export const eventsRouter = {
     }),
 
   /** Aggregated stats for the Insights page (backward compatible) */
-  stats: authedProcedure
+  stats: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -246,7 +249,7 @@ export const eventsRouter = {
     }),
 
   /** Weekly/monthly event counts for trend charts (backward compatible) */
-  trends: authedProcedure
+  trends: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -254,7 +257,7 @@ export const eventsRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const startDate = new Date()
       startDate.setMonth(startDate.getMonth() - input.months)
@@ -286,7 +289,7 @@ export const eventsRouter = {
     }),
 
   /** Get event counts grouped by severity for the last N days */
-  severityCounts: authedProcedure
+  severityCounts: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -294,7 +297,7 @@ export const eventsRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const since = new Date()
       since.setDate(since.getDate() - input.days)
@@ -320,7 +323,7 @@ export const eventsRouter = {
     }),
 
   /** Get the distinct GitHub usernames that have triggered events */
-  activeUsers: authedProcedure
+  activeUsers: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -328,7 +331,7 @@ export const eventsRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const since = new Date()
       since.setDate(since.getDate() - input.days)
@@ -356,7 +359,7 @@ export const eventsRouter = {
     }),
 
   /** Get event counts grouped by action type for tab badges */
-  countsByAction: authedProcedure
+  countsByAction: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -364,7 +367,7 @@ export const eventsRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const since = new Date()
       since.setDate(since.getDate() - input.days)

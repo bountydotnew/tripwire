@@ -11,7 +11,6 @@ import { reputationRouter } from "./routers/reputation"
 import { vouchesRouter } from "./routers/vouches"
 import { fakeBountiesRouter } from "./routers/fake-bounties"
 import { apiKeysRouter } from "./routers/api-keys"
-import { preferencesRouter } from "./routers/preferences"
 import { workflowsRouter } from "./routers/workflows"
 import { customRulesRouter } from "./routers/custom-rules"
 import { researchRouter } from "./routers/research"
@@ -35,7 +34,6 @@ export const trpcRouter = createTRPCRouter({
   vouches: vouchesRouter,
   fakeBounties: fakeBountiesRouter,
   apiKeys: apiKeysRouter,
-  preferences: preferencesRouter,
   workflows: workflowsRouter,
   customRules: customRulesRouter,
   research: researchRouter,

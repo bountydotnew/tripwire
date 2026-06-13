@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -9,8 +10,10 @@ import {
 import { Provider as ChatStoreProvider } from "@ai-sdk-tools/store"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useWorkspace } from "#/providers/workspace-context"
+import { useRegisterChatSurface } from "#/providers/repo-switch-gate"
 import { useTRPC } from "#/integrations/trpc/react"
 import { useChatEngine } from "#/lib/chat/use-chat-engine"
+import { buildContextSwitchMarker } from "#/lib/chat/markers"
 import {
   broadcastRuleMutation,
   broadcastWorkflowMutation,
@@ -83,8 +86,17 @@ export function ChatProvider({ children }: ChatProviderProps) {
   )
 }
 
-const STORAGE_KEY_CONV = "tw.askConversationId"
 const STORAGE_KEY_OPEN = "tw.askOpen"
+
+/**
+ * Per-org localStorage key for the side-panel's active conversation.
+ * Conversations are org-scoped (billing, tools, repo set all change),
+ * so each org remembers its own thread independently. Switching orgs
+ * loads the new org's slot and clears in-memory state from the old one.
+ */
+function storageKeyConv(orgId: string): string {
+  return `tw.askConversationId:${orgId}`
+}
 
 function getStoredValue(key: string): string | null {
   return typeof window === "undefined" ? null : window.localStorage.getItem(key)
@@ -97,31 +109,44 @@ function setStoredValue(key: string, value: string): void {
 }
 
 function ChatProviderClient({ children }: ChatProviderProps) {
-  const { repo, repos, setRepo } = useWorkspace()
+  const { org, repo, repos, setRepo } = useWorkspace()
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(() => {
     return getStoredValue(STORAGE_KEY_OPEN) === "true"
   })
 
-  const [conversationId, setConversationId] = useState(() => {
-    const stored = getStoredValue(STORAGE_KEY_CONV)
-    if (stored) return stored
-    const id = crypto.randomUUID()
-    setStoredValue(STORAGE_KEY_CONV, id)
-    return id
-  })
+  // The conversation id is keyed by active org. We can't read the key
+  // until the workspace context has resolved `org` (it's null on first
+  // render). Use a placeholder uuid; the effect below replaces it once
+  // the org id is known, and again whenever the user switches orgs.
+  const [conversationId, setConversationId] = useState<string>(() =>
+    crypto.randomUUID()
+  )
 
   const [workflowContext, setWorkflowContext] =
     useState<WorkflowContext | null>(null)
 
-  // When a persisted chat is loaded, pin to the repoId it was created against
-  // so subsequent /api/chat requests target that repo even if the user has
-  // since switched workspace.
-  const [pinnedRepoId, setPinnedRepoId] = useState<string | null>(null)
-
   // Track whether we've created the DB row for this conversation
   const createdConvIds = useRef(new Set<string>())
+
+  // Switch the side-panel thread to this org's slot whenever the active
+  // org changes. Chats are billed and scoped per org, so carrying the
+  // same conversation across orgs would silently bill A for messages
+  // sent under B's context. Per-org slot = clean isolation.
+  //
+  // The engine.setMessages reset (the in-memory AI-SDK buffer) lives in
+  // a second effect below — engine isn't constructed yet at this point.
+  useEffect(() => {
+    if (!org?.id) return
+    const key = storageKeyConv(org.id)
+    let nextId = getStoredValue(key)
+    if (!nextId) {
+      nextId = crypto.randomUUID()
+      setStoredValue(key, nextId)
+    }
+    setConversationId((prev) => (prev === nextId ? prev : nextId))
+  }, [org?.id])
 
   const convQuery = useQuery(
     trpc.chats.get.queryOptions({ chatId: conversationId })
@@ -131,7 +156,12 @@ function ChatProviderClient({ children }: ChatProviderProps) {
   const persistedRepoId = convQuery.data?.repoId ?? null
   const conversationExists = !!convQuery.data
 
-  const effectiveRepoId = pinnedRepoId ?? persistedRepoId ?? repo?.id
+  // Current workspace repo wins. The conversation's stored repo is
+  // only a fallback for when the workspace hasn't hydrated yet (fresh
+  // page load). When the user switches repos mid-chat, the repo-switch
+  // gate prompts for confirmation; if they proceed, the next message
+  // uses the new repo.
+  const effectiveRepoId = repo?.id ?? persistedRepoId ?? undefined
 
   const createConv = useMutation(trpc.chats.create.mutationOptions())
 
@@ -162,6 +192,48 @@ function ChatProviderClient({ children }: ChatProviderProps) {
           queryKey: trpc.customRules.list.queryKey({ repoId: effectiveRepoId }),
         })
       }
+    },
+  })
+
+  // Clear the AI-SDK's in-memory message buffer when the active org
+  // changes. Without this, the user would see the previous org's
+  // streamed transcript stuck in the panel until they navigate or
+  // start a new chat — the conversationId already swapped (above),
+  // but useChat's local store doesn't auto-reset on id change.
+  const prevOrgIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!org?.id) return
+    if (prevOrgIdRef.current === null) {
+      prevOrgIdRef.current = org.id
+      return
+    }
+    if (prevOrgIdRef.current === org.id) return
+    prevOrgIdRef.current = org.id
+    engine.setMessages([])
+  }, [org?.id, engine])
+
+  // Register this side-panel surface with the repo-switch gate so the
+  // workspace switcher prompts for confirmation when the user tries
+  // to swap repos out from under an active conversation.
+  //
+  // The "new chat" branch needs to mint a fresh conversation id and
+  // clear the engine in one go — without that, a plain
+  // engine.clearChat would leave the previous messages persisted on
+  // the same DB row and the next send would merge them back in.
+  // We capture `newChat` via a ref so the registration effect doesn't
+  // re-fire on every render.
+  const newChatRef = useRef<() => string>(() => "")
+  useRegisterChatSurface("side-panel", {
+    hasMessages: engine.messages.length > 0,
+    isOpen,
+    startNewChatWithMarker: (repoName) => {
+      newChatRef.current()
+      const marker = buildContextSwitchMarker(repoName)
+      engine.setMessages([marker])
+    },
+    appendMarker: (repoName) => {
+      const marker = buildContextSwitchMarker(repoName)
+      engine.setMessages((prev) => [...prev, marker])
     },
   })
 
@@ -219,37 +291,37 @@ function ChatProviderClient({ children }: ChatProviderProps) {
   const loadChat = useCallback(
     (chatId: string) => {
       setConversationId(chatId)
-      setStoredValue(STORAGE_KEY_CONV, chatId)
+      if (org?.id) setStoredValue(storageKeyConv(org.id), chatId)
       createdConvIds.current.add(chatId)
 
-      // Pin the chat to its stored repo so subsequent sends target that
-      // repo even if the user switches workspace. The caller should have
-      // already fetched the chat into the query cache before calling this.
+      // When opening an old chat from history, rehydrate the workspace
+      // to that chat's last-used repo. Subsequent sends follow the
+      // workspace selection (no hard pin); switching mid-chat goes
+      // through the repo-switch confirmation gate.
       const cached = queryClient.getQueryData(
         trpc.chats.get.queryKey({ chatId })
       ) as { repoId: string | null } | undefined
       const storedRepoId = cached?.repoId ?? null
-      if (storedRepoId) {
-        setPinnedRepoId(storedRepoId)
-        if (repo?.id !== storedRepoId) {
-          const target = repos.find((r) => r.id === storedRepoId)
-          if (target) setRepo(target)
-        }
-      } else {
-        setPinnedRepoId(null)
+      if (storedRepoId && repo?.id !== storedRepoId) {
+        const target = repos.find((r) => r.id === storedRepoId)
+        if (target) setRepo(target)
       }
     },
-    [queryClient, trpc.chats.get, repo?.id, repos, setRepo]
+    [queryClient, trpc.chats.get, repo?.id, repos, setRepo, org?.id]
   )
 
   const newChat = useCallback(() => {
     const id = crypto.randomUUID()
     setConversationId(id)
-    setStoredValue(STORAGE_KEY_CONV, id)
+    if (org?.id) setStoredValue(storageKeyConv(org.id), id)
     engine.setMessages([])
-    setPinnedRepoId(null)
     return id
-  }, [engine])
+  }, [engine, org?.id])
+
+  // The repo-switch gate registration above captured `newChat` via a
+  // ref so it can fire the latest closure on demand without having
+  // the registration effect re-run on every dependency change.
+  newChatRef.current = newChat
 
   const value: ChatContextValue = {
     messages: engine.messages,

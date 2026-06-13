@@ -9,7 +9,10 @@ import {
   repositories,
   type EventAction,
 } from "@tripwire/db"
-import { assertEventOwner, assertRepoOwner } from "@tripwire/core"
+import {
+  assertEventBelongsToOrg,
+  assertRepoBelongsToOrg,
+} from "@tripwire/core"
 import { getInstallationToken } from "@tripwire/github"
 import {
   type ScoreCategory,
@@ -85,7 +88,7 @@ const listEvents = defineTool({
   }),
   handler: async ({ username, action, severity, limit }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const conditions = [eq(events.repoId, repoId)]
     if (username)
@@ -120,7 +123,7 @@ const getEvent = defineTool({
   lazy: true,
   inputSchema: z.object({ eventId: z.string().uuid() }),
   handler: async ({ eventId }, ctx) => {
-    const { event, repo } = await assertEventOwner(ctx.userId, eventId)
+    const { event, repo } = await assertEventBelongsToOrg(eventId, ctx.orgId)
     return { event, repo: { id: repo.id, fullName: repo.fullName } }
   },
   chatRender: ({ event }) =>
@@ -137,10 +140,10 @@ const getEvent = defineTool({
 
 async function gatherUserSignals(
   username: string,
-  userId: string,
+  orgId: string,
   repoId: string
 ): Promise<UserSignals> {
-  await assertRepoOwner(userId, repoId)
+  await assertRepoBelongsToOrg(repoId, orgId)
   const token = await getTokenForRepo(repoId)
   return fetchContributorSignals({
     username,
@@ -151,7 +154,7 @@ async function gatherUserSignals(
 
 async function lookupUserExecute(
   username: string,
-  userId: string,
+  orgId: string,
   repoId: string
 ): Promise<{
   ghUser: GitHubUser
@@ -177,7 +180,7 @@ async function lookupUserExecute(
     achievements: ScoreInput["achievements"]
   }
 }> {
-  const signals = await gatherUserSignals(username, userId, repoId)
+  const signals = await gatherUserSignals(username, orgId, repoId)
   const score = computeContributorScore(signals.scoreInput)
   return {
     ghUser: signals.ghUser,
@@ -257,7 +260,7 @@ const lookupUser = defineTool({
   inputSchema: z.object({ username: z.string().min(1) }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    return lookupUserExecute(username, ctx.userId, repoId)
+    return lookupUserExecute(username, ctx.orgId, repoId)
   },
   chatRender: (output) => lookupOutputToSlideProps(output),
 })
@@ -293,7 +296,7 @@ const lookupUsers = defineTool({
     const rows = await Promise.all(
       ordered.map(async (login) => {
         try {
-          const data = await lookupUserExecute(login, ctx.userId, repoId)
+          const data = await lookupUserExecute(login, ctx.orgId, repoId)
           return { ok: true as const, data }
         } catch (err: unknown) {
           const msg =
@@ -353,7 +356,7 @@ const scoreBreakdown = defineTool({
   inputSchema: z.object({ username: z.string().min(1) }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    const signals = await gatherUserSignals(username, ctx.userId, repoId)
+    const signals = await gatherUserSignals(username, ctx.orgId, repoId)
     const score = computeContributorScore(signals.scoreInput)
 
     const subtotals: Record<ScoreCategory, number> = {
@@ -423,7 +426,7 @@ const explainScoreFlag = defineTool({
   }),
   handler: async ({ username, flag }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const token = await getTokenForRepo(repoId)
     if (!token)
       throw createError({
@@ -649,7 +652,7 @@ const explainScoreFlag = defineTool({
     }
 
     // Generic fallback: return the full score breakdown line items
-    const signals = await gatherUserSignals(username, ctx.userId, repoId)
+    const signals = await gatherUserSignals(username, ctx.orgId, repoId)
     const score = computeContributorScore(signals.scoreInput)
     const matching = score.lineItems.filter(
       (item) =>
@@ -718,7 +721,7 @@ const getReputationLeaderboard = defineTool({
   }),
   handler: async ({ limit }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     return db
       .select()
       .from(githubReputation)
@@ -750,7 +753,7 @@ const listWorkflows = defineTool({
   inputSchema: z.object({}),
   handler: async (_args, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const { workflows } = await import("@tripwire/db")
     const { desc } = await import("drizzle-orm")
     const rows = await db
@@ -787,7 +790,7 @@ const describeWorkflow = defineTool({
   }),
   handler: async ({ name }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const { workflows } = await import("@tripwire/db")
     const { desc } = await import("drizzle-orm")
     const rows = await db
@@ -881,7 +884,7 @@ const getUserPrs = defineTool({
   }),
   handler: async ({ username, limit, state }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const token = await getTokenForRepo(repoId)
     if (!token)
       throw createError({
@@ -924,7 +927,7 @@ const getPrDetail = defineTool({
   }),
   handler: async ({ repo, prNumber }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const token = await getTokenForRepo(repoId)
     if (!token)
       throw createError({
@@ -995,7 +998,7 @@ const getComments = defineTool({
   }),
   handler: async ({ repo, issue_number, limit, include_bots }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const token = await getTokenForRepo(repoId)
     if (!token)
       throw createError({
@@ -1049,7 +1052,7 @@ const getUserRepos = defineTool({
   }),
   handler: async ({ username, limit }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const token = await getTokenForRepo(repoId)
     if (!token)
       throw createError({
@@ -1093,7 +1096,7 @@ const getUserActivity = defineTool({
   }),
   handler: async ({ username }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     const token = await getTokenForRepo(repoId)
     if (!token)
       throw createError({

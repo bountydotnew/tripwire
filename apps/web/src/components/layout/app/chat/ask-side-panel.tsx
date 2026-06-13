@@ -72,6 +72,7 @@ export function AskSidePanel() {
       {
         id: conversationId,
         userId: "",
+        organizationId: "",
         repoId: chatRepoId ?? null,
         title: null,
         messages: chatMessages as unknown as Record<string, unknown>[],

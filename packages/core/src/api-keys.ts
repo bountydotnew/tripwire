@@ -30,10 +30,15 @@ export function hashKey(raw: string): string {
   return createHash("sha256").update(raw).digest("hex")
 }
 
-/** Verify a raw API key and return the key record if valid. */
+/**
+ * Verify a raw API key and return the key record if valid. API keys
+ * are user-owned post-migration; the returned `userId` is the caller's
+ * identity. Endpoints that need org scope must derive it from the
+ * request (active org / explicit query param), not from the key.
+ */
 export async function verifyApiKey(raw: string): Promise<{
   id: string
-  orgId: string
+  userId: string
   scopes: string
 } | null> {
   if (!raw.startsWith(KEY_PREFIX)) return null
@@ -42,7 +47,7 @@ export async function verifyApiKey(raw: string): Promise<{
   const [key] = await db
     .select({
       id: apiKeys.id,
-      orgId: apiKeys.orgId,
+      userId: apiKeys.userId,
       scopes: apiKeys.scopes,
       expiresAt: apiKeys.expiresAt,
       revokedAt: apiKeys.revokedAt,
@@ -61,7 +66,7 @@ export async function verifyApiKey(raw: string): Promise<{
     .then(() => {})
     .catch(() => {})
 
-  return { id: key.id, orgId: key.orgId, scopes: key.scopes }
+  return { id: key.id, userId: key.userId, scopes: key.scopes }
 }
 
 /** Check if a verified key has a specific scope. */

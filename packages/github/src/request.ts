@@ -6,6 +6,15 @@
  * structured rate-limit log line per response.
  */
 
+import { createLogger, LogLevel } from "@tripwire/logger"
+
+// `GITHUB_RATE_LIMIT_DEBUG=1` is the gate; the logger itself stays enabled
+// in every NODE_ENV (including test) so the gate alone decides.
+const logger = createLogger("github-rate-limit", {
+  enabled: true,
+  logLevel: LogLevel.DEBUG,
+})
+
 export const GITHUB_REQUEST_TIMEOUT_MS = 12_000
 
 export type GitHubConditionals = {
@@ -97,7 +106,7 @@ export function logGitHubRateLimit({
   ) {
     return
   }
-  console.log("[github-rate-limit]", {
+  logger.debug("rate limit headers", {
     token: tokenLabel,
     method,
     url,

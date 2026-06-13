@@ -1,11 +1,14 @@
 import { eq } from "drizzle-orm"
 import { createError } from "evlog"
+import { createLogger } from "@tripwire/logger"
 import { db } from "@tripwire/db/client"
 import { organizations, repositories } from "@tripwire/db"
 import { getInstallationToken } from "@tripwire/github"
 import { registerReputationUpdateHook } from "@tripwire/core"
 import { inngest } from "./client"
 import { scoreSingleContributor } from "./visibility-helpers"
+
+const logger = createLogger("score-user")
 
 export const scoreUser = inngest.createFunction(
   {
@@ -52,7 +55,7 @@ export const scoreUser = inngest.createFunction(
       return { repoId, username, score }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.warn(`[score-user] skipped @${username} (repo ${repoId}): ${msg}`)
+      logger.warn("scoring skipped", { username, repoId, reason: msg })
       return { repoId, username, score: null, skipped: true }
     }
   }
@@ -65,6 +68,6 @@ registerReputationUpdateHook(({ repoId, username }) => {
       data: { repoId, username },
     })
     .catch((err) => {
-      console.warn("[score-user] failed to enqueue:", err)
+      logger.warn("failed to enqueue", err)
     })
 })

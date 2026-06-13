@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@tripwire/logger": "workspace:*",
     "html2canvas-pro": "^1.5.13",
     "react-grab": "^0.1.25",
     "bippy": "^0.5.30"

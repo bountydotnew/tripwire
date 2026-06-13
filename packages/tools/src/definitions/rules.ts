@@ -9,7 +9,7 @@ import {
   repositories,
   ruleConfigs,
 } from "@tripwire/db"
-import { assertRepoOwner } from "@tripwire/core"
+import { assertRepoBelongsToOrg } from "@tripwire/core"
 import { ruleConfigSchema } from "@tripwire/core"
 import { logEvent } from "@tripwire/core"
 import { type AnyToolDefinition, defineTool, makeSpec } from "../registry"
@@ -31,7 +31,7 @@ const getRepoRules = defineTool({
   inputSchema: z.object({}),
   handler: async (_args, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
     return loadRuleConfig(repoId)
   },
   chatRender: (config) => {
@@ -351,8 +351,8 @@ const copyRules = defineTool({
       }
     }
     await Promise.all([
-      assertRepoOwner(ctx.userId, fromRepoId),
-      assertRepoOwner(ctx.userId, toRepoId),
+      assertRepoBelongsToOrg(fromRepoId, ctx.orgId),
+      assertRepoBelongsToOrg(toRepoId, ctx.orgId),
     ])
     const [fromRepo] = await db
       .select({ fullName: repositories.fullName })

@@ -24,6 +24,7 @@
     "@tripwire/auth": "workspace:*",
     "@tripwire/db": "workspace:*",
     "@tripwire/env": "workspace:*",
+    "@tripwire/logger": "workspace:*",
     "ai": "^6.0.184",
     "drizzle-orm": "^0.45.1",
     "autumn-js": "^1.2.12",

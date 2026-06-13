@@ -19,6 +19,7 @@
     "@tripwire/core": "workspace:*",
     "@tripwire/db": "workspace:*",
     "@tripwire/github": "workspace:*",
+    "@tripwire/logger": "workspace:*",
     "ai": "^6.0.184",
     "drizzle-orm": "^0.45.1",
     "evlog": "^2.17.0",

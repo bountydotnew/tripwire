@@ -1,16 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { RulesMarketplacePanel } from "#/components/layout/app/rules/panels/rules-marketplace-panel"
-import { buildSeo, formatPageTitle, PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
+import { buildSeo, formatPageTitle, privateHeaders } from "#/lib/seo"
 
 export const Route = createFileRoute("/_app/$orgHandle/rules/marketplace")({
   component: RulesMarketplacePanel,
-  headers: () => PRIVATE_ROUTE_HEADERS,
+  headers: () => privateHeaders,
   head: ({ match }) =>
     buildSeo({
       path: match.pathname,
       title: formatPageTitle("Rule marketplace"),
-      description:
-        "Browse and install moderation rules built by the Tripwire team and the open-source community.",
+      description: "Install rules from the Tripwire team or the community.",
       robots: "noindex",
     }),
 })

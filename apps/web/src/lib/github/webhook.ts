@@ -1,6 +1,10 @@
+import { createLogger } from "@tripwire/logger"
 import { db } from "@tripwire/db/client"
 import { organizations, repositories, account, member } from "@tripwire/db"
 import { eq, and } from "drizzle-orm"
+
+const installLogger = createLogger("Install")
+const repoChangeLogger = createLogger("RepoChange")
 
 export interface InstallationPayload {
   action: string
@@ -39,35 +43,23 @@ export async function handleInstallation(payload: InstallationPayload) {
     await onInstallationCreated(payload)
   }
   if (payload.action === "deleted") {
-    console.log(
-      "[Install] Action: deleted, installation:",
-      payload.installation.id
-    )
+    installLogger.info("action: deleted", { installationId: payload.installation.id })
     await db
       .delete(organizations)
       .where(eq(organizations.githubInstallationId, payload.installation.id))
-    console.log("[Install] ✓ Deleted org")
+    installLogger.info("deleted org", { installationId: payload.installation.id })
   }
 }
 
 async function onInstallationCreated(payload: InstallationPayload) {
   const { installation } = payload
-  console.log("[Install] Action: created")
-  console.log(
-    "[Install] Sender:",
-    payload.sender.login,
-    "(ID:",
-    payload.sender.id,
-    ")"
-  )
-  console.log(
-    "[Install] Account:",
-    installation.account.login,
-    "(ID:",
-    installation.account.id,
-    ")"
-  )
-  console.log("[Install] Repos in payload:", payload.repositories?.length ?? 0)
+  installLogger.info("action: created", {
+    sender: payload.sender.login,
+    senderId: payload.sender.id,
+    account: installation.account.login,
+    accountId: installation.account.id,
+    repoCount: payload.repositories?.length ?? 0,
+  })
 
   const [senderAccount] = await db
     .select()
@@ -80,14 +72,15 @@ async function onInstallationCreated(payload: InstallationPayload) {
     )
 
   if (!senderAccount) {
-    console.log(
-      `[Install] ✗ No matching account for GitHub user ${payload.sender.login} (${payload.sender.id}). They need to sign up first.`
-    )
+    installLogger.warn("no matching account for GitHub user; they need to sign up first", {
+      login: payload.sender.login,
+      githubUserId: payload.sender.id,
+    })
     return
   }
 
   const ownerId = senderAccount.userId
-  console.log("[Install] ✓ Found account, userId:", ownerId)
+  installLogger.info("found account", { userId: ownerId })
 
   const existingOrgs = await db
     .select()
@@ -115,9 +108,11 @@ async function onInstallationCreated(payload: InstallationPayload) {
       })
       .returning()
     org = newOrg
-    console.log(
-      `[Install] ✓ Created org "${installation.account.login}" (ID: ${org.id}), owned by user ${ownerId}`
-    )
+    installLogger.info("created org", {
+      login: installation.account.login,
+      orgId: org.id,
+      ownerId,
+    })
   } else {
     org = existingOrgs[0]
     if (!org.ownerId || org.ownerId !== ownerId) {
@@ -125,7 +120,7 @@ async function onInstallationCreated(payload: InstallationPayload) {
         .update(organizations)
         .set({ ownerId, updatedAt: new Date() })
         .where(eq(organizations.id, org.id))
-      console.log("[Install] Updated org owner to", ownerId)
+      installLogger.info("updated org owner", { orgId: org.id, ownerId })
     }
   }
 
@@ -144,22 +139,20 @@ async function onInstallationCreated(payload: InstallationPayload) {
           fullName: repo.full_name,
           isPrivate: repo.private,
         })
-        console.log("[Install] ✓ Added repo:", repo.full_name)
+        installLogger.info("added repo", { fullName: repo.full_name })
       }
     }
   }
-  console.log("[Install] ✓ Installation complete")
+  installLogger.info("installation complete")
 }
 
 export async function handleInstallationRepositories(
   payload: InstallationReposPayload
 ) {
-  console.log(
-    "[RepoChange] Action:",
-    payload.action,
-    "installation:",
-    payload.installation.id
-  )
+  repoChangeLogger.info("action received", {
+    action: payload.action,
+    installationId: payload.installation.id,
+  })
 
   const [org] = await db
     .select()
@@ -167,9 +160,9 @@ export async function handleInstallationRepositories(
     .where(eq(organizations.githubInstallationId, payload.installation.id))
 
   if (!org) {
-    console.log(
-      `[RepoChange] ✗ No org found for installation ${payload.installation.id}`
-    )
+    repoChangeLogger.warn("no org found for installation", {
+      installationId: payload.installation.id,
+    })
     return
   }
 
@@ -188,7 +181,7 @@ export async function handleInstallationRepositories(
           fullName: repo.full_name,
           isPrivate: repo.private,
         })
-        console.log(`[RepoChange] ✓ Added repo ${repo.full_name}`)
+        repoChangeLogger.info("added repo", { fullName: repo.full_name })
       }
     }
   }
@@ -198,7 +191,7 @@ export async function handleInstallationRepositories(
       await db
         .delete(repositories)
         .where(eq(repositories.githubRepoId, repo.id))
-      console.log(`[RepoChange] ✓ Removed repo ${repo.id}`)
+      repoChangeLogger.info("removed repo", { githubRepoId: repo.id })
     }
   }
 }

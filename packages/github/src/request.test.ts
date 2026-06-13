@@ -111,16 +111,18 @@ describe("logGitHubRateLimit", () => {
         "x-ratelimit-remaining": "4500",
       }),
     })
-    expect(log).toHaveBeenCalledWith(
-      "[github-rate-limit]",
-      expect.objectContaining({
-        token: "installation:42",
-        method: "GET",
-        status: 200,
-        limit: 5000,
-        remaining: 4500,
-      })
-    )
+    expect(log).toHaveBeenCalledTimes(1)
+    const line = log.mock.calls[0][0] as string
+    const parsed = JSON.parse(line)
+    expect(parsed).toMatchObject({
+      module: "github-rate-limit",
+      message: "rate limit headers",
+      token: "installation:42",
+      method: "GET",
+      status: 200,
+      limit: 5000,
+      remaining: 4500,
+    })
     log.mockRestore()
   })
 

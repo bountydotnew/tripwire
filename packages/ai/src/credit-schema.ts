@@ -8,6 +8,10 @@
  * so we never give away free AI when we're still paying the provider.
  */
 
+import { createLogger } from "@tripwire/logger"
+
+const logger = createLogger("billing:cost")
+
 // lazy-import tokenlens to avoid tiktoken's __dirname crash in ESM serverless
 let _tokenlens: {
   getModelData: (args: {
@@ -88,14 +92,16 @@ export async function computeCostCents(
           completionTokens
         )
 
-        console.log(
-          [
-            `[billing:cost] ${modelId}`,
-            `  tokens: ${promptTokens} in / ${completionTokens} out | context: ${promptTokens + completionTokens} total`,
-            `  rates: $${inputRate}/token in, $${outputRate}/token out`,
-            `  provider: $${rawCostUsd.toFixed(6)} | with ${MARKUP}x: ${cents}c`,
-          ].join("\n")
-        )
+        logger.info("priced via tokenlens", {
+          modelId,
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens,
+          inputRate,
+          outputRate,
+          rawCostUsd,
+          cents,
+        })
 
         return cents
       }
@@ -103,7 +109,7 @@ export async function computeCostCents(
   } catch (err) {
     const errMsg =
       err instanceof Error ? `${err.name}: ${err.message}` : String(err)
-    console.warn(`[billing] tokenlens failed for "${modelId}": ${errMsg}`)
+    logger.warn("tokenlens failed", { modelId, error: errMsg })
   }
 
   // fallback to hardcoded rates
@@ -115,9 +121,14 @@ export async function computeCostCents(
       promptTokens,
       completionTokens
     )
-    console.warn(
-      `[billing:fallback] ${modelId} | ${promptTokens} in / ${completionTokens} out | context: ${promptTokens + completionTokens} | $${rawCostUsd.toFixed(6)} provider | ${cents}c charged (hardcoded rates)`
-    )
+    logger.warn("priced via hardcoded fallback rates", {
+      modelId,
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      rawCostUsd,
+      cents,
+    })
     return cents
   }
 
@@ -130,8 +141,13 @@ export async function computeCostCents(
     promptTokens,
     completionTokens
   )
-  console.warn(
-    `[billing:fallback] unknown model "${modelId}" | ${promptTokens} in / ${completionTokens} out | context: ${promptTokens + completionTokens} | using gpt-5.4-mini rates | $${rawCostUsd.toFixed(6)} | ${cents}c charged`
-  )
+  logger.warn("unknown model, priced via gpt-5.4-mini rates", {
+    modelId,
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+    rawCostUsd,
+    cents,
+  })
   return cents
 }

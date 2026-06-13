@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@tripwire/db/client"
 import { customRules } from "@tripwire/db"
-import { assertRepoOwner } from "@tripwire/core"
+import { assertRepoBelongsToOrg } from "@tripwire/core"
 import { logEvent } from "@tripwire/core"
 import { createCustomRuleSchema } from "@tripwire/core"
 import { getCustomRuleLimits, countDefinitionNodes } from "@tripwire/core"
@@ -18,7 +18,7 @@ const listCustomRules = defineTool({
   inputSchema: z.object({}),
   handler: async (_args, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const rows = await db
       .select()
@@ -52,7 +52,7 @@ const getCustomRule = defineTool({
   }),
   handler: async ({ ruleId }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [rule] = await db
       .select()
@@ -134,7 +134,7 @@ const createCustomRule = defineTool({
   }),
   handler: async (args, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const input = { ...args, repoId, priority: 0 }
     const parsed = createCustomRuleSchema.safeParse(input)
@@ -207,7 +207,7 @@ const toggleCustomRule = defineTool({
   }),
   handler: async ({ ruleId, enabled }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [rule] = await db
       .select()
@@ -262,7 +262,7 @@ const updateCustomRuleAction = defineTool({
   }),
   handler: async ({ ruleId, action, thresholdCount }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [rule] = await db
       .select()
@@ -314,7 +314,7 @@ const deleteCustomRule = defineTool({
   }),
   handler: async ({ ruleId }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [rule] = await db
       .select({ id: customRules.id, name: customRules.name })
@@ -366,7 +366,7 @@ const editCustomRule = defineTool({
   }),
   handler: async ({ ruleId, operations }, ctx) => {
     const repoId = requireRepoId(ctx)
-    await assertRepoOwner(ctx.userId, repoId)
+    await assertRepoBelongsToOrg(repoId, ctx.orgId)
 
     const [rule] = await db
       .select()

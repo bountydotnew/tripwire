@@ -78,7 +78,7 @@ const NON_CLICKABLE_ACTIONS = new Set([
   "blacklist_removed",
 ])
 
-function EventRow({ event }: { event: Event }) {
+function EventRow({ event, orgSlug }: { event: Event; orgSlug: string }) {
   const dotColor = SEVERITY_DOT[event.severity ?? "info"] ?? SEVERITY_DOT.info
   const actionLabel = getEventActionLabel(event.action)
   const isClickable = !NON_CLICKABLE_ACTIONS.has(event.action)
@@ -158,8 +158,8 @@ function EventRow({ event }: { event: Event }) {
 
   return (
     <Link
-      to="/events/$eventId"
-      params={{ eventId: event.id }}
+      to="/$orgHandle/events/$eventId"
+      params={{ orgHandle: orgSlug, eventId: event.id }}
       className="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 no-underline transition-colors hover:bg-white/[0.02]"
     >
       {content}
@@ -251,7 +251,7 @@ export function EventsPageSkeleton() {
 }
 
 export function EventsPage() {
-  const { repo, repos, isLoading } = useWorkspace()
+  const { org, repo, repos, isLoading } = useWorkspace()
   const repoId = repo?.id
   const trpc = useTRPC()
 
@@ -510,7 +510,11 @@ export function EventsPage() {
         ) : (
           <div className="divide-y divide-white/[0.03]">
             {events.map((event) => (
-              <EventRow key={event.id} event={event} />
+              <EventRow
+                key={event.id}
+                event={event}
+                orgSlug={org?.slug ?? ""}
+              />
             ))}
           </div>
         )}

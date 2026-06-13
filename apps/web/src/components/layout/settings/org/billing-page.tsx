@@ -1,24 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { Button } from "@tripwire/ui/button"
 import { useCustomer } from "autumn-js/react"
-import { useWorkspace } from "#/providers/workspace-context"
+import { Button } from "@tripwire/ui/button"
 import { PlusStrokeIcon14 } from "@tripwire/ui/icons/app-chrome-icons"
-import { buildSeo, formatPageTitle, PRIVATE_ROUTE_HEADERS } from "#/lib/seo"
+import { createLogger } from "@tripwire/logger"
+import { useWorkspace } from "#/providers/workspace-context"
 
-export const Route = createFileRoute("/_app/settings/billing")({
-  component: BillingSettingsPage,
-  headers: () => PRIVATE_ROUTE_HEADERS,
-  head: ({ match }) =>
-    buildSeo({
-      path: match.pathname,
-      title: formatPageTitle("Billing"),
-      description:
-        "Manage your Tripwire subscription, invoices, and usage limits.",
-      robots: "noindex",
-    }),
-})
+const logger = createLogger("Billing")
 
-function BillingSettingsPage() {
+/**
+ * Org-scoped billing page. Autumn's `useCustomer` is wired through
+ * the better-auth Autumn plugin with `customerScope: "organization"`,
+ * so every read here is keyed to the active org's customer.
+ */
+export function OrgBillingSettingsPage() {
   const { data: customer, isLoading } = useCustomer()
   const { repos } = useWorkspace()
 
@@ -26,7 +19,6 @@ function BillingSettingsPage() {
     return <BillingSkeleton />
   }
 
-  // Extract plan info from Autumn customer
   const subscription = customer?.subscriptions?.find(
     (s) =>
       typeof s === "object" &&
@@ -38,31 +30,24 @@ function BillingSettingsPage() {
   const planName = planId === "pro" ? "Pro" : "Free"
   const isFreePlan = planId === "free"
 
-  // AI credits balance
   const aiBalance = customer?.balances?.ai_credits
   const creditsUsed = aiBalance?.usage ?? 0
   const creditsGranted = aiBalance?.granted ?? 0
   const isUnlimited = aiBalance?.unlimited ?? false
 
-  // Usage percentage for progress bar
   const usagePercent =
     creditsGranted > 0 ? Math.min((creditsUsed / creditsGranted) * 100, 100) : 0
 
-  // Price
   const price = isFreePlan ? 0 : 9
-
-  // Repos connected
   const repoCount = repos.length
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Plan */}
       <SettingsSection
         title="Plan"
         description="Your current subscription and usage."
       >
         <div className="rounded-xl bg-tw-card">
-          {/* Plan header */}
           <div className="flex items-center justify-between p-4 pb-3">
             <div className="flex items-center gap-2">
               <span className="text-[16px] font-semibold text-tw-text-primary">
@@ -84,7 +69,6 @@ function BillingSettingsPage() {
             )}
           </div>
 
-          {/* Usage stats */}
           <div className="grid grid-cols-2 gap-4 border-t border-[#27272A] px-4 pt-3 pb-3">
             <div>
               <div className="mb-1 text-[11px] font-medium tracking-wider text-tw-text-muted uppercase">
@@ -125,14 +109,12 @@ function BillingSettingsPage() {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-3 px-4 pt-1 pb-4">
             <UpgradeButton isFreePlan={isFreePlan} />
           </div>
         </div>
       </SettingsSection>
 
-      {/* Payment method */}
       <SettingsSection title="Payment method" description="Cards on file.">
         <PaymentMethodSection hasStripe={!!customer?.stripeId} />
       </SettingsSection>
@@ -147,7 +129,7 @@ function UpgradeButton({ isFreePlan }: { isFreePlan: boolean }) {
     try {
       await attach({ planId: "pro" })
     } catch (err) {
-      console.error("[Billing] Upgrade failed:", err)
+      logger.error("Upgrade failed", err)
     }
   }
 
@@ -155,7 +137,7 @@ function UpgradeButton({ isFreePlan }: { isFreePlan: boolean }) {
     try {
       await openCustomerPortal()
     } catch (err) {
-      console.error("[Billing] Portal open failed:", err)
+      logger.error("Portal open failed", err)
     }
   }
 
@@ -191,7 +173,7 @@ function PaymentMethodSection({ hasStripe }: { hasStripe: boolean }) {
     try {
       await setupPayment()
     } catch (err) {
-      console.error("[Billing] Setup payment failed:", err)
+      logger.error("Setup payment failed", err)
     }
   }
 
@@ -199,7 +181,7 @@ function PaymentMethodSection({ hasStripe }: { hasStripe: boolean }) {
     try {
       await openCustomerPortal()
     } catch (err) {
-      console.error("[Billing] Portal open failed:", err)
+      logger.error("Portal open failed", err)
     }
   }
 

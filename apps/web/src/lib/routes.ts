@@ -7,8 +7,17 @@ export function workspaceRoutes(orgSlug: string) {
     events: `/${orgSlug}/events`,
     event: (eventId: string) => `/${orgSlug}/events/${eventId}`,
     insights: `/${orgSlug}/insights`,
+    visibility: `/${orgSlug}/visibility`,
     automations: `/${orgSlug}/automations`,
     integrations: `/${orgSlug}/integrations`,
+    search: `/${orgSlug}/search`,
+    chat: (chatId: string) => `/${orgSlug}/chat/${chatId}`,
+    settings: {
+      root: `/${orgSlug}/settings`,
+      general: `/${orgSlug}/settings/general`,
+      billing: `/${orgSlug}/settings/billing`,
+      members: `/${orgSlug}/settings/members`,
+    },
   } as const
 }
 
@@ -21,9 +30,7 @@ export const routes = {
   request: (owner: string, repo: string) => `/request/${owner}/${repo}`,
   settings: {
     root: "/settings",
-    general: "/settings/general",
     account: "/settings/account",
-    billing: "/settings/billing",
     developers: "/settings/developers",
   },
   api: {

@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { createLogger } from "@tripwire/logger"
 import {
   createFeedbackHandler,
   type FeedbackData,
 } from "@tripwire/feedback/server"
+
+const logger = createLogger("feedback")
 
 const DISCORD_WEBHOOK_URL = process.env.FEEDBACK_WEBHOOK_URL
 
@@ -172,7 +175,7 @@ async function sendToDiscordWebhook(data: FeedbackData) {
     body: formData,
   })
   if (!res.ok) {
-    console.error(`[feedback] Discord webhook error: ${res.statusText}`)
+    logger.error("Discord webhook error", { status: res.status, statusText: res.statusText })
   }
 }
 

@@ -6,9 +6,12 @@
  */
 
 import { useRequest as getNitroRequest } from "nitro/context"
-import { createLogger, type RequestLogger } from "evlog"
+import { createLogger as createWideEventLogger, type RequestLogger } from "evlog"
+import { createLogger } from "@tripwire/logger"
 import { computeCostCents } from "./credit-schema"
 import { autumn } from "@tripwire/auth/autumn"
+
+const logger = createLogger("billing")
 
 interface CreditUsageOptions {
   customerId: string
@@ -40,7 +43,7 @@ export async function trackCreditUsage({
       : (usage.outputTokens?.total ?? 0)
 
   if (promptTokens === 0 && completionTokens === 0) {
-    console.log("[billing] no tokens recorded, skipping")
+    logger.info("no tokens recorded, skipping", { modelId, customerId })
     logAi({
       customerId,
       modelId,
@@ -57,9 +60,13 @@ export async function trackCreditUsage({
   const cents = await computeCostCents(modelId, promptTokens, completionTokens)
   const totalTokens = promptTokens + completionTokens
 
-  console.log(
-    `[billing] ${modelId} | ${promptTokens} input + ${completionTokens} output = ${cents}c charged | context: ${totalTokens} tokens`
-  )
+  logger.info("usage tracked", {
+    modelId,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    costCents: cents,
+  })
 
   logAi({
     customerId,
@@ -88,7 +95,7 @@ export async function trackCreditUsage({
       },
     })
   } catch (err) {
-    console.error("[billing] Failed to track usage:", err)
+    logger.error("Failed to track usage", err)
   }
 }
 
@@ -164,7 +171,7 @@ function logAi({
       (req?.context?.log as unknown as { requestId?: string } | undefined)
         ?.requestId
 
-    const aiLog = createLogger({
+    const aiLog = createWideEventLogger({
       operation: "ai.usage",
       _parentRequestId: parentRequestId,
       user: {

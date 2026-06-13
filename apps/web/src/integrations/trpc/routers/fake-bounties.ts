@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { and, desc, eq, sql } from "drizzle-orm"
-import { authedProcedure } from "../init"
-import { assertRepoOwner } from "@tripwire/core"
+import { orgProcedure } from "../init"
+import { assertRepoBelongsToOrg } from "@tripwire/core"
 import { createFakeBounty } from "@tripwire/core"
 import { db } from "@tripwire/db/client"
 import {
@@ -14,10 +14,10 @@ import type { TRPCRouterRecord } from "@trpc/server"
 
 export const fakeBountiesRouter = {
   /** Get fake bounty config for a repo */
-  getConfig: authedProcedure
+  getConfig: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [config] = await db
         .select()
         .from(fakeBountyConfigs)
@@ -28,7 +28,7 @@ export const fakeBountiesRouter = {
     }),
 
   /** Update fake bounty config */
-  updateConfig: authedProcedure
+  updateConfig: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -40,7 +40,7 @@ export const fakeBountiesRouter = {
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const { repoId, ...updates } = input
       const setFields: Record<string, unknown> = { updatedAt: new Date() }
@@ -76,16 +76,16 @@ export const fakeBountiesRouter = {
     }),
 
   /** Manually create a fake bounty issue */
-  create: authedProcedure
+  create: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const result = await createFakeBounty(input.repoId)
       return result
     }),
 
   /** List fake bounties for a repo */
-  list: authedProcedure
+  list: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -93,7 +93,7 @@ export const fakeBountiesRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const conds = [eq(fakeBounties.repoId, input.repoId)]
       if (input.status) conds.push(eq(fakeBounties.status, input.status))
       return db
@@ -104,7 +104,7 @@ export const fakeBountiesRouter = {
     }),
 
   /** List catches for a repo */
-  catches: authedProcedure
+  catches: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -112,7 +112,7 @@ export const fakeBountiesRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       return db
         .select()
         .from(fakeBountyCatches)
@@ -122,10 +122,10 @@ export const fakeBountiesRouter = {
     }),
 
   /** Get stats for fake bounty system */
-  stats: authedProcedure
+  stats: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const [bountyCount] = await db
         .select({ count: sql<number>`count(*)::int` })

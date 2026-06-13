@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm"
-import { authedProcedure } from "../init"
-import { assertRepoOwner, logEvent } from "@tripwire/core"
+import { orgProcedure } from "../init"
+import { assertRepoBelongsToOrg, logEvent } from "@tripwire/core"
 import { trpcError } from "../error"
 import { db } from "@tripwire/db/client"
 import {
@@ -102,7 +102,7 @@ const BULK_ACTIONS = {
 type BulkActionKey = keyof typeof BULK_ACTIONS
 
 export const visibilityRouter = {
-  listContributors: authedProcedure
+  listContributors: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -118,7 +118,7 @@ export const visibilityRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const conditions = [eq(githubReputation.repoId, input.repoId)]
       if (input.search) {
@@ -209,7 +209,7 @@ export const visibilityRouter = {
       }
     }),
 
-  bulkAction: authedProcedure
+  bulkAction: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -223,7 +223,7 @@ export const visibilityRouter = {
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const config = BULK_ACTIONS[input.action satisfies BulkActionKey]
 
@@ -285,7 +285,7 @@ export const visibilityRouter = {
       return { count: affected.length }
     }),
 
-  suggestedWhitelist: authedProcedure
+  suggestedWhitelist: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -294,7 +294,7 @@ export const visibilityRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const myGithubUserId = await getCurrentUserGithubId(ctx.user.id)
 
       const rows = await db
@@ -338,7 +338,7 @@ export const visibilityRouter = {
         }))
     }),
 
-  riskAlerts: authedProcedure
+  riskAlerts: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -348,7 +348,7 @@ export const visibilityRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const myGithubUserId = await getCurrentUserGithubId(ctx.user.id)
 
       const since = new Date()
@@ -394,10 +394,10 @@ export const visibilityRouter = {
       }))
     }),
 
-  syncStatus: authedProcedure
+  syncStatus: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [latest] = await db
         .select({
           id: visibilitySyncRuns.id,
@@ -415,10 +415,10 @@ export const visibilityRouter = {
       return { lastRun: latest ?? null }
     }),
 
-  requestSync: authedProcedure
+  requestSync: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const [active] = await db
         .select({ id: visibilitySyncRuns.id })

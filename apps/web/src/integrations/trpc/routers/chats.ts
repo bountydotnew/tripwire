@@ -1,7 +1,7 @@
 import { z } from "zod"
 import type { UIMessage } from "ai"
 import { eq, and, desc } from "drizzle-orm"
-import { assertRepoOwner, authedProcedure } from "../init"
+import { assertRepoBelongsToOrg, orgProcedure } from "../init"
 import { db } from "@tripwire/db/client"
 import { conversations } from "@tripwire/db"
 import type { TRPCRouterRecord } from "@trpc/server"
@@ -60,9 +60,16 @@ function helpMessage() {
   }
 }
 
+/**
+ * Upserts a chat's messages within the (user, org) scope. Conflict
+ * target is the chat id, but the `setWhere` clause prevents one user
+ * from overwriting another user's chat that happens to share an id
+ * (or one org's chat from another org's, after the org-scoping migration).
+ */
 async function upsertMessages(
   chatId: string,
   userId: string,
+  orgId: string,
   repoId: string | undefined | null,
   messages: unknown[],
   title: string
@@ -73,6 +80,7 @@ async function upsertMessages(
     .values({
       id: chatId,
       userId,
+      organizationId: orgId,
       repoId: repoId ?? null,
       messages: stored,
       title,
@@ -84,12 +92,24 @@ async function upsertMessages(
         ...(title ? { title } : {}),
         updatedAt: new Date(),
       },
-      setWhere: eq(conversations.userId, userId),
+      setWhere: and(
+        eq(conversations.userId, userId),
+        eq(conversations.organizationId, orgId)
+      ),
     })
 }
 
+/** Composable WHERE clause for "this chat, owned by the active session user+org". */
+function chatScope(chatId: string, userId: string, orgId: string) {
+  return and(
+    eq(conversations.id, chatId),
+    eq(conversations.userId, userId),
+    eq(conversations.organizationId, orgId)
+  )
+}
+
 export const chatsRouter = {
-  create: authedProcedure
+  create: orgProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -102,6 +122,7 @@ export const chatsRouter = {
         .values({
           id: input.id,
           userId: ctx.user.id,
+          organizationId: ctx.activeOrgId,
           repoId: input.repoId ?? null,
         })
         .onConflictDoNothing()
@@ -109,23 +130,18 @@ export const chatsRouter = {
       return conv ?? null
     }),
 
-  get: authedProcedure
+  get: orgProcedure
     .input(z.object({ chatId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
       const [conv] = await db
         .select()
         .from(conversations)
-        .where(
-          and(
-            eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id)
-          )
-        )
+        .where(chatScope(input.chatId, ctx.user.id, ctx.activeOrgId))
         .limit(1)
       return conv ?? null
     }),
 
-  saveMessages: authedProcedure
+  saveMessages: orgProcedure
     .input(
       z.object({
         chatId: z.string().uuid(),
@@ -140,12 +156,7 @@ export const chatsRouter = {
       const [existing] = await db
         .select({ messages: conversations.messages })
         .from(conversations)
-        .where(
-          and(
-            eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id)
-          )
-        )
+        .where(chatScope(input.chatId, ctx.user.id, ctx.activeOrgId))
         .limit(1)
 
       const merged = mergeMessagesPreservingResults(
@@ -158,6 +169,7 @@ export const chatsRouter = {
         .values({
           id: input.chatId,
           userId: ctx.user.id,
+          organizationId: ctx.activeOrgId,
           repoId: input.repoId ?? null,
           messages: asConversationStoredMessages(merged),
           title: input.title ?? "New chat",
@@ -169,11 +181,14 @@ export const chatsRouter = {
             ...(input.title ? { title: input.title } : {}),
             updatedAt: new Date(),
           },
-          setWhere: eq(conversations.userId, ctx.user.id),
+          setWhere: and(
+            eq(conversations.userId, ctx.user.id),
+            eq(conversations.organizationId, ctx.activeOrgId)
+          ),
         })
     }),
 
-  runSlashCommand: authedProcedure
+  runSlashCommand: orgProcedure
     .input(
       z.object({
         chatId: z.string().uuid(),
@@ -202,12 +217,7 @@ export const chatsRouter = {
           messages: conversations.messages,
         })
         .from(conversations)
-        .where(
-          and(
-            eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id)
-          )
-        )
+        .where(chatScope(input.chatId, ctx.user.id, ctx.activeOrgId))
         .limit(1)
 
       const repoId = existing?.repoId ?? input.repoId
@@ -222,6 +232,7 @@ export const chatsRouter = {
           await upsertMessages(
             input.chatId,
             ctx.user.id,
+            ctx.activeOrgId,
             repoId,
             [],
             "New chat"
@@ -251,7 +262,7 @@ export const chatsRouter = {
           if (!resolvedRepoId) {
             throw new Error("Select a repository before running this command.")
           }
-          await assertRepoOwner(ctx.user.id, resolvedRepoId)
+          await assertRepoBelongsToOrg(resolvedRepoId, ctx.activeOrgId)
         }
 
         const toolArgs = command.buildArgs(args)
@@ -262,6 +273,7 @@ export const chatsRouter = {
           const spec = await runToolForChat(tool, parsedArgs.data, {
             userId: ctx.user.id,
             userName: ctx.user.name ?? ctx.user.email ?? undefined,
+            orgId: ctx.activeOrgId,
             repoId: resolvedRepoId,
           })
           appended = [
@@ -298,6 +310,7 @@ export const chatsRouter = {
       await upsertMessages(
         input.chatId,
         ctx.user.id,
+        ctx.activeOrgId,
         repoId,
         nextMessages,
         slashSyncTitle
@@ -306,7 +319,7 @@ export const chatsRouter = {
       return { messages: appended, replace: false }
     }),
 
-  appendSlashMessages: authedProcedure
+  appendSlashMessages: orgProcedure
     .input(
       z.object({
         chatId: z.string().uuid(),
@@ -321,12 +334,7 @@ export const chatsRouter = {
           messages: conversations.messages,
         })
         .from(conversations)
-        .where(
-          and(
-            eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id)
-          )
-        )
+        .where(chatScope(input.chatId, ctx.user.id, ctx.activeOrgId))
         .limit(1)
 
       const knownIds = new Set(
@@ -349,13 +357,14 @@ export const chatsRouter = {
       await upsertMessages(
         input.chatId,
         ctx.user.id,
+        ctx.activeOrgId,
         existing?.repoId ?? input.repoId,
         nextMessages,
         appendSyncTitle
       )
     }),
 
-  list: authedProcedure
+  list: orgProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(50).default(20),
@@ -363,7 +372,10 @@ export const chatsRouter = {
       })
     )
     .query(async ({ input, ctx }) => {
-      const conditions = [eq(conversations.userId, ctx.user.id)]
+      const conditions = [
+        eq(conversations.userId, ctx.user.id),
+        eq(conversations.organizationId, ctx.activeOrgId),
+      ]
       if (input.repoId) {
         conditions.push(eq(conversations.repoId, input.repoId))
       }
@@ -381,7 +393,7 @@ export const chatsRouter = {
         .limit(input.limit)
     }),
 
-  generateTitle: authedProcedure
+  generateTitle: orgProcedure
     .input(
       z.object({
         chatId: z.string().uuid(),
@@ -425,15 +437,10 @@ export const chatsRouter = {
         await db
           .update(conversations)
           .set({ title, updatedAt: new Date() })
-          .where(
-            and(
-              eq(conversations.id, input.chatId),
-              eq(conversations.userId, ctx.user.id)
-            )
-          )
+          .where(chatScope(input.chatId, ctx.user.id, ctx.activeOrgId))
 
         void trackCreditUsage({
-          customerId: ctx.user.id,
+          customerId: ctx.activeOrgId,
           modelId,
           usage: result.usage,
         })
@@ -444,20 +451,22 @@ export const chatsRouter = {
       }
     }),
 
-  delete: authedProcedure
+  delete: orgProcedure
     .input(z.object({ chatId: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       await db
         .delete(conversations)
-        .where(
-          and(
-            eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id)
-          )
-        )
+        .where(chatScope(input.chatId, ctx.user.id, ctx.activeOrgId))
     }),
 
-  deleteAll: authedProcedure.mutation(async ({ ctx }) => {
-    await db.delete(conversations).where(eq(conversations.userId, ctx.user.id))
+  deleteAll: orgProcedure.mutation(async ({ ctx }) => {
+    await db
+      .delete(conversations)
+      .where(
+        and(
+          eq(conversations.userId, ctx.user.id),
+          eq(conversations.organizationId, ctx.activeOrgId)
+        )
+      )
   }),
 } satisfies TRPCRouterRecord

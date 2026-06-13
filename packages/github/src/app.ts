@@ -10,8 +10,11 @@
 import { SignJWT, importPKCS8 } from "jose"
 import * as crypto from "crypto"
 import { createError } from "evlog"
+import { createLogger } from "@tripwire/logger"
 import { env } from "@tripwire/env/server"
 import { createGitHubRequestSignal } from "./request"
+
+const logger = createLogger("GitHub")
 
 // Cache installation tokens: installationId -> { token, expiresAt }
 const tokenCache = new Map<number, { token: string; expiresAt: number }>()
@@ -82,9 +85,10 @@ export async function deleteInstallation(
     }
   )
   if (!res.ok && res.status !== 404) {
-    console.error(
-      `[github] Failed to delete installation ${installationId}: ${res.status}`
-    )
+    logger.error("Failed to delete installation", {
+      installationId,
+      status: res.status,
+    })
   }
 }
 
@@ -221,7 +225,7 @@ export async function closePullRequest(
 ) {
   // Post comment first so it appears in the timeline
   if (comment) {
-    console.log(`[GitHub] Posting comment to PR #${prNumber}...`)
+    logger.info("posting comment to PR", { owner, repo, prNumber })
     try {
       await githubApi(
         `/repos/${owner}/${repo}/issues/${prNumber}/comments`,
@@ -231,13 +235,13 @@ export async function closePullRequest(
           body: JSON.stringify({ body: comment }),
         }
       )
-      console.log(`[GitHub] ✓ Comment posted to PR #${prNumber}`)
+      logger.info("comment posted to PR", { owner, repo, prNumber })
     } catch (err) {
-      console.error(`[GitHub] ✗ Failed to post comment:`, err)
+      logger.error("failed to post PR comment", err)
     }
   }
 
-  console.log(`[GitHub] Closing PR #${prNumber}...`)
+  logger.info("closing PR", { owner, repo, prNumber })
   return githubApi(`/repos/${owner}/${repo}/pulls/${prNumber}`, token, {
     method: "PATCH",
     body: JSON.stringify({ state: "closed" }),
@@ -286,7 +290,7 @@ export async function closeIssue(
 ) {
   // Post comment first so it appears in the timeline
   if (comment) {
-    console.log(`[GitHub] Posting comment to issue #${issueNumber}...`)
+    logger.info("posting comment to issue", { owner, repo, issueNumber })
     try {
       await githubApi(
         `/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
@@ -296,13 +300,13 @@ export async function closeIssue(
           body: JSON.stringify({ body: comment }),
         }
       )
-      console.log(`[GitHub] ✓ Comment posted to issue #${issueNumber}`)
+      logger.info("comment posted to issue", { owner, repo, issueNumber })
     } catch (err) {
-      console.error(`[GitHub] ✗ Failed to post comment:`, err)
+      logger.error("failed to post issue comment", err)
     }
   }
 
-  console.log(`[GitHub] Closing issue #${issueNumber}...`)
+  logger.info("closing issue", { owner, repo, issueNumber })
   return githubApi(`/repos/${owner}/${repo}/issues/${issueNumber}`, token, {
     method: "PATCH",
     body: JSON.stringify({ state: "closed", state_reason: "not_planned" }),

@@ -7,7 +7,10 @@ import {
   type EventContentType,
 } from "@tripwire/db"
 import { sql } from "drizzle-orm"
+import { createLogger } from "@tripwire/logger"
 import { isBotOrGhost } from "./contributor-identity"
+
+const logger = createLogger("Events")
 
 interface LogEventOptions {
   repoId: string
@@ -79,7 +82,7 @@ export async function logEvent(options: LogEventOptions) {
 
     updateReputation(options).catch(() => {})
   } catch (err) {
-    console.error("[Events] Failed to log event:", err)
+    logger.error("Failed to log event", err)
   }
 }
 
@@ -114,7 +117,7 @@ export async function logEvents(eventList: LogEventOptions[]) {
       updateReputation(e).catch(() => {})
     }
   } catch (err) {
-    console.error("[Events] Failed to log batch events:", err)
+    logger.error("Failed to log batch events", err)
   }
 }
 
@@ -195,6 +198,6 @@ async function updateReputation(options: LogEventOptions) {
       }
     }
   } catch (err) {
-    console.error("[Events] Failed to update reputation:", err)
+    logger.error("Failed to update reputation", err)
   }
 }

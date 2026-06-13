@@ -33,7 +33,7 @@ import type { EventAction, TripwireEvent } from "#/types/home"
 
 export function HomePage() {
   const { user } = useAuth()
-  const { repo } = useWorkspace()
+  const { org, repo } = useWorkspace()
   const eventsPath = useWorkspacePath("events")
   const rulesPath = useWorkspacePath("rules")
   const integrationsPath = useWorkspacePath("integrations")
@@ -106,11 +106,17 @@ export function HomePage() {
   }
 
   const handleOpenEvent = (event: TripwireEvent) => {
-    // Navigate to event detail page
+    // Navigate to the org-scoped event detail page. Using the non-scoped
+    // `/events/$eventId` (now deleted) bounced through `useOrgRedirect`,
+    // which read the last-saved org pref — letting a stale active-org
+    // selection silently drag the user into the wrong workspace.
     const eventId =
       (event as TripwireEvent & { _eventId?: string })._eventId || event.id
-    // Use type assertion for dynamic route until types are regenerated
-    navigate({ to: "/events/$eventId" as const, params: { eventId } } as never)
+    if (!org?.slug) return
+    navigate({
+      to: "/$orgHandle/events/$eventId",
+      params: { orgHandle: org.slug, eventId },
+    })
   }
 
   const userName = user?.name?.split(" ")[0] || "there"

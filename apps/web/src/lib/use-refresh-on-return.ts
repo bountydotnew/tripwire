@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
+import { createLogger } from "@tripwire/logger"
+
+const logger = createLogger("useRefreshOnReturn")
 
 /**
  * Watches for the user returning to the tab after navigating away (e.g.
@@ -58,7 +61,7 @@ export function useRefreshOnReturn({
     try {
       await refreshRef.current()
     } catch (err) {
-      console.error("[useRefreshOnReturn] refresh failed:", err)
+      logger.error("refresh failed", err)
     }
   }, [])
 

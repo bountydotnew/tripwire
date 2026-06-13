@@ -20,18 +20,11 @@ import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as ApiInngestRouteImport } from './routes/api/inngest'
 import { Route as ApiFeedbackRouteImport } from './routes/api/feedback'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
-import { Route as AppVisibilityRouteImport } from './routes/_app/visibility'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppSearchRouteImport } from './routes/_app/search'
-import { Route as AppRulesRouteImport } from './routes/_app/rules'
-import { Route as AppIntegrationsRouteImport } from './routes/_app/integrations'
-import { Route as AppInsightsRouteImport } from './routes/_app/insights'
-import { Route as AppHomeRouteImport } from './routes/_app/home'
-import { Route as AppAutomationsRouteImport } from './routes/_app/automations'
 import { Route as AppOrgHandleRouteImport } from './routes/_app/$orgHandle'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotwellKnownChar93OauthAuthorizationServerRouteImport } from './routes/[.well-known]/oauth-authorization-server'
-import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AdminAdminIndexRouteImport } from './routes/_admin/admin/index'
 import { Route as RequestOwnerRepoRouteImport } from './routes/request.$owner.$repo'
 import { Route as OnboardingStep4RouteImport } from './routes/onboarding/step.4'
@@ -47,11 +40,8 @@ import { Route as ApiGithubInstallRouteImport } from './routes/api/github/instal
 import { Route as ApiGithubCallbackRouteImport } from './routes/api/github/callback'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppUsersUsernameRouteImport } from './routes/_app/users/$username'
-import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/general'
 import { Route as AppSettingsDevelopersRouteImport } from './routes/_app/settings/developers'
-import { Route as AppSettingsBillingRouteImport } from './routes/_app/settings/billing'
 import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/account'
-import { Route as AppEventsEventIdRouteImport } from './routes/_app/events/$eventId'
 import { Route as AppChatChatIdRouteImport } from './routes/_app/chat/$chatId'
 import { Route as AppOrgHandleVisibilityRouteImport } from './routes/_app/$orgHandle/visibility'
 import { Route as AppOrgHandleSettingsRouteImport } from './routes/_app/$orgHandle/settings'
@@ -67,6 +57,9 @@ import { Route as AppOrgHandleEventsIndexRouteImport } from './routes/_app/$orgH
 import { Route as AppOrgHandleAutomationsIndexRouteImport } from './routes/_app/$orgHandle/automations/index'
 import { Route as AdminAdminResearchIndexRouteImport } from './routes/_admin/admin/research/index'
 import { Route as ApiGithubSignalsStreamRouteImport } from './routes/api/github/signals/stream'
+import { Route as AppOrgHandleSettingsMembersRouteImport } from './routes/_app/$orgHandle/settings/members'
+import { Route as AppOrgHandleSettingsGeneralRouteImport } from './routes/_app/$orgHandle/settings/general'
+import { Route as AppOrgHandleSettingsBillingRouteImport } from './routes/_app/$orgHandle/settings/billing'
 import { Route as AppOrgHandleRulesWorkflowsRouteImport } from './routes/_app/$orgHandle/rules/workflows'
 import { Route as AppOrgHandleRulesRequestsRouteImport } from './routes/_app/$orgHandle/rules/requests'
 import { Route as AppOrgHandleRulesPeopleRouteImport } from './routes/_app/$orgHandle/rules/people'
@@ -135,11 +128,6 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppVisibilityRoute = AppVisibilityRouteImport.update({
-  id: '/visibility',
-  path: '/visibility',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -148,31 +136,6 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const AppSearchRoute = AppSearchRouteImport.update({
   id: '/search',
   path: '/search',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppRulesRoute = AppRulesRouteImport.update({
-  id: '/rules',
-  path: '/rules',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
-  id: '/integrations',
-  path: '/integrations',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppInsightsRoute = AppInsightsRouteImport.update({
-  id: '/insights',
-  path: '/insights',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppHomeRoute = AppHomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAutomationsRoute = AppAutomationsRouteImport.update({
-  id: '/automations',
-  path: '/automations',
   getParentRoute: () => AppRoute,
 } as any)
 const AppOrgHandleRoute = AppOrgHandleRouteImport.update({
@@ -192,11 +155,6 @@ const Char91DotwellKnownChar93OauthAuthorizationServerRoute =
     path: '/.well-known/oauth-authorization-server',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AppEventsIndexRoute = AppEventsIndexRouteImport.update({
-  id: '/events/',
-  path: '/events/',
-  getParentRoute: () => AppRoute,
-} as any)
 const AdminAdminIndexRoute = AdminAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -272,30 +230,15 @@ const AppUsersUsernameRoute = AppUsersUsernameRouteImport.update({
   path: '/users/$username',
   getParentRoute: () => AppRoute,
 } as any)
-const AppSettingsGeneralRoute = AppSettingsGeneralRouteImport.update({
-  id: '/general',
-  path: '/general',
-  getParentRoute: () => AppSettingsRoute,
-} as any)
 const AppSettingsDevelopersRoute = AppSettingsDevelopersRouteImport.update({
   id: '/developers',
   path: '/developers',
-  getParentRoute: () => AppSettingsRoute,
-} as any)
-const AppSettingsBillingRoute = AppSettingsBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
   getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppSettingsAccountRoute = AppSettingsAccountRouteImport.update({
   id: '/account',
   path: '/account',
   getParentRoute: () => AppSettingsRoute,
-} as any)
-const AppEventsEventIdRoute = AppEventsEventIdRouteImport.update({
-  id: '/events/$eventId',
-  path: '/events/$eventId',
-  getParentRoute: () => AppRoute,
 } as any)
 const AppChatChatIdRoute = AppChatChatIdRouteImport.update({
   id: '/chat/$chatId',
@@ -376,6 +319,24 @@ const ApiGithubSignalsStreamRoute = ApiGithubSignalsStreamRouteImport.update({
   path: '/api/github/signals/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppOrgHandleSettingsMembersRoute =
+  AppOrgHandleSettingsMembersRouteImport.update({
+    id: '/members',
+    path: '/members',
+    getParentRoute: () => AppOrgHandleSettingsRoute,
+  } as any)
+const AppOrgHandleSettingsGeneralRoute =
+  AppOrgHandleSettingsGeneralRouteImport.update({
+    id: '/general',
+    path: '/general',
+    getParentRoute: () => AppOrgHandleSettingsRoute,
+  } as any)
+const AppOrgHandleSettingsBillingRoute =
+  AppOrgHandleSettingsBillingRouteImport.update({
+    id: '/billing',
+    path: '/billing',
+    getParentRoute: () => AppOrgHandleSettingsRoute,
+  } as any)
 const AppOrgHandleRulesWorkflowsRoute =
   AppOrgHandleRulesWorkflowsRouteImport.update({
     id: '/workflows',
@@ -464,14 +425,8 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-authorization-server': typeof Char91DotwellKnownChar93OauthAuthorizationServerRouteWithChildren
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   '/$orgHandle': typeof AppOrgHandleRouteWithChildren
-  '/automations': typeof AppAutomationsRoute
-  '/home': typeof AppHomeRoute
-  '/insights': typeof AppInsightsRoute
-  '/integrations': typeof AppIntegrationsRoute
-  '/rules': typeof AppRulesRoute
   '/search': typeof AppSearchRoute
   '/settings': typeof AppSettingsRouteWithChildren
-  '/visibility': typeof AppVisibilityRoute
   '/api/chat': typeof ApiChatRoute
   '/api/feedback': typeof ApiFeedbackRoute
   '/api/inngest': typeof ApiInngestRoute
@@ -484,14 +439,11 @@ export interface FileRoutesByFullPath {
   '/$orgHandle/home': typeof AppOrgHandleHomeRoute
   '/$orgHandle/insights': typeof AppOrgHandleInsightsRoute
   '/$orgHandle/integrations': typeof AppOrgHandleIntegrationsRoute
-  '/$orgHandle/settings': typeof AppOrgHandleSettingsRoute
+  '/$orgHandle/settings': typeof AppOrgHandleSettingsRouteWithChildren
   '/$orgHandle/visibility': typeof AppOrgHandleVisibilityRoute
   '/chat/$chatId': typeof AppChatChatIdRoute
-  '/events/$eventId': typeof AppEventsEventIdRoute
   '/settings/account': typeof AppSettingsAccountRoute
-  '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/developers': typeof AppSettingsDevelopersRoute
-  '/settings/general': typeof AppSettingsGeneralRoute
   '/users/$username': typeof AppUsersUsernameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
@@ -507,7 +459,6 @@ export interface FileRoutesByFullPath {
   '/onboarding/step/4': typeof OnboardingStep4Route
   '/request/$owner/$repo': typeof RequestOwnerRepoRoute
   '/admin/': typeof AdminAdminIndexRoute
-  '/events/': typeof AppEventsIndexRoute
   '/admin/research/$runId': typeof AdminAdminResearchRunIdRoute
   '/admin/research/new': typeof AdminAdminResearchNewRoute
   '/$orgHandle/automations/$automationId': typeof AppOrgHandleAutomationsAutomationIdRoute
@@ -520,6 +471,9 @@ export interface FileRoutesByFullPath {
   '/$orgHandle/rules/people': typeof AppOrgHandleRulesPeopleRoute
   '/$orgHandle/rules/requests': typeof AppOrgHandleRulesRequestsRoute
   '/$orgHandle/rules/workflows': typeof AppOrgHandleRulesWorkflowsRoute
+  '/$orgHandle/settings/billing': typeof AppOrgHandleSettingsBillingRoute
+  '/$orgHandle/settings/general': typeof AppOrgHandleSettingsGeneralRoute
+  '/$orgHandle/settings/members': typeof AppOrgHandleSettingsMembersRoute
   '/api/github/signals/stream': typeof ApiGithubSignalsStreamRoute
   '/admin/research/': typeof AdminAdminResearchIndexRoute
   '/$orgHandle/automations/': typeof AppOrgHandleAutomationsIndexRoute
@@ -536,14 +490,8 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-authorization-server': typeof Char91DotwellKnownChar93OauthAuthorizationServerRouteWithChildren
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   '/$orgHandle': typeof AppOrgHandleRouteWithChildren
-  '/automations': typeof AppAutomationsRoute
-  '/home': typeof AppHomeRoute
-  '/insights': typeof AppInsightsRoute
-  '/integrations': typeof AppIntegrationsRoute
-  '/rules': typeof AppRulesRoute
   '/search': typeof AppSearchRoute
   '/settings': typeof AppSettingsRouteWithChildren
-  '/visibility': typeof AppVisibilityRoute
   '/api/chat': typeof ApiChatRoute
   '/api/feedback': typeof ApiFeedbackRoute
   '/api/inngest': typeof ApiInngestRoute
@@ -555,14 +503,11 @@ export interface FileRoutesByTo {
   '/$orgHandle/home': typeof AppOrgHandleHomeRoute
   '/$orgHandle/insights': typeof AppOrgHandleInsightsRoute
   '/$orgHandle/integrations': typeof AppOrgHandleIntegrationsRoute
-  '/$orgHandle/settings': typeof AppOrgHandleSettingsRoute
+  '/$orgHandle/settings': typeof AppOrgHandleSettingsRouteWithChildren
   '/$orgHandle/visibility': typeof AppOrgHandleVisibilityRoute
   '/chat/$chatId': typeof AppChatChatIdRoute
-  '/events/$eventId': typeof AppEventsEventIdRoute
   '/settings/account': typeof AppSettingsAccountRoute
-  '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/developers': typeof AppSettingsDevelopersRoute
-  '/settings/general': typeof AppSettingsGeneralRoute
   '/users/$username': typeof AppUsersUsernameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
@@ -578,7 +523,6 @@ export interface FileRoutesByTo {
   '/onboarding/step/4': typeof OnboardingStep4Route
   '/request/$owner/$repo': typeof RequestOwnerRepoRoute
   '/admin': typeof AdminAdminIndexRoute
-  '/events': typeof AppEventsIndexRoute
   '/admin/research/$runId': typeof AdminAdminResearchRunIdRoute
   '/admin/research/new': typeof AdminAdminResearchNewRoute
   '/$orgHandle/automations/$automationId': typeof AppOrgHandleAutomationsAutomationIdRoute
@@ -591,6 +535,9 @@ export interface FileRoutesByTo {
   '/$orgHandle/rules/people': typeof AppOrgHandleRulesPeopleRoute
   '/$orgHandle/rules/requests': typeof AppOrgHandleRulesRequestsRoute
   '/$orgHandle/rules/workflows': typeof AppOrgHandleRulesWorkflowsRoute
+  '/$orgHandle/settings/billing': typeof AppOrgHandleSettingsBillingRoute
+  '/$orgHandle/settings/general': typeof AppOrgHandleSettingsGeneralRoute
+  '/$orgHandle/settings/members': typeof AppOrgHandleSettingsMembersRoute
   '/api/github/signals/stream': typeof ApiGithubSignalsStreamRoute
   '/admin/research': typeof AdminAdminResearchIndexRoute
   '/$orgHandle/automations': typeof AppOrgHandleAutomationsIndexRoute
@@ -610,14 +557,8 @@ export interface FileRoutesById {
   '/.well-known/oauth-authorization-server': typeof Char91DotwellKnownChar93OauthAuthorizationServerRouteWithChildren
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   '/_app/$orgHandle': typeof AppOrgHandleRouteWithChildren
-  '/_app/automations': typeof AppAutomationsRoute
-  '/_app/home': typeof AppHomeRoute
-  '/_app/insights': typeof AppInsightsRoute
-  '/_app/integrations': typeof AppIntegrationsRoute
-  '/_app/rules': typeof AppRulesRoute
   '/_app/search': typeof AppSearchRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
-  '/_app/visibility': typeof AppVisibilityRoute
   '/api/chat': typeof ApiChatRoute
   '/api/feedback': typeof ApiFeedbackRoute
   '/api/inngest': typeof ApiInngestRoute
@@ -630,14 +571,11 @@ export interface FileRoutesById {
   '/_app/$orgHandle/home': typeof AppOrgHandleHomeRoute
   '/_app/$orgHandle/insights': typeof AppOrgHandleInsightsRoute
   '/_app/$orgHandle/integrations': typeof AppOrgHandleIntegrationsRoute
-  '/_app/$orgHandle/settings': typeof AppOrgHandleSettingsRoute
+  '/_app/$orgHandle/settings': typeof AppOrgHandleSettingsRouteWithChildren
   '/_app/$orgHandle/visibility': typeof AppOrgHandleVisibilityRoute
   '/_app/chat/$chatId': typeof AppChatChatIdRoute
-  '/_app/events/$eventId': typeof AppEventsEventIdRoute
   '/_app/settings/account': typeof AppSettingsAccountRoute
-  '/_app/settings/billing': typeof AppSettingsBillingRoute
   '/_app/settings/developers': typeof AppSettingsDevelopersRoute
-  '/_app/settings/general': typeof AppSettingsGeneralRoute
   '/_app/users/$username': typeof AppUsersUsernameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
@@ -653,7 +591,6 @@ export interface FileRoutesById {
   '/onboarding/step/4': typeof OnboardingStep4Route
   '/request/$owner/$repo': typeof RequestOwnerRepoRoute
   '/_admin/admin/': typeof AdminAdminIndexRoute
-  '/_app/events/': typeof AppEventsIndexRoute
   '/_admin/admin/research/$runId': typeof AdminAdminResearchRunIdRoute
   '/_admin/admin/research/new': typeof AdminAdminResearchNewRoute
   '/_app/$orgHandle/automations/$automationId': typeof AppOrgHandleAutomationsAutomationIdRoute
@@ -666,6 +603,9 @@ export interface FileRoutesById {
   '/_app/$orgHandle/rules/people': typeof AppOrgHandleRulesPeopleRoute
   '/_app/$orgHandle/rules/requests': typeof AppOrgHandleRulesRequestsRoute
   '/_app/$orgHandle/rules/workflows': typeof AppOrgHandleRulesWorkflowsRoute
+  '/_app/$orgHandle/settings/billing': typeof AppOrgHandleSettingsBillingRoute
+  '/_app/$orgHandle/settings/general': typeof AppOrgHandleSettingsGeneralRoute
+  '/_app/$orgHandle/settings/members': typeof AppOrgHandleSettingsMembersRoute
   '/api/github/signals/stream': typeof ApiGithubSignalsStreamRoute
   '/_admin/admin/research/': typeof AdminAdminResearchIndexRoute
   '/_app/$orgHandle/automations/': typeof AppOrgHandleAutomationsIndexRoute
@@ -684,14 +624,8 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-authorization-server'
     | '/.well-known/oauth-protected-resource'
     | '/$orgHandle'
-    | '/automations'
-    | '/home'
-    | '/insights'
-    | '/integrations'
-    | '/rules'
     | '/search'
     | '/settings'
-    | '/visibility'
     | '/api/chat'
     | '/api/feedback'
     | '/api/inngest'
@@ -707,11 +641,8 @@ export interface FileRouteTypes {
     | '/$orgHandle/settings'
     | '/$orgHandle/visibility'
     | '/chat/$chatId'
-    | '/events/$eventId'
     | '/settings/account'
-    | '/settings/billing'
     | '/settings/developers'
-    | '/settings/general'
     | '/users/$username'
     | '/api/auth/$'
     | '/api/github/callback'
@@ -727,7 +658,6 @@ export interface FileRouteTypes {
     | '/onboarding/step/4'
     | '/request/$owner/$repo'
     | '/admin/'
-    | '/events/'
     | '/admin/research/$runId'
     | '/admin/research/new'
     | '/$orgHandle/automations/$automationId'
@@ -740,6 +670,9 @@ export interface FileRouteTypes {
     | '/$orgHandle/rules/people'
     | '/$orgHandle/rules/requests'
     | '/$orgHandle/rules/workflows'
+    | '/$orgHandle/settings/billing'
+    | '/$orgHandle/settings/general'
+    | '/$orgHandle/settings/members'
     | '/api/github/signals/stream'
     | '/admin/research/'
     | '/$orgHandle/automations/'
@@ -756,14 +689,8 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-authorization-server'
     | '/.well-known/oauth-protected-resource'
     | '/$orgHandle'
-    | '/automations'
-    | '/home'
-    | '/insights'
-    | '/integrations'
-    | '/rules'
     | '/search'
     | '/settings'
-    | '/visibility'
     | '/api/chat'
     | '/api/feedback'
     | '/api/inngest'
@@ -778,11 +705,8 @@ export interface FileRouteTypes {
     | '/$orgHandle/settings'
     | '/$orgHandle/visibility'
     | '/chat/$chatId'
-    | '/events/$eventId'
     | '/settings/account'
-    | '/settings/billing'
     | '/settings/developers'
-    | '/settings/general'
     | '/users/$username'
     | '/api/auth/$'
     | '/api/github/callback'
@@ -798,7 +722,6 @@ export interface FileRouteTypes {
     | '/onboarding/step/4'
     | '/request/$owner/$repo'
     | '/admin'
-    | '/events'
     | '/admin/research/$runId'
     | '/admin/research/new'
     | '/$orgHandle/automations/$automationId'
@@ -811,6 +734,9 @@ export interface FileRouteTypes {
     | '/$orgHandle/rules/people'
     | '/$orgHandle/rules/requests'
     | '/$orgHandle/rules/workflows'
+    | '/$orgHandle/settings/billing'
+    | '/$orgHandle/settings/general'
+    | '/$orgHandle/settings/members'
     | '/api/github/signals/stream'
     | '/admin/research'
     | '/$orgHandle/automations'
@@ -829,14 +755,8 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-authorization-server'
     | '/.well-known/oauth-protected-resource'
     | '/_app/$orgHandle'
-    | '/_app/automations'
-    | '/_app/home'
-    | '/_app/insights'
-    | '/_app/integrations'
-    | '/_app/rules'
     | '/_app/search'
     | '/_app/settings'
-    | '/_app/visibility'
     | '/api/chat'
     | '/api/feedback'
     | '/api/inngest'
@@ -852,11 +772,8 @@ export interface FileRouteTypes {
     | '/_app/$orgHandle/settings'
     | '/_app/$orgHandle/visibility'
     | '/_app/chat/$chatId'
-    | '/_app/events/$eventId'
     | '/_app/settings/account'
-    | '/_app/settings/billing'
     | '/_app/settings/developers'
-    | '/_app/settings/general'
     | '/_app/users/$username'
     | '/api/auth/$'
     | '/api/github/callback'
@@ -872,7 +789,6 @@ export interface FileRouteTypes {
     | '/onboarding/step/4'
     | '/request/$owner/$repo'
     | '/_admin/admin/'
-    | '/_app/events/'
     | '/_admin/admin/research/$runId'
     | '/_admin/admin/research/new'
     | '/_app/$orgHandle/automations/$automationId'
@@ -885,6 +801,9 @@ export interface FileRouteTypes {
     | '/_app/$orgHandle/rules/people'
     | '/_app/$orgHandle/rules/requests'
     | '/_app/$orgHandle/rules/workflows'
+    | '/_app/$orgHandle/settings/billing'
+    | '/_app/$orgHandle/settings/general'
+    | '/_app/$orgHandle/settings/members'
     | '/api/github/signals/stream'
     | '/_admin/admin/research/'
     | '/_app/$orgHandle/automations/'
@@ -999,13 +918,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/visibility': {
-      id: '/_app/visibility'
-      path: '/visibility'
-      fullPath: '/visibility'
-      preLoaderRoute: typeof AppVisibilityRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
@@ -1018,41 +930,6 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof AppSearchRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/rules': {
-      id: '/_app/rules'
-      path: '/rules'
-      fullPath: '/rules'
-      preLoaderRoute: typeof AppRulesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/integrations': {
-      id: '/_app/integrations'
-      path: '/integrations'
-      fullPath: '/integrations'
-      preLoaderRoute: typeof AppIntegrationsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/insights': {
-      id: '/_app/insights'
-      path: '/insights'
-      fullPath: '/insights'
-      preLoaderRoute: typeof AppInsightsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/home': {
-      id: '/_app/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof AppHomeRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/automations': {
-      id: '/_app/automations'
-      path: '/automations'
-      fullPath: '/automations'
-      preLoaderRoute: typeof AppAutomationsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/$orgHandle': {
@@ -1075,13 +952,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/.well-known/oauth-authorization-server'
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthAuthorizationServerRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_app/events/': {
-      id: '/_app/events/'
-      path: '/events'
-      fullPath: '/events/'
-      preLoaderRoute: typeof AppEventsIndexRouteImport
-      parentRoute: typeof AppRoute
     }
     '/_admin/admin/': {
       id: '/_admin/admin/'
@@ -1188,25 +1058,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUsersUsernameRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/settings/general': {
-      id: '/_app/settings/general'
-      path: '/general'
-      fullPath: '/settings/general'
-      preLoaderRoute: typeof AppSettingsGeneralRouteImport
-      parentRoute: typeof AppSettingsRoute
-    }
     '/_app/settings/developers': {
       id: '/_app/settings/developers'
       path: '/developers'
       fullPath: '/settings/developers'
       preLoaderRoute: typeof AppSettingsDevelopersRouteImport
-      parentRoute: typeof AppSettingsRoute
-    }
-    '/_app/settings/billing': {
-      id: '/_app/settings/billing'
-      path: '/billing'
-      fullPath: '/settings/billing'
-      preLoaderRoute: typeof AppSettingsBillingRouteImport
       parentRoute: typeof AppSettingsRoute
     }
     '/_app/settings/account': {
@@ -1215,13 +1071,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/account'
       preLoaderRoute: typeof AppSettingsAccountRouteImport
       parentRoute: typeof AppSettingsRoute
-    }
-    '/_app/events/$eventId': {
-      id: '/_app/events/$eventId'
-      path: '/events/$eventId'
-      fullPath: '/events/$eventId'
-      preLoaderRoute: typeof AppEventsEventIdRouteImport
-      parentRoute: typeof AppRoute
     }
     '/_app/chat/$chatId': {
       id: '/_app/chat/$chatId'
@@ -1327,6 +1176,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/github/signals/stream'
       preLoaderRoute: typeof ApiGithubSignalsStreamRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/$orgHandle/settings/members': {
+      id: '/_app/$orgHandle/settings/members'
+      path: '/members'
+      fullPath: '/$orgHandle/settings/members'
+      preLoaderRoute: typeof AppOrgHandleSettingsMembersRouteImport
+      parentRoute: typeof AppOrgHandleSettingsRoute
+    }
+    '/_app/$orgHandle/settings/general': {
+      id: '/_app/$orgHandle/settings/general'
+      path: '/general'
+      fullPath: '/$orgHandle/settings/general'
+      preLoaderRoute: typeof AppOrgHandleSettingsGeneralRouteImport
+      parentRoute: typeof AppOrgHandleSettingsRoute
+    }
+    '/_app/$orgHandle/settings/billing': {
+      id: '/_app/$orgHandle/settings/billing'
+      path: '/billing'
+      fullPath: '/$orgHandle/settings/billing'
+      preLoaderRoute: typeof AppOrgHandleSettingsBillingRouteImport
+      parentRoute: typeof AppOrgHandleSettingsRoute
     }
     '/_app/$orgHandle/rules/workflows': {
       id: '/_app/$orgHandle/rules/workflows'
@@ -1497,12 +1367,27 @@ const AppOrgHandleRulesRouteRouteWithChildren =
     AppOrgHandleRulesRouteRouteChildren,
   )
 
+interface AppOrgHandleSettingsRouteChildren {
+  AppOrgHandleSettingsBillingRoute: typeof AppOrgHandleSettingsBillingRoute
+  AppOrgHandleSettingsGeneralRoute: typeof AppOrgHandleSettingsGeneralRoute
+  AppOrgHandleSettingsMembersRoute: typeof AppOrgHandleSettingsMembersRoute
+}
+
+const AppOrgHandleSettingsRouteChildren: AppOrgHandleSettingsRouteChildren = {
+  AppOrgHandleSettingsBillingRoute: AppOrgHandleSettingsBillingRoute,
+  AppOrgHandleSettingsGeneralRoute: AppOrgHandleSettingsGeneralRoute,
+  AppOrgHandleSettingsMembersRoute: AppOrgHandleSettingsMembersRoute,
+}
+
+const AppOrgHandleSettingsRouteWithChildren =
+  AppOrgHandleSettingsRoute._addFileChildren(AppOrgHandleSettingsRouteChildren)
+
 interface AppOrgHandleRouteChildren {
   AppOrgHandleRulesRouteRoute: typeof AppOrgHandleRulesRouteRouteWithChildren
   AppOrgHandleHomeRoute: typeof AppOrgHandleHomeRoute
   AppOrgHandleInsightsRoute: typeof AppOrgHandleInsightsRoute
   AppOrgHandleIntegrationsRoute: typeof AppOrgHandleIntegrationsRoute
-  AppOrgHandleSettingsRoute: typeof AppOrgHandleSettingsRoute
+  AppOrgHandleSettingsRoute: typeof AppOrgHandleSettingsRouteWithChildren
   AppOrgHandleVisibilityRoute: typeof AppOrgHandleVisibilityRoute
   AppOrgHandleAutomationsAutomationIdRoute: typeof AppOrgHandleAutomationsAutomationIdRoute
   AppOrgHandleAutomationsPreviewRoute: typeof AppOrgHandleAutomationsPreviewRoute
@@ -1516,7 +1401,7 @@ const AppOrgHandleRouteChildren: AppOrgHandleRouteChildren = {
   AppOrgHandleHomeRoute: AppOrgHandleHomeRoute,
   AppOrgHandleInsightsRoute: AppOrgHandleInsightsRoute,
   AppOrgHandleIntegrationsRoute: AppOrgHandleIntegrationsRoute,
-  AppOrgHandleSettingsRoute: AppOrgHandleSettingsRoute,
+  AppOrgHandleSettingsRoute: AppOrgHandleSettingsRouteWithChildren,
   AppOrgHandleVisibilityRoute: AppOrgHandleVisibilityRoute,
   AppOrgHandleAutomationsAutomationIdRoute:
     AppOrgHandleAutomationsAutomationIdRoute,
@@ -1532,16 +1417,12 @@ const AppOrgHandleRouteWithChildren = AppOrgHandleRoute._addFileChildren(
 
 interface AppSettingsRouteChildren {
   AppSettingsAccountRoute: typeof AppSettingsAccountRoute
-  AppSettingsBillingRoute: typeof AppSettingsBillingRoute
   AppSettingsDevelopersRoute: typeof AppSettingsDevelopersRoute
-  AppSettingsGeneralRoute: typeof AppSettingsGeneralRoute
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsAccountRoute: AppSettingsAccountRoute,
-  AppSettingsBillingRoute: AppSettingsBillingRoute,
   AppSettingsDevelopersRoute: AppSettingsDevelopersRoute,
-  AppSettingsGeneralRoute: AppSettingsGeneralRoute,
 }
 
 const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
@@ -1550,34 +1431,18 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppOrgHandleRoute: typeof AppOrgHandleRouteWithChildren
-  AppAutomationsRoute: typeof AppAutomationsRoute
-  AppHomeRoute: typeof AppHomeRoute
-  AppInsightsRoute: typeof AppInsightsRoute
-  AppIntegrationsRoute: typeof AppIntegrationsRoute
-  AppRulesRoute: typeof AppRulesRoute
   AppSearchRoute: typeof AppSearchRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
-  AppVisibilityRoute: typeof AppVisibilityRoute
   AppChatChatIdRoute: typeof AppChatChatIdRoute
-  AppEventsEventIdRoute: typeof AppEventsEventIdRoute
   AppUsersUsernameRoute: typeof AppUsersUsernameRoute
-  AppEventsIndexRoute: typeof AppEventsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppOrgHandleRoute: AppOrgHandleRouteWithChildren,
-  AppAutomationsRoute: AppAutomationsRoute,
-  AppHomeRoute: AppHomeRoute,
-  AppInsightsRoute: AppInsightsRoute,
-  AppIntegrationsRoute: AppIntegrationsRoute,
-  AppRulesRoute: AppRulesRoute,
   AppSearchRoute: AppSearchRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
-  AppVisibilityRoute: AppVisibilityRoute,
   AppChatChatIdRoute: AppChatChatIdRoute,
-  AppEventsEventIdRoute: AppEventsEventIdRoute,
   AppUsersUsernameRoute: AppUsersUsernameRoute,
-  AppEventsIndexRoute: AppEventsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

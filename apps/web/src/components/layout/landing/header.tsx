@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import type { AuthClientSession } from "@tripwire/auth/client"
+import { authClient, type AuthClientSession } from "@tripwire/auth/client"
 import { TripwireLogo } from "@tripwire/ui/icons/tripwire-logo"
 
 // The terminal's barrel curvature makes the top edge of the visible screen bow
@@ -37,12 +37,7 @@ export function LandingHeader({ session }: { session: AuthClientSession }) {
             <span className="text-[14px] text-tw-text-secondary">
               Welcome back
             </span>
-            <Link
-              to="/home"
-              className="flex h-7 items-center rounded-lg bg-white px-2.5 text-[14px] font-medium text-black shadow-sm transition-colors hover:bg-white/90"
-            >
-              dashboard
-            </Link>
+            <DashboardLink />
           </>
         ) : (
           <>
@@ -59,5 +54,28 @@ export function LandingHeader({ session }: { session: AuthClientSession }) {
         )}
       </div>
     </div>
+  )
+}
+
+function DashboardLink() {
+  const { data: orgs } = authClient.useListOrganizations()
+  const slug = orgs?.[0]?.slug
+  const className =
+    "flex h-7 items-center rounded-lg bg-white px-2.5 text-[14px] font-medium text-black shadow-sm transition-colors hover:bg-white/90"
+  if (slug) {
+    return (
+      <Link
+        to="/$orgHandle/home"
+        params={{ orgHandle: slug }}
+        className={className}
+      >
+        dashboard
+      </Link>
+    )
+  }
+  return (
+    <Link to="/onboarding" className={className}>
+      dashboard
+    </Link>
   )
 }

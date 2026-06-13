@@ -42,11 +42,22 @@ export type LegacyThinkingPart = {
   text?: string
 }
 
+/**
+ * Synthetic UI-only marker inserted when the user switches the chat's
+ * repo context. Rendered by the chat thread as a divider. Stripped by
+ * `sanitizeMessages` before reaching the model and not persisted.
+ */
+export type ContextSwitchPart = {
+  type: "context-switch"
+  repoName: string
+}
+
 export type MessagePart =
   | UIMessagePart<UIDataTypes, UITools>
   | LegacyToolCallPart
   | LegacyToolResultPart
   | LegacyThinkingPart
+  | ContextSwitchPart
 
 export type ToolCallPart = ToolUIPart | DynamicToolUIPart | LegacyToolCallPart
 export type ToolResultPart = LegacyToolResultPart

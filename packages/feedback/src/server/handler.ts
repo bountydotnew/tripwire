@@ -1,3 +1,7 @@
+import { createLogger } from "@tripwire/logger"
+
+const logger = createLogger("feedback")
+
 export interface FeedbackHandlerConfig {
   onFeedback?: (data: FeedbackData) => void | Promise<void>
 }
@@ -144,7 +148,7 @@ export function createFeedbackHandler(config: FeedbackHandlerConfig) {
         headers: { "Content-Type": "application/json" },
       })
     } catch (error) {
-      console.error("[feedback] Error processing feedback:", error)
+      logger.error("Error processing feedback", error)
       return new Response(
         JSON.stringify({ error: "Failed to process feedback" }),
         { status: 500, headers: { "Content-Type": "application/json" } }

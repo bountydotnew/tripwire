@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm"
+import { createLogger } from "@tripwire/logger"
 import { db } from "@tripwire/db/client"
 import { events, githubReputation, type EventAction } from "@tripwire/db"
 import {
@@ -7,6 +8,8 @@ import {
   isBotOrGhost,
 } from "@tripwire/core"
 import type { GitHubIssueMin, GitHubPullRequestMin } from "@tripwire/github"
+
+const logger = createLogger("visibility-sync")
 
 const BACKFILL_ACTION: EventAction = "pipeline_allowed"
 
@@ -118,7 +121,7 @@ export async function recomputeRichScores(
     } catch (err) {
       skipped++
       const msg = err instanceof Error ? err.message : String(err)
-      console.warn(`[visibility-sync] score skipped for @${username}: ${msg}`)
+      logger.warn("score skipped", { username, reason: msg })
     }
   })
   return { scored, skipped }

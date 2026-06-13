@@ -12,7 +12,6 @@ export const Route = createFileRoute("/login")({
     buildSeo({
       path: match.pathname,
       title: formatPageTitle("Log in"),
-      description:
-        "Log in to Tripwire to protect your open-source repos from spam PRs, abusive accounts, and AI-generated noise.",
+      description: "Log in to your Tripwire account.",
     }),
 })
