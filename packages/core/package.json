@@ -10,6 +10,8 @@
     "./contributor-score": "./src/contributor-score.ts",
     "./contributor-fetch": "./src/contributor-fetch.ts",
     "./filter-pipeline": "./src/filter-pipeline.ts",
+    "./pr-comment": "./src/pr-comment.ts",
+    "./rules/labels": "./src/rules/labels.ts",
     "./rules/config-schema": "./src/rules/config-schema.ts",
     "./rules/config-draft": "./src/rules/config-draft.ts",
     "./rules/signal-registry": "./src/rules/signal-registry.ts",

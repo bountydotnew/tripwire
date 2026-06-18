@@ -1,14 +1,17 @@
 import { useState } from "react"
+import { Link } from "@tanstack/react-router"
 import { env } from "@tripwire/env/client"
+import { useWorkspace } from "#/providers/workspace-context"
 
 /**
- * Org-scoped general settings: appearance preference (per-user but
- * lives here for now), GitHub App permissions (org-level), notification
- * preferences. Pure UI — no tRPC calls yet for the notification toggles.
+ * Org-scoped general settings: appearance, GitHub App permissions, and a
+ * pointer to the PR Comments page (where notification routing lives).
  */
 export function OrgGeneralSettingsPage() {
   const appSlug = env.VITE_GITHUB_APP_SLUG ?? "tripwire-dev"
   const configureUrl = `https://github.com/apps/${appSlug}/installations/new`
+  const { org } = useWorkspace()
+  const orgSlug = org?.slug
 
   return (
     <div className="flex flex-col gap-8">
@@ -50,27 +53,27 @@ export function OrgGeneralSettingsPage() {
         title="Notifications"
         description="Where Tripwire sends digests and alerts."
       >
-        <div className="divide-y divide-[#27272A] rounded-xl bg-tw-card">
-          <NotificationRow
-            title="Daily digest"
-            description="Summary email at 8:00am local"
-            defaultChecked={true}
-          />
-          <NotificationRow
-            title="High-severity events"
-            description="Push to Slack #tripwire-alerts"
-            defaultChecked={true}
-          />
-          <NotificationRow
-            title="Weekly insights"
-            description="Roundup of trends and rule efficacy"
-            defaultChecked={false}
-          />
-          <NotificationRow
-            title="Marketing & updates"
-            description="Product news, occasionally"
-            defaultChecked={false}
-          />
+        <div className="rounded-xl bg-tw-card p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[13px] font-medium text-tw-text-primary">
+                PR comment preferences
+              </div>
+              <div className="mt-0.5 text-[12px] text-tw-text-muted">
+                Routing, Slack and Discord webhooks, and email digests now live
+                on the PR Comments page.
+              </div>
+            </div>
+            {orgSlug ? (
+              <Link
+                to="/$orgHandle/settings/pr-comments"
+                params={{ orgHandle: orgSlug }}
+                className="flex h-8 items-center rounded-lg border border-[#27272A] px-3 text-[13px] font-medium text-tw-text-primary transition-colors hover:bg-tw-hover"
+              >
+                Open
+              </Link>
+            ) : null}
+          </div>
         </div>
       </SettingsSection>
     </div>
@@ -176,45 +179,3 @@ function ThemePicker() {
   )
 }
 
-function NotificationRow({
-  title,
-  description,
-  defaultChecked,
-}: {
-  title: string
-  description: string
-  defaultChecked: boolean
-}) {
-  const [checked, setChecked] = useState(defaultChecked)
-
-  return (
-    <div className="flex items-center justify-between p-4">
-      <div>
-        <div className="text-[13px] font-medium text-tw-text-primary">
-          {title}
-        </div>
-        <div className="mt-0.5 text-[12px] text-tw-text-muted">
-          {description}
-        </div>
-      </div>
-      {/* biome-ignore lint/correctness/noRestrictedElements: needed here because ui breaks without... todo: fix???? */}
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => setChecked(!checked)}
-        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-          checked ? "bg-tw-text-primary" : "bg-[#27272A]"
-        }`}
-      >
-        <span
-          className={`inline-block size-3.5 rounded-full transition-transform ${
-            checked
-              ? "translate-x-[18px] bg-[#0D0D0F]"
-              : "translate-x-[3px] bg-tw-text-muted"
-          }`}
-        />
-      </button>
-    </div>
-  )
-}

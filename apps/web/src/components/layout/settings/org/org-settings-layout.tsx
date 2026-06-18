@@ -3,12 +3,14 @@ import { useWorkspace } from "#/providers/workspace-context"
 
 const ORG_SETTINGS_NAV = [
   { label: "General", to: "/$orgHandle/settings/general" as const },
+  { label: "PR Comments", to: "/$orgHandle/settings/pr-comments" as const },
   { label: "Billing", to: "/$orgHandle/settings/billing" as const },
   { label: "Members", to: "/$orgHandle/settings/members" as const },
 ] satisfies ReadonlyArray<{
   label: string
   to:
     | "/$orgHandle/settings/general"
+    | "/$orgHandle/settings/pr-comments"
     | "/$orgHandle/settings/billing"
     | "/$orgHandle/settings/members"
 }>
@@ -25,7 +27,7 @@ export function OrgSettingsLayout() {
   const orgSlug = org?.slug
 
   return (
-    <div className="mx-auto flex w-full max-w-[900px] gap-12 px-4 py-10 md:px-[50px]">
+    <div className="mx-auto flex w-full max-w-[1280px] gap-12 px-4 py-10 md:px-[50px]">
       <div className="flex w-[160px] shrink-0 flex-col gap-1">
         <h1 className="mb-3 px-2 text-[16px] font-semibold text-tw-text-primary">
           {org?.name ?? "Workspace"}

@@ -57,6 +57,7 @@ import { Route as AppOrgHandleEventsIndexRouteImport } from './routes/_app/$orgH
 import { Route as AppOrgHandleAutomationsIndexRouteImport } from './routes/_app/$orgHandle/automations/index'
 import { Route as AdminAdminResearchIndexRouteImport } from './routes/_admin/admin/research/index'
 import { Route as ApiGithubSignalsStreamRouteImport } from './routes/api/github/signals/stream'
+import { Route as AppOrgHandleSettingsPrCommentsRouteImport } from './routes/_app/$orgHandle/settings/pr-comments'
 import { Route as AppOrgHandleSettingsMembersRouteImport } from './routes/_app/$orgHandle/settings/members'
 import { Route as AppOrgHandleSettingsGeneralRouteImport } from './routes/_app/$orgHandle/settings/general'
 import { Route as AppOrgHandleSettingsBillingRouteImport } from './routes/_app/$orgHandle/settings/billing'
@@ -319,6 +320,12 @@ const ApiGithubSignalsStreamRoute = ApiGithubSignalsStreamRouteImport.update({
   path: '/api/github/signals/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppOrgHandleSettingsPrCommentsRoute =
+  AppOrgHandleSettingsPrCommentsRouteImport.update({
+    id: '/pr-comments',
+    path: '/pr-comments',
+    getParentRoute: () => AppOrgHandleSettingsRoute,
+  } as any)
 const AppOrgHandleSettingsMembersRoute =
   AppOrgHandleSettingsMembersRouteImport.update({
     id: '/members',
@@ -474,6 +481,7 @@ export interface FileRoutesByFullPath {
   '/$orgHandle/settings/billing': typeof AppOrgHandleSettingsBillingRoute
   '/$orgHandle/settings/general': typeof AppOrgHandleSettingsGeneralRoute
   '/$orgHandle/settings/members': typeof AppOrgHandleSettingsMembersRoute
+  '/$orgHandle/settings/pr-comments': typeof AppOrgHandleSettingsPrCommentsRoute
   '/api/github/signals/stream': typeof ApiGithubSignalsStreamRoute
   '/admin/research/': typeof AdminAdminResearchIndexRoute
   '/$orgHandle/automations/': typeof AppOrgHandleAutomationsIndexRoute
@@ -538,6 +546,7 @@ export interface FileRoutesByTo {
   '/$orgHandle/settings/billing': typeof AppOrgHandleSettingsBillingRoute
   '/$orgHandle/settings/general': typeof AppOrgHandleSettingsGeneralRoute
   '/$orgHandle/settings/members': typeof AppOrgHandleSettingsMembersRoute
+  '/$orgHandle/settings/pr-comments': typeof AppOrgHandleSettingsPrCommentsRoute
   '/api/github/signals/stream': typeof ApiGithubSignalsStreamRoute
   '/admin/research': typeof AdminAdminResearchIndexRoute
   '/$orgHandle/automations': typeof AppOrgHandleAutomationsIndexRoute
@@ -606,6 +615,7 @@ export interface FileRoutesById {
   '/_app/$orgHandle/settings/billing': typeof AppOrgHandleSettingsBillingRoute
   '/_app/$orgHandle/settings/general': typeof AppOrgHandleSettingsGeneralRoute
   '/_app/$orgHandle/settings/members': typeof AppOrgHandleSettingsMembersRoute
+  '/_app/$orgHandle/settings/pr-comments': typeof AppOrgHandleSettingsPrCommentsRoute
   '/api/github/signals/stream': typeof ApiGithubSignalsStreamRoute
   '/_admin/admin/research/': typeof AdminAdminResearchIndexRoute
   '/_app/$orgHandle/automations/': typeof AppOrgHandleAutomationsIndexRoute
@@ -673,6 +683,7 @@ export interface FileRouteTypes {
     | '/$orgHandle/settings/billing'
     | '/$orgHandle/settings/general'
     | '/$orgHandle/settings/members'
+    | '/$orgHandle/settings/pr-comments'
     | '/api/github/signals/stream'
     | '/admin/research/'
     | '/$orgHandle/automations/'
@@ -737,6 +748,7 @@ export interface FileRouteTypes {
     | '/$orgHandle/settings/billing'
     | '/$orgHandle/settings/general'
     | '/$orgHandle/settings/members'
+    | '/$orgHandle/settings/pr-comments'
     | '/api/github/signals/stream'
     | '/admin/research'
     | '/$orgHandle/automations'
@@ -804,6 +816,7 @@ export interface FileRouteTypes {
     | '/_app/$orgHandle/settings/billing'
     | '/_app/$orgHandle/settings/general'
     | '/_app/$orgHandle/settings/members'
+    | '/_app/$orgHandle/settings/pr-comments'
     | '/api/github/signals/stream'
     | '/_admin/admin/research/'
     | '/_app/$orgHandle/automations/'
@@ -1177,6 +1190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiGithubSignalsStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/$orgHandle/settings/pr-comments': {
+      id: '/_app/$orgHandle/settings/pr-comments'
+      path: '/pr-comments'
+      fullPath: '/$orgHandle/settings/pr-comments'
+      preLoaderRoute: typeof AppOrgHandleSettingsPrCommentsRouteImport
+      parentRoute: typeof AppOrgHandleSettingsRoute
+    }
     '/_app/$orgHandle/settings/members': {
       id: '/_app/$orgHandle/settings/members'
       path: '/members'
@@ -1371,12 +1391,14 @@ interface AppOrgHandleSettingsRouteChildren {
   AppOrgHandleSettingsBillingRoute: typeof AppOrgHandleSettingsBillingRoute
   AppOrgHandleSettingsGeneralRoute: typeof AppOrgHandleSettingsGeneralRoute
   AppOrgHandleSettingsMembersRoute: typeof AppOrgHandleSettingsMembersRoute
+  AppOrgHandleSettingsPrCommentsRoute: typeof AppOrgHandleSettingsPrCommentsRoute
 }
 
 const AppOrgHandleSettingsRouteChildren: AppOrgHandleSettingsRouteChildren = {
   AppOrgHandleSettingsBillingRoute: AppOrgHandleSettingsBillingRoute,
   AppOrgHandleSettingsGeneralRoute: AppOrgHandleSettingsGeneralRoute,
   AppOrgHandleSettingsMembersRoute: AppOrgHandleSettingsMembersRoute,
+  AppOrgHandleSettingsPrCommentsRoute: AppOrgHandleSettingsPrCommentsRoute,
 }
 
 const AppOrgHandleSettingsRouteWithChildren =

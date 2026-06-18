@@ -20,9 +20,11 @@ import { visibilityRouter } from "./routers/visibility"
 import { onboardingRouter } from "./routers/onboarding"
 import { authRouter } from "./routers/auth"
 import { githubSignalsRouter } from "./routers/github-signals"
+import { orgPrefsRouter } from "./routers/orgPrefs"
 
 export const trpcRouter = createTRPCRouter({
   orgs: orgsRouter,
+  orgPrefs: orgPrefsRouter,
   rules: rulesRouter,
   whitelist: whitelistRouter,
   blacklist: blacklistRouter,
