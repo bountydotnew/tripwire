@@ -4,20 +4,18 @@ import { Button } from "@tripwire/ui/button"
 import { useTRPC } from "#/integrations/trpc/react"
 import { useGitHubSignalStream } from "#/lib/github/use-signal-stream"
 import { useRepoSignalTargets } from "#/lib/github/use-repo-signal-targets"
-import { collapsePushEvents } from "#/lib/github/repo-events"
-import type { FeedCategory, FeedEvent } from "#/lib/github/repo-events"
+import {
+  collapsePushEvents,
+  FEED_CATEGORIES,
+  type FeedCategory,
+  type FeedEvent,
+} from "#/lib/github/repo-events"
 import { RepoActivityRow } from "#/components/layout/app/visibility/repo-activity-row"
 
 interface RepoActivityFeedProps {
   repoId: string
   repoFullName?: string
 }
-
-const CATEGORIES: { label: string; value: FeedCategory }[] = [
-  { label: "All", value: "all" },
-  { label: "Security", value: "security" },
-  { label: "Activity", value: "activity" },
-]
 
 const FEED_LIMIT = 25
 
@@ -86,7 +84,7 @@ export function RepoActivityFeed({
           Recent activity
         </span>
         <div className="flex items-center gap-0.5 rounded-md border border-tw-border bg-tw-inner p-0.5">
-          {CATEGORIES.map((c) => (
+          {FEED_CATEGORIES.map((c) => (
             <Button
               key={c.value}
               variant="ghost"

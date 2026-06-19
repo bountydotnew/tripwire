@@ -26,7 +26,9 @@ import {
   type RawGitHubEvent,
   ACTIVITY_ACTIONS,
   SECURITY_ACTIONS,
+  TRIPWIRE_ACTION_SEVERITY,
   collapsePushEvents,
+  feedTitleForAction,
   formatGitHubEvent,
   tripwireIcon,
 } from "#/lib/github/repo-events"
@@ -531,18 +533,6 @@ export const visibilityRouter = {
     }),
 } satisfies TRPCRouterRecord
 
-const TRIPWIRE_FEED_SEVERITY: Record<string, FeedEvent["severity"]> = {
-  pipeline_blocked: "error",
-  blacklist_blocked: "error",
-  pr_closed: "error",
-  issue_closed: "error",
-  issue_deleted: "error",
-  comment_deleted: "error",
-  pipeline_warned: "warning",
-  rule_near_miss: "warning",
-  pipeline_allowed: "success",
-}
-
 /**
  * Read recent Tripwire events for the repo, narrowed to the requested
  * category and the `FEED_WINDOW_MS` time window, and normalize them into
@@ -583,7 +573,7 @@ async function fetchTripwireFeedEvents(
             : `https://github.com/${row.targetGithubUsername}.png?size=48`,
         }
       : null,
-    severity: TRIPWIRE_FEED_SEVERITY[row.action] ?? "info",
+    severity: TRIPWIRE_ACTION_SEVERITY[row.action] ?? "info",
     githubRef: row.githubRef,
     eventId: row.id,
     url: null,
@@ -681,30 +671,6 @@ function safeParseEvents(payloadJson: string): RawGitHubEvent[] {
   } catch {
     return []
   }
-}
-
-const FEED_ACTION_TITLE: Record<string, string> = {
-  pipeline_blocked: "Blocked",
-  blacklist_blocked: "Blacklisted user blocked",
-  pipeline_warned: "Warned",
-  rule_near_miss: "Near miss",
-  pipeline_allowed: "Allowed",
-  pipeline_logged: "Logged",
-  whitelist_bypass: "Whitelist bypass",
-  pr_closed: "PR closed",
-  issue_closed: "Issue closed",
-  issue_deleted: "Issue removed",
-  comment_deleted: "Comment deleted",
-  whitelist_added: "Whitelisted",
-  whitelist_removed: "Removed from whitelist",
-  blacklist_added: "Blacklisted",
-  blacklist_removed: "Removed from blacklist",
-  rule_config_updated: "Rule updated",
-  workflow_run: "Workflow run",
-}
-
-function feedTitleForAction(action: string): string {
-  return FEED_ACTION_TITLE[action] ?? action
 }
 
 type ListTable = typeof whitelistEntries | typeof blacklistEntries

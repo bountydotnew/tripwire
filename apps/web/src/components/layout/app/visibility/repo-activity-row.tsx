@@ -1,20 +1,13 @@
 import { Link } from "@tanstack/react-router"
 import { ChevronRightIndicatorIcon12 } from "@tripwire/ui/icons/app-chrome-icons"
-import type { FeedEvent } from "#/lib/github/repo-events"
+import { feedSeverityColor, type FeedEvent } from "#/lib/github/repo-events"
 import { formatRelativeTime } from "#/lib/format"
-
-const SEVERITY_DOT: Record<FeedEvent["severity"], string> = {
-  success: "bg-tw-success",
-  error: "bg-tw-error",
-  warning: "bg-tw-warning",
-  info: "bg-tw-accent",
-}
 
 function RowBody({ event }: { event: FeedEvent }) {
   return (
     <>
       <span
-        className={`size-2 shrink-0 rounded-full ${SEVERITY_DOT[event.severity]}`}
+        className={`size-2 shrink-0 rounded-full ${feedSeverityColor(event.severity)}`}
       />
 
       <div className="flex min-w-0 flex-1 items-baseline gap-1.5">

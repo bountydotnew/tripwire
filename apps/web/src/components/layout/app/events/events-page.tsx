@@ -7,6 +7,7 @@ import { RULE_META } from "@tripwire/db/schema/rule-meta"
 import { EmptyState } from "#/components/shared/empty-state"
 import { markEventsViewed } from "#/hooks/use-events-unread"
 import { isCustomRuleName, stripCustomRulePrefix } from "#/lib/custom-rules"
+import { feedSeverityColor } from "#/lib/github/repo-events"
 import { useGitHubSignalStream } from "#/lib/github/use-signal-stream"
 import { useRepoSignalTargets } from "#/lib/github/use-repo-signal-targets"
 import { routes } from "#/lib/routes"
@@ -27,13 +28,6 @@ type Event = {
   githubRef: string | null
   metadata: Record<string, unknown> | null
   createdAt: string | Date
-}
-
-const SEVERITY_DOT: Record<string, string> = {
-  success: "bg-tw-success",
-  error: "bg-tw-error",
-  warning: "bg-tw-warning",
-  info: "bg-tw-accent",
 }
 
 const ACTION_LABELS = {
@@ -101,7 +95,7 @@ const NON_CLICKABLE_ACTIONS = new Set([
 ])
 
 function EventRow({ event }: { event: Event }) {
-  const dotColor = SEVERITY_DOT[event.severity ?? "info"] ?? SEVERITY_DOT.info
+  const dotColor = feedSeverityColor(event.severity)
   const actionLabel = getActionLabel(event.action)
   const isClickable = !NON_CLICKABLE_ACTIONS.has(event.action)
 

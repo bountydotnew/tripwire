@@ -73,6 +73,25 @@ export interface FeedEvent {
 /** The feed buckets the UI can filter to. */
 export type FeedCategory = "all" | "security" | "activity"
 
+export const FEED_CATEGORIES: { label: string; value: FeedCategory }[] = [
+  { label: "All", value: "all" },
+  { label: "Security", value: "security" },
+  { label: "Activity", value: "activity" },
+]
+
+export const FEED_SEVERITY_COLORS: Record<FeedEventSeverity, string> = {
+  success: "bg-tw-success",
+  error: "bg-tw-error",
+  warning: "bg-tw-warning",
+  info: "bg-tw-accent",
+}
+
+export function feedSeverityColor(
+  severity: string | null | undefined
+): string {
+  return FEED_SEVERITY_COLORS[severity as FeedEventSeverity] ?? FEED_SEVERITY_COLORS.info
+}
+
 /** Tripwire actions that represent a security intervention. */
 export const SECURITY_ACTIONS = [
   "pipeline_blocked",
@@ -98,7 +117,7 @@ export const ACTIVITY_ACTIONS = [
   "workflow_run",
 ] as const
 
-const TRIPWIRE_ICON: Record<string, FeedEventIcon> = {
+export const TRIPWIRE_ACTION_ICONS: Record<string, FeedEventIcon> = {
   pipeline_blocked: "blocked",
   blacklist_blocked: "blocked",
   pr_closed: "blocked",
@@ -118,9 +137,46 @@ const TRIPWIRE_ICON: Record<string, FeedEventIcon> = {
   workflow_run: "workflow",
 }
 
+export const TRIPWIRE_ACTION_SEVERITY: Record<string, FeedEventSeverity> = {
+  pipeline_blocked: "error",
+  blacklist_blocked: "error",
+  pr_closed: "error",
+  issue_closed: "error",
+  issue_deleted: "error",
+  comment_deleted: "error",
+  pipeline_warned: "warning",
+  rule_near_miss: "warning",
+  pipeline_allowed: "success",
+}
+
+export const TRIPWIRE_ACTION_TITLES: Record<string, string> = {
+  pipeline_blocked: "Blocked",
+  blacklist_blocked: "Blacklisted user blocked",
+  pipeline_warned: "Warned",
+  rule_near_miss: "Near miss",
+  pipeline_allowed: "Allowed",
+  pipeline_logged: "Logged",
+  whitelist_bypass: "Whitelist bypass",
+  pr_closed: "PR closed",
+  issue_closed: "Issue closed",
+  issue_deleted: "Issue removed",
+  comment_deleted: "Comment deleted",
+  whitelist_added: "Whitelisted",
+  whitelist_removed: "Removed from whitelist",
+  blacklist_added: "Blacklisted",
+  blacklist_removed: "Removed from blacklist",
+  rule_config_updated: "Rule updated",
+  workflow_run: "Workflow run",
+}
+
 /** Map a Tripwire `EventAction` to its feed icon bucket. */
 export function tripwireIcon(action: string): FeedEventIcon {
-  return TRIPWIRE_ICON[action] ?? "generic"
+  return TRIPWIRE_ACTION_ICONS[action] ?? "generic"
+}
+
+/** Map a Tripwire `EventAction` to its feed title. */
+export function feedTitleForAction(action: string): string {
+  return TRIPWIRE_ACTION_TITLES[action] ?? action
 }
 
 /** Raw shape of one entry from `GET /repos/{owner}/{repo}/events`. */
