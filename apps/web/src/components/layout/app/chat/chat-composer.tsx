@@ -574,7 +574,7 @@ export function ChatComposer({
             ref={chipAttachmentStripRef}
             role="group"
             aria-label="Mentions"
-            className="-mx-0.5 flex max-w-full min-w-0 [scrollbar-width:thin] flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain px-0.5"
+            className="-mx-0.5 flex max-w-full min-w-0 flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain px-0.5 [scrollbar-width:thin]"
           >
             {mentionChipElements}
           </div>

@@ -73,7 +73,10 @@ const listRepos = defineTool({
       })
       .from(repositories)
       .innerJoin(organizations, eq(repositories.orgId, organizations.id))
-      .leftJoin(organization, eq(organizations.betterAuthOrgId, organization.id))
+      .leftJoin(
+        organization,
+        eq(organizations.betterAuthOrgId, organization.id)
+      )
       .leftJoin(
         member,
         and(

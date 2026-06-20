@@ -14,7 +14,6 @@ import { toastManager } from "@tripwire/ui/toast"
 import { githubRevalidationSignalKeys } from "#/lib/github/revalidation"
 import { useGitHubSignalStream } from "#/lib/github/use-signal-stream"
 import { patchOptimistic } from "#/lib/use-optimistic-mutation"
-import { getEventActionLabel } from "#/lib/event-labels"
 import {
   type ContributorAction,
   flipContributorStatuses,
