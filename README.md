@@ -47,6 +47,13 @@ The required vars:
 - `VITE_GITHUB_APP_SLUG` — the slug from `github.com/apps/{slug}`
 - `DATABASE_URL` — Postgres connection string
 
+GitHub App setup:
+
+- Webhook URL: `{BETTER_AUTH_URL}/api/github/webhook` in production, or your ngrok URL plus `/api/github/webhook` in local dev
+- Webhook secret: same value as `GITHUB_WEBHOOK_SECRET`
+- Permissions: `Metadata: read`, `Contents: write`, `Issues: write`, `Pull requests: write`
+- Subscribe to events: `Installation`, `Installation repositories`, `Issues`, `Issue comment`, `Pull request`, `Push`, `Release`
+
 Optional:
 
 - `UNKEY_ROOT_KEY` — rate limiting (allows all requests if unset)
