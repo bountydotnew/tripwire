@@ -4,14 +4,18 @@ import { useEffect, useState } from "react"
 import { Button } from "@tripwire/ui/button"
 import { ChevronRightIndicatorIcon12 } from "@tripwire/ui/icons/app-chrome-icons"
 import { RULE_META } from "@tripwire/db/schema/rule-meta"
-import type { EventAction } from "@tripwire/db"
 import { EmptyState } from "#/components/shared/empty-state"
-import { getEventActionLabel } from "#/lib/event-labels"
 import { markEventsViewed } from "#/hooks/use-events-unread"
 import { isCustomRuleName, stripCustomRulePrefix } from "#/lib/custom-rules"
+import {
+  EVENT_SUMMARY_ITEMS,
+  eventActionLabel,
+  type EventFilterAction,
+} from "#/lib/events-design"
 import { useGitHubSignalStream } from "#/lib/github/use-signal-stream"
 import { useRepoSignalTargets } from "#/lib/github/use-repo-signal-targets"
 import { routes } from "#/lib/routes"
+import { severityDotColor } from "#/lib/severity-design"
 import { useTRPC } from "#/integrations/trpc/react"
 import { useWorkspace } from "#/providers/workspace-context"
 
@@ -31,17 +35,8 @@ type Event = {
   createdAt: string | Date
 }
 
-const SEVERITY_DOT: Record<string, string> = {
-  success: "bg-tw-success",
-  error: "bg-tw-error",
-  warning: "bg-tw-warning",
-  info: "bg-tw-accent",
-}
-
-type FilterAction = EventAction
-
 type FilterState = {
-  action: FilterAction | null
+  action: EventFilterAction | null
   username: string
 }
 
@@ -79,8 +74,8 @@ const NON_CLICKABLE_ACTIONS = new Set([
 ])
 
 function EventRow({ event }: { event: Event }) {
-  const dotColor = SEVERITY_DOT[event.severity ?? "info"] ?? SEVERITY_DOT.info
-  const actionLabel = getEventActionLabel(event.action)
+  const dotColor = severityDotColor(event.severity)
+  const actionLabel = eventActionLabel(event.action)
   const isClickable = !NON_CLICKABLE_ACTIONS.has(event.action)
 
   const content = (
@@ -364,18 +359,7 @@ export function EventsPage() {
 
       {/* Summary counters */}
       <div className="flex flex-wrap overflow-clip rounded-xl border border-[#0000000F] bg-tw-card shadow-[#0000000A_0px_0px_2px,#0000000A_0px_0px_1px]">
-        {[
-          { key: "success", label: "Allowed", dot: "bg-tw-success" },
-          { key: "error", label: "Blocked", dot: "bg-tw-error" },
-          { key: "warning", label: "Near Misses", dot: "bg-tw-warning" },
-          {
-            key: "workflow",
-            label: "Workflows",
-            dot: "bg-[#34A6FF]",
-            count: actionCounts?.workflow_run,
-          },
-          { key: "info", label: "Other", dot: "bg-tw-accent" },
-        ].map((item, i, arr) => (
+        {EVENT_SUMMARY_ITEMS.map((item, i, arr) => (
           <div
             key={item.key}
             className={`flex min-w-0 grow flex-col px-3 pt-2.5 pb-2 md:px-4 ${i < arr.length - 1 ? "md:border-r md:border-r-[#0000000F]" : ""}`}
@@ -387,8 +371,8 @@ export function EventsPage() {
               </span>
             </div>
             <span className="text-xl leading-7 font-semibold text-[#FFFFFFCC] tabular-nums">
-              {("count" in item && item.count !== undefined
-                ? item.count
+              {(item.key === "workflow"
+                ? (actionCounts?.workflow_run ?? 0)
                 : (severityCounts[item.key] ?? 0)
               ).toLocaleString()}
             </span>

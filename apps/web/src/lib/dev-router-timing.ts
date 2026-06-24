@@ -1,7 +1,14 @@
-import type { AnyRouter, RouterEvents } from "@tanstack/router-core"
+import type { RouterEvents } from "@tanstack/router-core"
+
+interface SubscribableRouter {
+  subscribe: <TEvent extends keyof RouterEvents>(
+    event: TEvent,
+    handler: (e: RouterEvents[TEvent]) => void
+  ) => () => void
+}
 
 /** Dev-only: logs client navigations from route resolve through first paint hook. */
-export function attachDevRouterTiming(router: AnyRouter): void {
+export function attachDevRouterTiming(router: SubscribableRouter): void {
   if (!import.meta.env.DEV || typeof window === "undefined") return
 
   let navT0 = 0

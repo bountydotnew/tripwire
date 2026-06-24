@@ -2,10 +2,13 @@ import { z } from "zod"
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm"
 import { authedProcedure } from "../init"
 import { assertRepoOwner, logEvent } from "@tripwire/core"
+import { getInstallationToken, githubApi } from "@tripwire/github"
 import { trpcError } from "../error"
 import { db } from "@tripwire/db/client"
 import {
+  events,
   githubReputation,
+  githubResponseCache,
   whitelistEntries,
   blacklistEntries,
   visibilitySyncRuns,
@@ -17,6 +20,18 @@ import {
 } from "@tripwire/db"
 import { inngest } from "#/inngest/client"
 import { isValidGithubLogin } from "#/lib/github/login-validation"
+import {
+  type FeedCategory,
+  type FeedEvent,
+  type RawGitHubEvent,
+  ACTIVITY_ACTIONS,
+  SECURITY_ACTIONS,
+  TRIPWIRE_ACTION_SEVERITY,
+  collapsePushEvents,
+  feedTitleForAction,
+  formatGitHubEvent,
+  tripwireIcon,
+} from "#/lib/github/repo-events"
 import {
   blacklistJoinClause,
   excludeMaintainerSelf,
@@ -458,7 +473,236 @@ export const visibilityRouter = {
 
       return { runId: created.id, alreadyRunning: false }
     }),
+
+  feed: authedProcedure
+    .input(
+      z.object({
+        repoId: z.uuid(),
+        limit: z.number().int().min(1).max(100).default(25),
+        category: z.enum(["all", "security", "activity"]).default("all"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      await assertRepoOwner(ctx.user.id, input.repoId)
+      return fetchTripwireFeedEvents(input.repoId, input.limit, input.category)
+    }),
+
+  /**
+   * Raw GitHub repo activity (pushes, stars, forks, releases, PR/issue
+   * closes, etc.) from the Events API. Cached server-side so only one
+   * caller every 60s actually hits GitHub; everyone else reads the cache.
+   * Best-effort: falls back to stale cache (or empty) on any failure.
+   */
+  githubActivity: authedProcedure
+    .input(
+      z.object({
+        repoId: z.uuid(),
+        limit: z.number().int().min(1).max(100).default(25),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      await assertRepoOwner(ctx.user.id, input.repoId)
+
+      const [repo] = await db
+        .select({ fullName: repositories.fullName, orgId: repositories.orgId })
+        .from(repositories)
+        .where(eq(repositories.id, input.repoId))
+        .limit(1)
+      if (!repo) {
+        throw trpcError({
+          code: "visibility.repo_not_found",
+          status: 404,
+          message: "Repository not found",
+        })
+      }
+
+      const raw = await getCachedGitHubRepoEvents(
+        repo.orgId,
+        repo.fullName,
+        input.limit
+      )
+
+      const cutoff = Date.now() - FEED_WINDOW_MS
+      const formatted: FeedEvent[] = []
+      for (const entry of raw) {
+        if (new Date(entry.created_at).getTime() < cutoff) continue
+        const event = formatGitHubEvent(entry, repo.fullName)
+        if (event) formatted.push(event)
+      }
+      return collapsePushEvents(formatted).slice(0, input.limit)
+    }),
 } satisfies TRPCRouterRecord
+
+/**
+ * Read recent Tripwire events for the repo, narrowed to the requested
+ * category and the `FEED_WINDOW_MS` time window, and normalize them into
+ * `FeedEvent`s.
+ */
+async function fetchTripwireFeedEvents(
+  repoId: string,
+  limit: number,
+  category: FeedCategory
+): Promise<FeedEvent[]> {
+  const since = new Date(Date.now() - FEED_WINDOW_MS)
+  const conditions = [eq(events.repoId, repoId), gte(events.createdAt, since)]
+  if (category === "security") {
+    conditions.push(inArray(events.action, [...SECURITY_ACTIONS]))
+  } else if (category === "activity") {
+    conditions.push(inArray(events.action, [...ACTIVITY_ACTIONS]))
+  }
+
+  const rows = await db
+    .select()
+    .from(events)
+    .where(and(...conditions))
+    .orderBy(desc(events.createdAt))
+    .limit(limit)
+
+  return rows.map((row) => {
+    const metadata = row.metadata ?? {}
+    const isGitHubActivity = row.action.startsWith("github_")
+    const branch = stringMetadata(metadata, "branch")
+    const commits = numberMetadata(metadata, "commits")
+    return {
+      id: row.id,
+      source: isGitHubActivity ? ("github" as const) : ("tripwire" as const),
+      timestamp: row.createdAt.toISOString(),
+      icon: tripwireIcon(row.action),
+      title: feedTitleForAction(row.action),
+      body: row.description,
+      actor: row.targetGithubUsername
+        ? {
+            username: row.targetGithubUsername,
+            avatarUrl: row.targetGithubUserId
+              ? `https://avatars.githubusercontent.com/u/${row.targetGithubUserId}?v=4&s=48`
+              : `https://github.com/${row.targetGithubUsername}.png?size=48`,
+          }
+        : null,
+      severity: TRIPWIRE_ACTION_SEVERITY[row.action] ?? "info",
+      githubRef: row.githubRef,
+      eventId: isGitHubActivity ? null : row.id,
+      url: stringMetadata(metadata, "url"),
+      push:
+        row.action === "github_push" && branch && commits
+          ? {
+              branch,
+              commits,
+              head: stringMetadata(metadata, "head"),
+              before: stringMetadata(metadata, "before"),
+            }
+          : undefined,
+    }
+  })
+}
+
+function stringMetadata(
+  metadata: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = metadata[key]
+  return typeof value === "string" && value.length > 0 ? value : null
+}
+
+function numberMetadata(
+  metadata: Record<string, unknown>,
+  key: string
+): number | null {
+  const value = metadata[key]
+  return typeof value === "number" ? value : null
+}
+
+const GITHUB_EVENTS_TTL_MS = 60_000
+
+/** Activity feed only surfaces events from the last 30 days. */
+const FEED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
+
+/**
+ * Read the repo's raw GitHub events with a 60s read-through cache backed
+ * by `github_response_cache`. Only the first caller in each window hits
+ * GitHub; the rest read the cached payload. On any failure we serve the
+ * last cached payload if we have one, else an empty list — the feed
+ * never breaks on a GitHub hiccup.
+ */
+async function getCachedGitHubRepoEvents(
+  orgId: string,
+  fullName: string,
+  limit: number
+): Promise<RawGitHubEvent[]> {
+  const cacheKey = `repo_events:${fullName.toLowerCase()}`
+  const now = Date.now()
+
+  const [cached] = await db
+    .select({
+      payloadJson: githubResponseCache.payloadJson,
+      freshUntil: githubResponseCache.freshUntil,
+    })
+    .from(githubResponseCache)
+    .where(eq(githubResponseCache.cacheKey, cacheKey))
+    .limit(1)
+
+  if (cached && cached.freshUntil > now) {
+    return safeParseEvents(cached.payloadJson)
+  }
+
+  try {
+    const [org] = await db
+      .select({ installationId: organizations.githubInstallationId })
+      .from(organizations)
+      .where(eq(organizations.id, orgId))
+      .limit(1)
+    if (!org) return cached ? safeParseEvents(cached.payloadJson) : []
+
+    const token = await getInstallationToken(org.installationId)
+    const perPage = Math.min(limit * 2, 100)
+    // Hard 6s cap so a slow GitHub response can't stall the request.
+    const raw = await githubApi(
+      `/repos/${fullName}/events?per_page=${perPage}`,
+      token,
+      { signal: AbortSignal.timeout(6_000) }
+    )
+    if (!Array.isArray(raw)) {
+      return cached ? safeParseEvents(cached.payloadJson) : []
+    }
+
+    const payloadJson = JSON.stringify(raw)
+    await db
+      .insert(githubResponseCache)
+      .values({
+        cacheKey,
+        scope: fullName,
+        resource: "repo_events",
+        paramsJson: JSON.stringify({ perPage }),
+        payloadJson,
+        fetchedAt: now,
+        freshUntil: now + GITHUB_EVENTS_TTL_MS,
+        statusCode: 200,
+      })
+      .onConflictDoUpdate({
+        target: githubResponseCache.cacheKey,
+        set: {
+          payloadJson,
+          fetchedAt: now,
+          freshUntil: now + GITHUB_EVENTS_TTL_MS,
+          statusCode: 200,
+        },
+      })
+
+    return raw as RawGitHubEvent[]
+  } catch (err) {
+    console.error(`[visibility.githubActivity] fetch failed: ${fullName}`, err)
+    // Stale-on-error: better to show slightly old activity than nothing.
+    return cached ? safeParseEvents(cached.payloadJson) : []
+  }
+}
+
+function safeParseEvents(payloadJson: string): RawGitHubEvent[] {
+  try {
+    const parsed = JSON.parse(payloadJson)
+    return Array.isArray(parsed) ? (parsed as RawGitHubEvent[]) : []
+  } catch {
+    return []
+  }
+}
 
 type ListTable = typeof whitelistEntries | typeof blacklistEntries
 

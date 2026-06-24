@@ -54,9 +54,10 @@ describe("selectMcpSurface tiers", () => {
     for (const r of EXPECTED_READS) expect(names).toContain(r)
     for (const w of REVERSIBLE_WRITES) expect(names).toContain(w)
     for (const d of IRREVERSIBLE_TOOLS) {
-      expect(names, `${d} must stay off the default write surface`).not.toContain(
-        d
-      )
+      expect(
+        names,
+        `${d} must stay off the default write surface`
+      ).not.toContain(d)
     }
   })
 

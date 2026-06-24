@@ -12,7 +12,7 @@ import {
 // background scorer.
 import "#/inngest/score-user"
 import { db } from "@tripwire/db/client"
-import { repositories } from "@tripwire/db"
+import { events, repositories, type EventAction } from "@tripwire/db"
 import { eq } from "drizzle-orm"
 import {
   handleInstallation,
@@ -47,6 +47,42 @@ type WebhookCtx = {
  */
 type WebhookRepo = { id: number; full_name: string }
 
+type WebhookPullRequest = {
+  id?: number
+  number: number
+  title: string
+  body?: string | null
+  html_url?: string
+  merged?: boolean
+  changed_files?: number
+  additions?: number
+  deletions?: number
+  commits?: number
+  head?: { ref?: string; sha?: string }
+  base?: { ref?: string; sha?: string }
+}
+
+type WebhookIssue = {
+  id?: number
+  number: number
+  title: string
+  body?: string | null
+  html_url?: string
+}
+
+type WebhookComment = {
+  id: number
+  body?: string | null
+  html_url?: string
+}
+
+type WebhookRelease = {
+  id?: number
+  name?: string | null
+  tag_name?: string
+  html_url?: string
+}
+
 type GitHubWebhookPayload = {
   action?: string
   sender?: { login?: string; id?: number; type?: string }
@@ -73,9 +109,16 @@ type GitHubWebhookPayload = {
     private: boolean
   }>
   repositories_removed?: Array<{ id: number }>
-  pull_request?: { number: number; title: string; body?: string | null }
-  issue?: { number: number; title: string; body?: string | null }
-  comment?: { id: number; body?: string | null }
+  pull_request?: WebhookPullRequest
+  issue?: WebhookIssue
+  comment?: WebhookComment
+  release?: WebhookRelease
+  ref?: string
+  before?: string
+  after?: string
+  forced?: boolean
+  commits?: Array<{ id?: string; message?: string; url?: string }>
+  head_commit?: { id?: string; message?: string; url?: string }
 }
 
 function isInstallationPayload(
@@ -241,6 +284,15 @@ async function handleRepoEvent(
   ctx: WebhookCtx,
   repo: WebhookRepo
 ): Promise<void> {
+  const [repoRow] = await db
+    .select({ id: repositories.id })
+    .from(repositories)
+    .where(eq(repositories.githubRepoId, repo.id))
+
+  if (repoRow) {
+    await recordRepoActivityEvent(event, payload, ctx, repoRow.id)
+  }
+
   switch (event) {
     case "pull_request": {
       const pr = payload.pull_request
@@ -251,10 +303,6 @@ async function handleRepoEvent(
         break
       }
       const prContent = `${pr.title}\n${pr.body ?? ""}`
-      const [repoRow] = await db
-        .select({ id: repositories.id })
-        .from(repositories)
-        .where(eq(repositories.githubRepoId, repo.id))
 
       if (repoRow) {
         const bountyHit = await checkFakeBountyReference(repoRow.id, prContent)
@@ -309,6 +357,215 @@ async function handleRepoEvent(
       )
       break
     }
+  }
+}
+
+async function recordRepoActivityEvent(
+  event: string | null,
+  payload: GitHubWebhookPayload,
+  ctx: WebhookCtx,
+  repoId: string
+): Promise<void> {
+  const activity = normalizeRepoActivityEvent(event, payload, ctx)
+  if (!activity) return
+
+  await db.insert(events).values({ repoId, ...activity })
+}
+
+function normalizeRepoActivityEvent(
+  event: string | null,
+  payload: GitHubWebhookPayload,
+  ctx: WebhookCtx
+): {
+  action: EventAction
+  severity: "info" | "success"
+  description: string
+  contentType?: "pull_request" | "issue" | "comment"
+  targetGithubUsername: string
+  targetGithubUserId: number
+  githubRef: string | null
+  metadata: Record<string, unknown>
+} | null {
+  if (event === "pull_request" && payload.pull_request) {
+    return normalizePullRequestActivity(payload, ctx)
+  }
+  if (event === "issues" && payload.issue) {
+    return normalizeIssueActivity(payload, ctx)
+  }
+  if (event === "issue_comment" && payload.issue && payload.comment) {
+    return normalizeCommentActivity(payload, ctx)
+  }
+  if (event === "push") {
+    return normalizePushActivity(payload, ctx)
+  }
+  if (
+    event === "release" &&
+    payload.action === "published" &&
+    payload.release
+  ) {
+    const release = payload.release
+    const name = release.name || release.tag_name || "release"
+    return {
+      action: "github_release_published",
+      severity: "success",
+      description: name,
+      targetGithubUsername: ctx.senderLogin,
+      targetGithubUserId: ctx.senderId,
+      githubRef: release.tag_name ?? null,
+      metadata: {
+        githubEvent: "release",
+        githubAction: payload.action,
+        releaseId: release.id,
+        tagName: release.tag_name,
+        url: release.html_url,
+      },
+    }
+  }
+  return null
+}
+
+function normalizePullRequestActivity(
+  payload: GitHubWebhookPayload,
+  ctx: WebhookCtx
+): ReturnType<typeof normalizeRepoActivityEvent> {
+  const pr = payload.pull_request
+  if (!pr) return null
+
+  const action = pullRequestAction(payload.action, pr.merged === true)
+  if (!action) return null
+
+  return {
+    action,
+    severity: pr.merged === true ? "success" : "info",
+    description: pr.title,
+    contentType: "pull_request",
+    targetGithubUsername: ctx.senderLogin,
+    targetGithubUserId: ctx.senderId,
+    githubRef: `#${pr.number}`,
+    metadata: {
+      githubEvent: "pull_request",
+      githubAction: payload.action,
+      pullRequestId: pr.id,
+      number: pr.number,
+      title: pr.title,
+      url: pr.html_url,
+      merged: pr.merged === true,
+      changedFiles: pr.changed_files,
+      additions: pr.additions,
+      deletions: pr.deletions,
+      commits: pr.commits,
+      headRef: pr.head?.ref,
+      headSha: pr.head?.sha,
+      baseRef: pr.base?.ref,
+      baseSha: pr.base?.sha,
+    },
+  }
+}
+
+function pullRequestAction(
+  action: string | undefined,
+  merged: boolean
+): EventAction | null {
+  if (action === "opened") return "github_pr_opened"
+  if (action === "reopened") return "github_pr_reopened"
+  if (action === "synchronize") return "github_pr_synchronized"
+  if (action === "closed")
+    return merged ? "github_pr_merged" : "github_pr_closed"
+  return null
+}
+
+function normalizeIssueActivity(
+  payload: GitHubWebhookPayload,
+  ctx: WebhookCtx
+): ReturnType<typeof normalizeRepoActivityEvent> {
+  const issue = payload.issue
+  if (!issue) return null
+
+  const action = issueAction(payload.action)
+  if (!action) return null
+
+  return {
+    action,
+    severity: action === "github_issue_closed" ? "success" : "info",
+    description: issue.title,
+    contentType: "issue",
+    targetGithubUsername: ctx.senderLogin,
+    targetGithubUserId: ctx.senderId,
+    githubRef: `#${issue.number}`,
+    metadata: {
+      githubEvent: "issues",
+      githubAction: payload.action,
+      issueId: issue.id,
+      number: issue.number,
+      title: issue.title,
+      url: issue.html_url,
+    },
+  }
+}
+
+function issueAction(action: string | undefined): EventAction | null {
+  if (action === "opened") return "github_issue_opened"
+  if (action === "reopened") return "github_issue_reopened"
+  if (action === "closed") return "github_issue_closed"
+  return null
+}
+
+function normalizeCommentActivity(
+  payload: GitHubWebhookPayload,
+  ctx: WebhookCtx
+): ReturnType<typeof normalizeRepoActivityEvent> {
+  const issue = payload.issue
+  const comment = payload.comment
+  if (!issue || !comment || payload.action !== "created") return null
+
+  return {
+    action: "github_comment_created",
+    severity: "info",
+    description: `on ${issue.title}`,
+    contentType: "comment",
+    targetGithubUsername: ctx.senderLogin,
+    targetGithubUserId: ctx.senderId,
+    githubRef: `#${issue.number}`,
+    metadata: {
+      githubEvent: "issue_comment",
+      githubAction: payload.action,
+      issueId: issue.id,
+      issueNumber: issue.number,
+      issueTitle: issue.title,
+      commentId: comment.id,
+      url: comment.html_url,
+    },
+  }
+}
+
+function normalizePushActivity(
+  payload: GitHubWebhookPayload,
+  ctx: WebhookCtx
+): ReturnType<typeof normalizeRepoActivityEvent> {
+  const branch = payload.ref?.replace(/^refs\/heads\//, "") ?? "a branch"
+  const commits = payload.commits?.length ?? 0
+  const head = payload.after ?? payload.head_commit?.id ?? null
+  const before = payload.before ?? null
+  const repoUrl = `https://github.com/${ctx.repoFullName}`
+  const url =
+    head && before ? `${repoUrl}/compare/${before}...${head}` : repoUrl
+
+  return {
+    action: "github_push",
+    severity: "info",
+    description: `${commits} commit${commits === 1 ? "" : "s"} to ${branch}`,
+    targetGithubUsername: ctx.senderLogin,
+    targetGithubUserId: ctx.senderId,
+    githubRef: head ? head.slice(0, 7) : null,
+    metadata: {
+      githubEvent: "push",
+      branch,
+      commits,
+      before,
+      head,
+      forced: payload.forced === true,
+      url,
+    },
   }
 }
 

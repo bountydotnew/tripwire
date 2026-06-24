@@ -8,6 +8,17 @@ import { events } from "@tripwire/db"
 import type { TRPCRouterRecord } from "@trpc/server"
 
 const eventActionEnum = z.enum([
+  "github_pr_opened",
+  "github_pr_reopened",
+  "github_pr_closed",
+  "github_pr_merged",
+  "github_pr_synchronized",
+  "github_issue_opened",
+  "github_issue_reopened",
+  "github_issue_closed",
+  "github_comment_created",
+  "github_push",
+  "github_release_published",
   "pr_closed",
   "issue_closed",
   "issue_deleted",

@@ -16,6 +16,9 @@ const config = defineConfig(({ mode }) => {
     // @tripwire/env auto-loads it for server code; this points Vite at the
     // same file so VITE_* client vars resolve too.
     envDir: "../..",
+    server: {
+      allowedHosts: [".ngrok-free.app"],
+    },
     plugins: [
       ...(tanstackDevtoolsEnabled ? [devtools()] : []),
       tripwireDevServeTiming(),

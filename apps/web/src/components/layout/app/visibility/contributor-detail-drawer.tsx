@@ -6,13 +6,14 @@ import { ScrollArea } from "@tripwire/ui/scroll-area"
 import { useTRPC } from "#/integrations/trpc/react"
 import { ScoreBadge } from "./score-badge"
 import { ContributorAvatar } from "./contributor-avatar"
+import { eventActionLabel } from "#/lib/events-design"
 import { formatCompact, formatRelativeTime } from "#/lib/format"
+import { severityDotColor } from "#/lib/severity-design"
 import { toastFromError } from "#/lib/toast-error"
 import { toastManager } from "@tripwire/ui/toast"
 import { githubRevalidationSignalKeys } from "#/lib/github/revalidation"
 import { useGitHubSignalStream } from "#/lib/github/use-signal-stream"
 import { patchOptimistic } from "#/lib/use-optimistic-mutation"
-import { getEventActionLabel } from "#/lib/event-labels"
 import {
   type ContributorAction,
   flipContributorStatuses,
@@ -68,13 +69,6 @@ interface ContributorDetailDrawerProps {
   contributor: ContributorRow | null
   open: boolean
   onOpenChange: (open: boolean) => void
-}
-
-const severityDot: Record<string, string> = {
-  error: "bg-tw-error",
-  warning: "bg-tw-warning",
-  success: "bg-tw-success",
-  info: "bg-tw-accent",
 }
 
 export function ContributorDetailDrawer({
@@ -229,11 +223,11 @@ export function ContributorDetailDrawer({
                   className="flex items-start gap-2.5 rounded-lg bg-tw-inner/50 px-3 py-2"
                 >
                   <span
-                    className={`mt-1 size-1.5 shrink-0 rounded-full ${severityDot[e.severity ?? "info"] ?? "bg-tw-accent"}`}
+                    className={`mt-1 size-1.5 shrink-0 rounded-full ${severityDotColor(e.severity)}`}
                   />
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="text-[12px] text-tw-text-primary">
-                      {getEventActionLabel(e.action)}
+                      {eventActionLabel(e.action)}
                       {e.githubRef ? (
                         <span className="ml-1.5 text-tw-text-muted">
                           · {e.githubRef}
