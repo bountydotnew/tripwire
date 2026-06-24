@@ -1,6 +1,7 @@
 import type { inferRouterOutputs } from "@trpc/server"
 import { createTRPCRouter } from "./init"
 import { orgsRouter } from "./routers/orgs"
+import { orgPrefsRouter } from "./routers/orgPrefs"
 import { rulesRouter } from "./routers/rules"
 import { whitelistRouter, blacklistRouter } from "./routers/lists"
 import { eventsRouter } from "./routers/events"
@@ -24,6 +25,7 @@ import { githubSignalsRouter } from "./routers/github-signals"
 
 export const trpcRouter = createTRPCRouter({
   orgs: orgsRouter,
+  orgPrefs: orgPrefsRouter,
   rules: rulesRouter,
   whitelist: whitelistRouter,
   blacklist: blacklistRouter,

@@ -32,38 +32,10 @@ import { logEvent, logEvents } from "./events"
 import { evaluateCustomRule } from "./rules/custom-rule-evaluator"
 import { resolveSignals } from "./rules/signal-resolver"
 import { isBotSender } from "./contributor-identity"
+import { renderBlockedComment, renderWarnedComment } from "./pr-comment"
+import { loadPrefsForInstallation } from "./pr-comment-loader"
 
 const APP_BASE_URL = env.BETTER_AUTH_URL ?? ""
-
-function buildRequestUrl(
-  repoFullName: string,
-  opts: { kind?: "unblock" | "access"; username?: string } = {}
-): string {
-  const base = APP_BASE_URL.replace(/\/$/, "")
-  const params = new URLSearchParams()
-  if (opts.kind) params.set("kind", opts.kind)
-  if (opts.username) params.set("u", opts.username)
-  const qs = params.toString()
-  const path = `/request/${repoFullName}${qs ? `?${qs}` : ""}`
-  return base ? `${base}${path}` : path
-}
-
-function appealFooter(
-  repoFullName: string,
-  outcome: PipelineResult["outcome"],
-  username: string
-): string {
-  const url = buildRequestUrl(repoFullName, { kind: "unblock", username })
-  if (outcome === "blacklist_blocked") {
-    return `> **Blacklisted from this repository.** [Appeal this block as @${username}](${url}) if you think it was a mistake.`
-  }
-  return `> Think this was a mistake? [Request a review as @${username}](${url}).`
-}
-
-function warnFooter(repoFullName: string, username: string): string {
-  const url = buildRequestUrl(repoFullName, { kind: "access", username })
-  return `> Want to skip these checks in the future? [Request vouched access as @${username}](${url}).`
-}
 
 // ─── Scope helper ──────────────────────────────────────────────
 
@@ -1361,10 +1333,22 @@ export async function handlePullRequest(
 
   const action = result.resolvedAction ?? "block"
   const [owner, repo] = ctx.repoFullName.split("/")
+  const prefs = await loadPrefsForInstallation(ctx.installationId)
+  // routeMode "silent" runs the pipeline + logs events but doesn't touch GitHub.
+  if (prefs?.routeMode === "silent") return
   const token = await getInstallationToken(ctx.installationId)
 
-  if (result.outcome === "blocked") {
-    const comment = `> **Tripwire** — This PR was automatically closed.\n>\n> Reason: ${result.blockReason}\n>\n${appealFooter(ctx.repoFullName, result.outcome, ctx.senderLogin)}`
+  if (result.outcome === "blocked" || result.outcome === "blacklist_blocked") {
+    const comment = renderBlockedComment({
+      prefs,
+      blockReason: result.blockReason,
+      ruleName: result.blockingRule,
+      repoFullName: ctx.repoFullName,
+      username: ctx.senderLogin,
+      outcome: result.outcome,
+      kind: "pull_request",
+      appBaseUrl: APP_BASE_URL,
+    })
     await closePullRequest(token, owner, repo, prNumber, comment)
 
     if (result.repoId) {
@@ -1389,7 +1373,16 @@ export async function handlePullRequest(
     result.outcome === "warned" ||
     result.outcome === "unable_to_verify"
   ) {
-    const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._\n>\n${warnFooter(ctx.repoFullName, ctx.senderLogin)}`
+    const comment = renderWarnedComment({
+      prefs,
+      blockReason: result.blockReason,
+      ruleName: result.blockingRule,
+      repoFullName: ctx.repoFullName,
+      username: ctx.senderLogin,
+      outcome: result.outcome,
+      kind: "pull_request",
+      appBaseUrl: APP_BASE_URL,
+    })
     await addComment(token, owner, repo, prNumber, comment)
 
     if (result.repoId) {
@@ -1431,10 +1424,22 @@ export async function handleIssue(
 
   const action = result.resolvedAction ?? "block"
   const [owner, repo] = ctx.repoFullName.split("/")
+  const prefs = await loadPrefsForInstallation(ctx.installationId)
+  // routeMode "silent" runs the pipeline + logs events but doesn't touch GitHub.
+  if (prefs?.routeMode === "silent") return
   const token = await getInstallationToken(ctx.installationId)
 
-  if (result.outcome === "blocked") {
-    const comment = `> **Tripwire** — This issue was automatically closed.\n>\n> Reason: ${result.blockReason}\n>\n${appealFooter(ctx.repoFullName, result.outcome, ctx.senderLogin)}`
+  if (result.outcome === "blocked" || result.outcome === "blacklist_blocked") {
+    const comment = renderBlockedComment({
+      prefs,
+      blockReason: result.blockReason,
+      ruleName: result.blockingRule,
+      repoFullName: ctx.repoFullName,
+      username: ctx.senderLogin,
+      outcome: result.outcome,
+      kind: "issue",
+      appBaseUrl: APP_BASE_URL,
+    })
     await closeIssue(token, owner, repo, issueNumber, comment)
 
     if (result.repoId) {
@@ -1459,7 +1464,16 @@ export async function handleIssue(
     result.outcome === "warned" ||
     result.outcome === "unable_to_verify"
   ) {
-    const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._\n>\n${warnFooter(ctx.repoFullName, ctx.senderLogin)}`
+    const comment = renderWarnedComment({
+      prefs,
+      blockReason: result.blockReason,
+      ruleName: result.blockingRule,
+      repoFullName: ctx.repoFullName,
+      username: ctx.senderLogin,
+      outcome: result.outcome,
+      kind: "issue",
+      appBaseUrl: APP_BASE_URL,
+    })
     await addComment(token, owner, repo, issueNumber, comment)
 
     if (result.repoId) {
@@ -1499,6 +1513,9 @@ export async function handleComment(
 
   const action = result.resolvedAction ?? "block"
   const [owner, repo] = ctx.repoFullName.split("/")
+  const prefs = await loadPrefsForInstallation(ctx.installationId)
+  // routeMode "silent" runs the pipeline + logs events but doesn't touch GitHub.
+  if (prefs?.routeMode === "silent") return
   const token = await getInstallationToken(ctx.installationId)
 
   if (result.outcome === "blocked") {
@@ -1522,7 +1539,16 @@ export async function handleComment(
     result.outcome === "warned" ||
     result.outcome === "unable_to_verify"
   ) {
-    const comment = `> **Tripwire** — Warning\n>\n> ${result.blockReason}\n>\n> _This is a warning — no action was taken._\n>\n${warnFooter(ctx.repoFullName, ctx.senderLogin)}`
+    const comment = renderWarnedComment({
+      prefs,
+      blockReason: result.blockReason,
+      ruleName: result.blockingRule,
+      repoFullName: ctx.repoFullName,
+      username: ctx.senderLogin,
+      outcome: result.outcome,
+      kind: "comment",
+      appBaseUrl: APP_BASE_URL,
+    })
     await addComment(token, owner, repo, issueNumber, comment)
 
     if (result.repoId) {
