@@ -3,7 +3,7 @@ import type { UIMessage } from "ai"
 import { eq, and, desc } from "drizzle-orm"
 import { assertRepoBelongsToOrg, orgProcedure } from "../init"
 import { db } from "@tripwire/db/client"
-import { conversations } from "@tripwire/db"
+import { conversations, user } from "@tripwire/db"
 import type { TRPCRouterRecord } from "@trpc/server"
 import { mergeMessagesPreservingResults } from "#/lib/chat/persistence"
 import { asConversationStoredMessages } from "#/lib/chat/conversation-stored"
@@ -86,7 +86,7 @@ async function upsertMessages(
         ...(title ? { title } : {}),
         updatedAt: new Date(),
       },
-      setWhere: eq(conversations.userId, userId),
+      setWhere: eq(conversations.organizationId, organizationId),
     })
 }
 
@@ -121,7 +121,6 @@ export const chatsRouter = {
         .where(
           and(
             eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id),
             eq(conversations.organizationId, ctx.activeOrgId)
           )
         )
@@ -147,7 +146,7 @@ export const chatsRouter = {
         .where(
           and(
             eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id)
+            eq(conversations.organizationId, ctx.activeOrgId)
           )
         )
         .limit(1)
@@ -174,7 +173,7 @@ export const chatsRouter = {
             ...(input.title ? { title: input.title } : {}),
             updatedAt: new Date(),
           },
-          setWhere: eq(conversations.userId, ctx.user.id),
+          setWhere: eq(conversations.organizationId, ctx.activeOrgId),
         })
     }),
 
@@ -210,7 +209,7 @@ export const chatsRouter = {
         .where(
           and(
             eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id)
+            eq(conversations.organizationId, ctx.activeOrgId)
           )
         )
         .limit(1)
@@ -331,7 +330,7 @@ export const chatsRouter = {
         .where(
           and(
             eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id)
+            eq(conversations.organizationId, ctx.activeOrgId)
           )
         )
         .limit(1)
@@ -371,10 +370,9 @@ export const chatsRouter = {
       })
     )
     .query(async ({ input, ctx }) => {
-      const conditions = [
-        eq(conversations.userId, ctx.user.id),
-        eq(conversations.organizationId, ctx.activeOrgId),
-      ]
+      // Shared across the org: every member sees all chats in the active
+      // org, each labeled with its author (conversations.userId).
+      const conditions = [eq(conversations.organizationId, ctx.activeOrgId)]
       if (input.repoId) {
         conditions.push(eq(conversations.repoId, input.repoId))
       }
@@ -385,8 +383,12 @@ export const chatsRouter = {
           repoId: conversations.repoId,
           createdAt: conversations.createdAt,
           updatedAt: conversations.updatedAt,
+          authorId: conversations.userId,
+          authorName: user.name,
+          authorImage: user.image,
         })
         .from(conversations)
+        .leftJoin(user, eq(user.id, conversations.userId))
         .where(and(...conditions))
         .orderBy(desc(conversations.updatedAt))
         .limit(input.limit)
@@ -439,7 +441,7 @@ export const chatsRouter = {
           .where(
             and(
               eq(conversations.id, input.chatId),
-              eq(conversations.userId, ctx.user.id)
+              eq(conversations.organizationId, ctx.activeOrgId)
             )
           )
 
@@ -463,7 +465,6 @@ export const chatsRouter = {
         .where(
           and(
             eq(conversations.id, input.chatId),
-            eq(conversations.userId, ctx.user.id),
             eq(conversations.organizationId, ctx.activeOrgId)
           )
         )

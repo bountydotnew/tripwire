@@ -16,9 +16,10 @@ export type ConversationStoredMessage = Record<string, unknown>
 /**
  * AI chat conversations — persisted chats with full message history.
  *
- * Scoped to (user, organization): a chat created in org A isn't visible
- * when the same user is active in org B. `repoId` may be null, but
- * `organizationId` is always set so cross-org isolation holds.
+ * Scoped to an organization and shared across its members: every member of
+ * the active org can read/continue any chat in it, with `userId` recording
+ * the original author. A chat in org A is never visible from org B. `repoId`
+ * may be null, but `organizationId` is always set so cross-org isolation holds.
  */
 export const conversations = pgTable(
   "conversations",

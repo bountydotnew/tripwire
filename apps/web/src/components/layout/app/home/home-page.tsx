@@ -279,6 +279,7 @@ export function HomePageSkeleton() {
 function HomeFloatingBar() {
   const navigate = useNavigate()
   const { repo } = useWorkspace()
+  const { user } = useAuth()
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const createChat = useMutation(trpc.chats.create.mutationOptions())
@@ -299,6 +300,9 @@ function HomeFloatingBar() {
               repoId: string | null
               createdAt: Date
               updatedAt: Date
+              authorId: string
+              authorName: string | null
+              authorImage: string | null
             }>
           | undefined
       ) => [
@@ -308,6 +312,9 @@ function HomeFloatingBar() {
           repoId: repo?.id ?? null,
           createdAt: new Date(),
           updatedAt: new Date(),
+          authorId: user.id,
+          authorName: user.name ?? null,
+          authorImage: user.image ?? null,
         },
         ...(old ?? []).slice(0, 4),
       ]

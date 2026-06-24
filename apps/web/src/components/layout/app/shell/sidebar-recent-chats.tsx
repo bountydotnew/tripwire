@@ -2,10 +2,12 @@ import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@tripwire/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tripwire/ui/tooltip"
 import {
   ChatBubbleOutlineIcon12,
   StrokeXIcon10Muted,
 } from "@tripwire/ui/icons/app-chrome-icons"
+import { authClient } from "@tripwire/auth/client"
 import { useTRPC } from "#/integrations/trpc/react"
 import { useAIChat } from "#/providers/chat-context"
 import { useWorkspace } from "#/providers/workspace-context"
@@ -16,6 +18,8 @@ export function SidebarRecentChats() {
   const { loadChat, conversationId, open } = useAIChat()
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const { repo } = useWorkspace()
+  const { data: session } = authClient.useSession()
+  const currentUserId = session?.user?.id
   const chatsQuery = useQuery(
     trpc.chats.list.queryOptions({ limit: 3, repoId: repo?.id })
   )
@@ -117,9 +121,32 @@ export function SidebarRecentChats() {
                 }}
                 className="flex min-w-0 flex-1 items-center gap-1.5"
               >
-                <ChatBubbleOutlineIcon12
-                  className={`shrink-0 ${isActive ? "text-tw-text-primary" : "text-tw-text-muted"}`}
-                />
+                {currentUserId && chat.authorId !== currentUserId ? (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        chat.authorImage ? (
+                          <img
+                            src={chat.authorImage}
+                            alt={chat.authorName ?? "Member"}
+                            className="size-4 shrink-0 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-tw-inner text-[8px] font-medium text-tw-text-secondary">
+                            {(chat.authorName ?? "?").charAt(0).toUpperCase()}
+                          </span>
+                        )
+                      }
+                    />
+                    <TooltipContent side="right">
+                      {chat.authorName ?? "Workspace member"}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <ChatBubbleOutlineIcon12
+                    className={`shrink-0 ${isActive ? "text-tw-text-primary" : "text-tw-text-muted"}`}
+                  />
+                )}
                 <span
                   className={`truncate text-[12px] ${isActive ? "text-tw-text-primary" : "text-tw-text-muted"}`}
                 >
