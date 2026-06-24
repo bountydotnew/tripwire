@@ -1,7 +1,11 @@
 import { z } from "zod"
 import { and, desc, eq, inArray, lte, or, sql } from "drizzle-orm"
 import { orgProcedure } from "../init"
-import { assertRepoBelongsToOrg, logEvent } from "@tripwire/core"
+import {
+  assertRepoBelongsToOrg,
+  logEvent,
+  QUEUEABLE_ACTIONS,
+} from "@tripwire/core"
 import { db } from "@tripwire/db/client"
 import {
   moderationItems,
@@ -207,11 +211,22 @@ export const moderationRouter = {
       await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const existing = await db
-        .select({ eventId: moderationItems.eventId })
+        .select({
+          eventId: moderationItems.eventId,
+          githubRef: moderationItems.githubRef,
+          status: moderationItems.status,
+        })
         .from(moderationItems)
         .where(eq(moderationItems.repoId, input.repoId))
       const seenEventIds = new Set(
         existing.map((e) => e.eventId).filter((id): id is string => !!id)
+      )
+      // Skip content that already has an open item so a second flagged event
+      // for the same PR/issue (e.g. the duplicate warn audit) doesn't pile up.
+      const seenRefs = new Set(
+        existing
+          .filter((e) => e.status === "open" && e.githubRef)
+          .map((e) => e.githubRef as string)
       )
 
       const flagged = await db
@@ -220,14 +235,19 @@ export const moderationRouter = {
         .where(
           and(
             eq(events.repoId, input.repoId),
-            inArray(events.severity, ["warning", "error"])
+            inArray(events.action, [...QUEUEABLE_ACTIONS])
           )
         )
         .orderBy(desc(events.createdAt))
         .limit(input.limit)
 
       const rows = flagged
-        .filter((e) => !seenEventIds.has(e.id))
+        .filter((e) => {
+          if (seenEventIds.has(e.id)) return false
+          if (e.githubRef && seenRefs.has(e.githubRef)) return false
+          if (e.githubRef) seenRefs.add(e.githubRef)
+          return true
+        })
         .map((e) => ({
           repoId: input.repoId,
           source: "rule_flag" as const,
