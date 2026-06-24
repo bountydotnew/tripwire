@@ -1,6 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { Button } from "@tripwire/ui/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPopup,
+  DialogTitle,
+} from "@tripwire/ui/dialog"
 import { SuccessCheckStrokeIcon14 } from "@tripwire/ui/icons/app-chrome-icons"
 import { GitHubMarkWhiteIcon20 } from "@tripwire/ui/icons/github-mark-icon"
 import { useWorkspace } from "#/providers/workspace-context"
@@ -21,6 +30,7 @@ export function IntegrationsPageSkeleton() {
 export function IntegrationsPage() {
   const { repos, repo, setRepo, isLoading } = useWorkspace()
   const queryClient = useQueryClient()
+  const [manageDialogOpen, setManageDialogOpen] = useState(false)
 
   // When the user finishes configuring the GitHub App on github.com and
   // returns to this tab, we have no webhook signal that says "install
@@ -59,22 +69,72 @@ export function IntegrationsPage() {
               </div>
             </div>
           </div>
-          <Button
-            size="xs"
-            variant="outline"
-            className="shrink-0 border-[#CDCDCD] bg-white px-1 text-black hover:bg-white/90"
-            render={
-              <a
-                href={routes.api.githubInstall}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {repos.length > 0 ? "Manage" : "Install"}
-              </a>
-            }
-          />
+          {repos.length > 0 ? (
+            <Button
+              size="xs"
+              variant="outline"
+              type="button"
+              onClick={() => setManageDialogOpen(true)}
+              className="shrink-0 border-[#CDCDCD] bg-white px-1 text-black hover:bg-white/90"
+            >
+              Manage
+            </Button>
+          ) : (
+            <Button
+              size="xs"
+              variant="outline"
+              className="shrink-0 border-[#CDCDCD] bg-white px-1 text-black hover:bg-white/90"
+              render={
+                <a
+                  href={routes.api.githubInstall}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Install
+                </a>
+              }
+            />
+          )}
         </div>
       </div>
+
+      <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
+        <DialogPopup
+          showCloseButton={false}
+          bottomStickOnMobile={false}
+          className="fixed top-1/2 left-1/2 row-auto w-[min(460px,calc(100vw-2rem))] max-w-none -translate-x-1/2 -translate-y-1/2"
+        >
+          <DialogHeader className="px-6 pt-6 pb-5">
+            <DialogTitle>Manage GitHub repos</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Removing a repo from Tripwire's GitHub App installation will also
+              delete its related Tripwire data, including rules, workflows,
+              events, lists, requests, and reputation records.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter variant="bare" className="px-6 pt-3 pb-6">
+            <DialogClose
+              className="flex h-8 items-center rounded-lg border border-[#27272A] px-3 text-[13px] font-medium text-tw-text-secondary transition-colors hover:bg-tw-hover"
+            >
+              Cancel
+            </DialogClose>
+            <Button
+              size="xs"
+              className="bg-white text-black hover:bg-white/90"
+              render={
+                <a
+                  href={routes.api.githubInstall}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setManageDialogOpen(false)}
+                >
+                  Continue to GitHub
+                </a>
+              }
+            />
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
 
       {/* Repo Picker */}
       {repos.length > 0 && (

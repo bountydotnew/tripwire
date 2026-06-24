@@ -173,32 +173,30 @@ export async function handleInstallationRepositories(
     return
   }
 
-  if (payload.action === "added" && payload.repositories_added) {
-    for (const repo of payload.repositories_added) {
-      const existing = await db
-        .select()
-        .from(repositories)
-        .where(eq(repositories.githubRepoId, repo.id))
+  const added = payload.repositories_added ?? []
+  for (const repo of added) {
+    const existing = await db
+      .select()
+      .from(repositories)
+      .where(eq(repositories.githubRepoId, repo.id))
 
-      if (existing.length === 0) {
-        await db.insert(repositories).values({
-          orgId: org.id,
-          githubRepoId: repo.id,
-          name: repo.name,
-          fullName: repo.full_name,
-          isPrivate: repo.private,
-        })
-        console.log(`[RepoChange] ✓ Added repo ${repo.full_name}`)
-      }
+    if (existing.length === 0) {
+      await db.insert(repositories).values({
+        orgId: org.id,
+        githubRepoId: repo.id,
+        name: repo.name,
+        fullName: repo.full_name,
+        isPrivate: repo.private,
+      })
+      console.log(`[RepoChange] ✓ Added repo ${repo.full_name}`)
     }
   }
 
-  if (payload.action === "removed" && payload.repositories_removed) {
-    for (const repo of payload.repositories_removed) {
-      await db
-        .delete(repositories)
-        .where(eq(repositories.githubRepoId, repo.id))
-      console.log(`[RepoChange] ✓ Removed repo ${repo.id}`)
-    }
+  const removed = payload.repositories_removed ?? []
+  for (const repo of removed) {
+    await db
+      .delete(repositories)
+      .where(eq(repositories.githubRepoId, repo.id))
+    console.log(`[RepoChange] ✓ Removed repo ${repo.id}`)
   }
 }
