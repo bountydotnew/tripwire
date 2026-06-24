@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { eq } from "drizzle-orm"
-import { authedProcedure } from "../init"
-import { assertRepoOwner } from "@tripwire/core"
+import { orgProcedure } from "../init"
+import { assertRepoBelongsToOrg } from "@tripwire/core"
 import { db } from "@tripwire/db/client"
 import {
   ruleConfigs,
@@ -17,10 +17,10 @@ import type { TRPCRouterRecord } from "@trpc/server"
 
 export const rulesRouter = {
   /** Get rule config for a repo */
-  getConfig: authedProcedure
+  getConfig: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [config] = await db
         .select()
         .from(ruleConfigs)
@@ -29,7 +29,7 @@ export const rulesRouter = {
     }),
 
   /** Update rule config for a repo (upsert) */
-  updateConfig: authedProcedure
+  updateConfig: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -37,7 +37,7 @@ export const rulesRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const [existing] = await db
         .select()
@@ -82,10 +82,10 @@ export const rulesRouter = {
     }),
 
   /** Count enabled rules for a repo */
-  countEnabled: authedProcedure
+  countEnabled: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [configRow] = await db
         .select()
         .from(ruleConfigs)
@@ -106,10 +106,10 @@ export const rulesRouter = {
     }),
 
   /** Export config as JSON (for copy-to-another-repo) */
-  exportConfig: authedProcedure
+  exportConfig: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [config] = await db
         .select()
         .from(ruleConfigs)
@@ -133,7 +133,7 @@ export const rulesRouter = {
     }),
 
   /** Import config from JSON */
-  importConfig: authedProcedure
+  importConfig: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -143,7 +143,7 @@ export const rulesRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       // Persist rule config + whitelist + blacklist atomically. If the lists
       // fail to insert we don't want the rule config drifting from them.

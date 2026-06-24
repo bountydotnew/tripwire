@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { eq, and, sql } from "drizzle-orm"
-import { authedProcedure } from "../init"
-import { assertRepoOwner } from "@tripwire/core"
+import { orgProcedure } from "../init"
+import { assertRepoBelongsToOrg } from "@tripwire/core"
 import { trpcError } from "../error"
 import { db } from "@tripwire/db/client"
 import { whitelistEntries, blacklistEntries } from "@tripwire/db"
@@ -50,17 +50,17 @@ async function validateGitHubUser(username: string): Promise<{
 }
 
 export const whitelistRouter = {
-  list: authedProcedure
+  list: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       return db
         .select()
         .from(whitelistEntries)
         .where(eq(whitelistEntries.repoId, input.repoId))
     }),
 
-  add: authedProcedure
+  add: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -68,7 +68,7 @@ export const whitelistRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const ghUser = await validateGitHubUser(input.githubUsername)
 
       // Atomically check blacklist + insert into whitelist. The unique index
@@ -135,7 +135,7 @@ export const whitelistRouter = {
       return entry
     }),
 
-  remove: authedProcedure
+  remove: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -143,7 +143,7 @@ export const whitelistRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       await db
         .delete(whitelistEntries)
         .where(
@@ -165,10 +165,10 @@ export const whitelistRouter = {
       return { success: true }
     }),
 
-  suggestedContributors: authedProcedure
+  suggestedContributors: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      const { repo, org } = await assertRepoOwner(ctx.user.id, input.repoId)
+      const { repo, org } = await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       let token: string
       try {
@@ -195,10 +195,10 @@ export const whitelistRouter = {
         }))
     }),
 
-  mentions: authedProcedure
+  mentions: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const [whitelisted, blacklisted] = await Promise.all([
         db
@@ -220,7 +220,7 @@ export const whitelistRouter = {
       return { whitelisted, blacklisted }
     }),
 
-  resolveGithubMention: authedProcedure
+  resolveGithubMention: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -228,7 +228,7 @@ export const whitelistRouter = {
       })
     )
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const trimmed = input.login.trim()
       if (!isValidGithubLogin(trimmed)) {
         return null
@@ -248,17 +248,17 @@ export const whitelistRouter = {
 } satisfies TRPCRouterRecord
 
 export const blacklistRouter = {
-  list: authedProcedure
+  list: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       return db
         .select()
         .from(blacklistEntries)
         .where(eq(blacklistEntries.repoId, input.repoId))
     }),
 
-  add: authedProcedure
+  add: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -266,7 +266,7 @@ export const blacklistRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const ghUser = await validateGitHubUser(input.githubUsername)
 
       // Atomically remove any existing whitelist entry and insert the
@@ -324,7 +324,7 @@ export const blacklistRouter = {
       return entry
     }),
 
-  remove: authedProcedure
+  remove: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -332,7 +332,7 @@ export const blacklistRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       await db
         .delete(blacklistEntries)
         .where(

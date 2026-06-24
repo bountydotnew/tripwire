@@ -1,7 +1,7 @@
 import { z } from "zod"
 import type { UIMessage } from "ai"
 import { eq, and, desc } from "drizzle-orm"
-import { assertRepoOwner, authedProcedure } from "../init"
+import { assertRepoBelongsToOrg, orgProcedure } from "../init"
 import { db } from "@tripwire/db/client"
 import { conversations } from "@tripwire/db"
 import type { TRPCRouterRecord } from "@trpc/server"
@@ -89,7 +89,7 @@ async function upsertMessages(
 }
 
 export const chatsRouter = {
-  create: authedProcedure
+  create: orgProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -109,7 +109,7 @@ export const chatsRouter = {
       return conv ?? null
     }),
 
-  get: authedProcedure
+  get: orgProcedure
     .input(z.object({ chatId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
       const [conv] = await db
@@ -125,7 +125,7 @@ export const chatsRouter = {
       return conv ?? null
     }),
 
-  saveMessages: authedProcedure
+  saveMessages: orgProcedure
     .input(
       z.object({
         chatId: z.string().uuid(),
@@ -173,7 +173,7 @@ export const chatsRouter = {
         })
     }),
 
-  runSlashCommand: authedProcedure
+  runSlashCommand: orgProcedure
     .input(
       z.object({
         chatId: z.string().uuid(),
@@ -251,7 +251,7 @@ export const chatsRouter = {
           if (!resolvedRepoId) {
             throw new Error("Select a repository before running this command.")
           }
-          await assertRepoOwner(ctx.user.id, resolvedRepoId)
+          await assertRepoBelongsToOrg(resolvedRepoId, ctx.activeOrgId)
         }
 
         const toolArgs = command.buildArgs(args)
@@ -306,7 +306,7 @@ export const chatsRouter = {
       return { messages: appended, replace: false }
     }),
 
-  appendSlashMessages: authedProcedure
+  appendSlashMessages: orgProcedure
     .input(
       z.object({
         chatId: z.string().uuid(),
@@ -355,7 +355,7 @@ export const chatsRouter = {
       )
     }),
 
-  list: authedProcedure
+  list: orgProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(50).default(20),
@@ -381,7 +381,7 @@ export const chatsRouter = {
         .limit(input.limit)
     }),
 
-  generateTitle: authedProcedure
+  generateTitle: orgProcedure
     .input(
       z.object({
         chatId: z.string().uuid(),
@@ -444,7 +444,7 @@ export const chatsRouter = {
       }
     }),
 
-  delete: authedProcedure
+  delete: orgProcedure
     .input(z.object({ chatId: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       await db
@@ -457,7 +457,7 @@ export const chatsRouter = {
         )
     }),
 
-  deleteAll: authedProcedure.mutation(async ({ ctx }) => {
+  deleteAll: orgProcedure.mutation(async ({ ctx }) => {
     await db.delete(conversations).where(eq(conversations.userId, ctx.user.id))
   }),
 } satisfies TRPCRouterRecord

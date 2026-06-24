@@ -1,8 +1,8 @@
 import { z } from "zod"
 import { and, eq, desc, sql } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
-import { authedProcedure } from "../init"
-import { assertRepoOwner } from "@tripwire/core"
+import { orgProcedure } from "../init"
+import { assertRepoBelongsToOrg } from "@tripwire/core"
 import { db } from "@tripwire/db/client"
 import { customRules, events } from "@tripwire/db"
 import {
@@ -28,10 +28,10 @@ import type { TRPCRouterRecord } from "@trpc/server"
 import type { CustomRuleDefinition } from "@tripwire/db"
 
 export const customRulesRouter = {
-  list: authedProcedure
+  list: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const rows = await db
         .select()
@@ -55,7 +55,7 @@ export const customRulesRouter = {
       }))
     }),
 
-  get: authedProcedure
+  get: orgProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
       const [rule] = await db
@@ -80,14 +80,14 @@ export const customRulesRouter = {
         })
       }
 
-      await assertRepoOwner(ctx.user.id, rule.repoId)
+      await assertRepoBelongsToOrg(rule.repoId, ctx.activeOrgId)
       return rule
     }),
 
-  create: authedProcedure
+  create: orgProcedure
     .input(createCustomRuleSchema)
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const planId = await getUserPlanId(ctx.user.id)
       const limits = getCustomRuleLimits(planId)
@@ -145,7 +145,7 @@ export const customRulesRouter = {
       return created
     }),
 
-  update: authedProcedure
+  update: orgProcedure
     .input(updateCustomRuleSchema)
     .mutation(async ({ input, ctx }) => {
       const [existing] = await db
@@ -161,7 +161,7 @@ export const customRulesRouter = {
         })
       }
 
-      await assertRepoOwner(ctx.user.id, existing.repoId)
+      await assertRepoBelongsToOrg(existing.repoId, ctx.activeOrgId)
 
       const definitionChanged = input.definition !== undefined
 
@@ -205,7 +205,7 @@ export const customRulesRouter = {
       return updated
     }),
 
-  delete: authedProcedure
+  delete: orgProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await db
@@ -221,7 +221,7 @@ export const customRulesRouter = {
         })
       }
 
-      await assertRepoOwner(ctx.user.id, existing.repoId)
+      await assertRepoBelongsToOrg(existing.repoId, ctx.activeOrgId)
 
       await db.delete(customRules).where(eq(customRules.id, input.id))
 
@@ -240,7 +240,7 @@ export const customRulesRouter = {
       return { ok: true as const }
     }),
 
-  enable: authedProcedure
+  enable: orgProcedure
     .input(z.object({ id: z.string().uuid(), enabled: z.boolean() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await db
@@ -256,7 +256,7 @@ export const customRulesRouter = {
         })
       }
 
-      await assertRepoOwner(ctx.user.id, existing.repoId)
+      await assertRepoBelongsToOrg(existing.repoId, ctx.activeOrgId)
 
       if (input.enabled && !existing.simulatedAt) {
         throw new TRPCError({
@@ -287,7 +287,7 @@ export const customRulesRouter = {
       return updated
     }),
 
-  simulate: authedProcedure
+  simulate: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -295,7 +295,7 @@ export const customRulesRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const recentEvents = await db
         .select({
@@ -407,7 +407,7 @@ export const customRulesRouter = {
       }
     }),
 
-  limits: authedProcedure.query(async ({ ctx }) => {
+  limits: orgProcedure.query(async ({ ctx }) => {
     const planId = await getUserPlanId(ctx.user.id)
     const limits = getCustomRuleLimits(planId)
     return { ...limits, planId }

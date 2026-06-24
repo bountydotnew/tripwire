@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { and, desc, eq } from "drizzle-orm"
-import { authedProcedure, publicProcedure } from "../init"
-import { assertRepoOwner, assertRequestOwner } from "@tripwire/core"
+import { orgProcedure, publicProcedure } from "../init"
+import { assertRepoBelongsToOrg, assertRequestBelongsToOrg } from "@tripwire/core"
 import { trpcError } from "../error"
 import { db } from "@tripwire/db/client"
 import {
@@ -165,7 +165,7 @@ export const requestsRouter = {
       return { id: entry.id }
     }),
 
-  list: authedProcedure
+  list: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -173,7 +173,7 @@ export const requestsRouter = {
       })
     )
     .query(async ({ input, ctx }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const conds = [eq(contributorRequests.repoId, input.repoId)]
       if (input.status) conds.push(eq(contributorRequests.status, input.status))
       return db
@@ -183,7 +183,7 @@ export const requestsRouter = {
         .orderBy(desc(contributorRequests.createdAt))
     }),
 
-  decide: authedProcedure
+  decide: orgProcedure
     .input(
       z.object({
         requestId: z.string().uuid(),
@@ -191,9 +191,9 @@ export const requestsRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const { request: req } = await assertRequestOwner(
-        ctx.user.id,
-        input.requestId
+      const { request: req } = await assertRequestBelongsToOrg(
+        input.requestId,
+        ctx.activeOrgId
       )
 
       const nextStatus = input.decision === "approve" ? "approved" : "denied"

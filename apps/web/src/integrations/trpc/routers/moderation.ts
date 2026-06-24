@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { and, desc, eq, inArray, lte, or, sql } from "drizzle-orm"
-import { authedProcedure } from "../init"
-import { assertRepoOwner, logEvent } from "@tripwire/core"
+import { orgProcedure } from "../init"
+import { assertRepoBelongsToOrg, logEvent } from "@tripwire/core"
 import { db } from "@tripwire/db/client"
 import {
   moderationItems,
@@ -43,7 +43,7 @@ function openCondition(repoId: string) {
 
 export const moderationRouter = {
   /** Open review-queue items, severity-first then newest. */
-  listQueue: authedProcedure
+  listQueue: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -52,7 +52,7 @@ export const moderationRouter = {
       })
     )
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const items = await db
         .select()
         .from(moderationItems)
@@ -64,10 +64,10 @@ export const moderationRouter = {
     }),
 
   /** Count of open items — drives the sidebar badge. */
-  pendingCount: authedProcedure
+  pendingCount: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(moderationItems)
@@ -80,7 +80,7 @@ export const moderationRouter = {
    * (allow/dismiss/snooze + whitelist/blacklist/watch the target user).
    * Content actions that hit GitHub (delete/warn/hide) land in the next slice.
    */
-  resolveItem: authedProcedure
+  resolveItem: orgProcedure
     .input(
       z.object({
         itemId: z.string().uuid(),
@@ -102,7 +102,7 @@ export const moderationRouter = {
           message: "Queue item not found",
         })
       }
-      await assertRepoOwner(ctx.user.id, item.repoId)
+      await assertRepoBelongsToOrg(item.repoId, ctx.activeOrgId)
 
       const username = item.targetGithubUsername
       const userId = item.targetGithubUserId
@@ -196,7 +196,7 @@ export const moderationRouter = {
    * don't already have an item. Lets the queue show real data before the
    * live creation hooks (next slice) are wired in.
    */
-  backfill: authedProcedure
+  backfill: orgProcedure
     .input(
       z.object({
         repoId: z.string().uuid(),
@@ -204,7 +204,7 @@ export const moderationRouter = {
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await assertRepoOwner(ctx.user.id, input.repoId)
+      await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
 
       const existing = await db
         .select({ eventId: moderationItems.eventId })
