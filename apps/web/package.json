@@ -6,7 +6,7 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite dev --port 3000",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "biome check . --formatter-enabled=false --assist-enabled=false",

@@ -16,13 +16,6 @@ const config = defineConfig(({ mode }) => {
     // @tripwire/env auto-loads it for server code; this points Vite at the
     // same file so VITE_* client vars resolve too.
     envDir: "../..",
-    // Honor the port/host portless assigns (exported as PORT/HOST and passed
-    // through turbo). Vite ignores PORT by default, so without this it falls
-    // back to 3000 while portless proxies to a different port → 502.
-    server: {
-      port: process.env.PORT ? Number(process.env.PORT) : 3000,
-      host: process.env.HOST || undefined,
-    },
     plugins: [
       ...(tanstackDevtoolsEnabled ? [devtools()] : []),
       tripwireDevServeTiming(),
