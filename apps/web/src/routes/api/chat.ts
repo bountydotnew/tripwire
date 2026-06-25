@@ -22,6 +22,7 @@ import { autumn } from "@tripwire/auth/autumn"
 import { db } from "@tripwire/db/client"
 import {
   conversations,
+  member,
   organizations,
   repositories,
   type ConversationStoredMessage,
@@ -127,7 +128,20 @@ export const Route = createFileRoute("/api/chat")({
         const ctx = await createContext({ headers: request.headers })
         if (!ctx.user) return jsonError(401, { error: "Unauthorized" })
         const user = ctx.user
-        const activeOrgId = ctx.activeOrgId
+        // Mirror orgMiddleware's fallback: the session's activeOrganizationId
+        // is null until Better Auth's setActive propagates (new sessions, or
+        // before the client's reconciliation lands), so fall back to the
+        // user's first membership. Both paths must agree or chat 400s while
+        // tRPC succeeds for the same user-state.
+        let activeOrgId = ctx.activeOrgId
+        if (!activeOrgId) {
+          const [firstMembership] = await db
+            .select({ organizationId: member.organizationId })
+            .from(member)
+            .where(eq(member.userId, user.id))
+            .limit(1)
+          activeOrgId = firstMembership?.organizationId ?? null
+        }
         if (!activeOrgId)
           return jsonError(400, { error: "No active organization" })
 
