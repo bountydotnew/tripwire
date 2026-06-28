@@ -154,7 +154,10 @@ const orgMiddleware = t.middleware(async ({ ctx, next }) => {
     .select({ id: member.id })
     .from(member)
     .where(
-      and(eq(member.userId, ctx.user.id), eq(member.organizationId, activeOrgId))
+      and(
+        eq(member.userId, ctx.user.id),
+        eq(member.organizationId, activeOrgId)
+      )
     )
     .limit(1)
   if (!membership) {

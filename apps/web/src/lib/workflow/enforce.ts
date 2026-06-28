@@ -69,7 +69,12 @@ export async function performWorkflowActions(
           } else {
             await closeIssue(t, owner, repo, args.number, comment)
           }
-          results.push({ nodeId: node.nodeId, action, performed: true, detail: `closed #${args.number}` })
+          results.push({
+            nodeId: node.nodeId,
+            action,
+            performed: true,
+            detail: `closed #${args.number}`,
+          })
           break
         }
         case "warn":
@@ -77,7 +82,12 @@ export async function performWorkflowActions(
           const t = await ghToken()
           const body = nodeText(node.data) ?? "Flagged by a Tripwire workflow."
           await addComment(t, owner, repo, args.number, body)
-          results.push({ nodeId: node.nodeId, action, performed: true, detail: `commented on #${args.number}` })
+          results.push({
+            nodeId: node.nodeId,
+            action,
+            performed: true,
+            detail: `commented on #${args.number}`,
+          })
           break
         }
         case "label": {
@@ -88,7 +98,12 @@ export async function performWorkflowActions(
             t,
             { method: "POST", body: JSON.stringify({ labels: [label] }) }
           )
-          results.push({ nodeId: node.nodeId, action, performed: true, detail: `labeled #${args.number} "${label}"` })
+          results.push({
+            nodeId: node.nodeId,
+            action,
+            performed: true,
+            detail: `labeled #${args.number} "${label}"`,
+          })
           break
         }
         case "add_to_whitelist":
@@ -113,7 +128,12 @@ export async function performWorkflowActions(
               githubUserId: args.userId ?? null,
             })
             .onConflictDoNothing()
-          results.push({ nodeId: node.nodeId, action, performed: true, detail: `@${args.username}` })
+          results.push({
+            nodeId: node.nodeId,
+            action,
+            performed: true,
+            detail: `@${args.username}`,
+          })
           break
         }
         case "remove_from_whitelist":
@@ -130,7 +150,12 @@ export async function performWorkflowActions(
                 sql`lower(${table.githubUsername}) = ${args.username.toLowerCase()}`
               )
             )
-          results.push({ nodeId: node.nodeId, action, performed: true, detail: `@${args.username}` })
+          results.push({
+            nodeId: node.nodeId,
+            action,
+            performed: true,
+            detail: `@${args.username}`,
+          })
           break
         }
         case "log": {
@@ -143,11 +168,21 @@ export async function performWorkflowActions(
             targetGithubUserId: args.userId,
             githubRef: `#${args.number}`,
           })
-          results.push({ nodeId: node.nodeId, action, performed: true, detail: "logged" })
+          results.push({
+            nodeId: node.nodeId,
+            action,
+            performed: true,
+            detail: "logged",
+          })
           break
         }
         default:
-          results.push({ nodeId: node.nodeId, action, performed: false, detail: "unsupported action" })
+          results.push({
+            nodeId: node.nodeId,
+            action,
+            performed: false,
+            detail: "unsupported action",
+          })
       }
     } catch (err) {
       results.push({

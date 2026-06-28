@@ -380,10 +380,7 @@ function EventHero({
                 ? "Already blacklisted"
                 : `Blacklist @${username}`}
             </MenuItem>
-            <MenuItem
-              disabled={!canAct || whitelisting}
-              onClick={onWhitelist}
-            >
+            <MenuItem disabled={!canAct || whitelisting} onClick={onWhitelist}>
               <EventUserPlusStrokeIcon14 />
               Add to whitelist
             </MenuItem>
@@ -527,13 +524,7 @@ function ContributorStats({
   )
 }
 
-function Block({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
+function Block({ label, children }: { label: string; children: ReactNode }) {
   return (
     <section className="flex w-full flex-col gap-1.5 overflow-hidden rounded-xl bg-tw-card p-1">
       <span className="px-2 pt-1.5 text-[11px] font-medium tracking-[0.08em] text-tw-text-tertiary uppercase">
@@ -664,4 +655,3 @@ function buildGitHubRefUrl(
   if (commentId) return `${base}/${path}/${num}#issuecomment-${commentId}`
   return `${base}/${path}/${num}`
 }
-

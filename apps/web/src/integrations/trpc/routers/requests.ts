@@ -1,7 +1,10 @@
 import { z } from "zod"
 import { and, desc, eq } from "drizzle-orm"
 import { orgProcedure, publicProcedure } from "../init"
-import { assertRepoBelongsToOrg, assertRequestBelongsToOrg } from "@tripwire/core"
+import {
+  assertRepoBelongsToOrg,
+  assertRequestBelongsToOrg,
+} from "@tripwire/core"
 import { trpcError } from "../error"
 import { db } from "@tripwire/db/client"
 import {

@@ -36,7 +36,9 @@ export async function removeFlaggedContent(item: RemovableItem): Promise<void> {
     .limit(1)
 
   if (!row?.installationId) {
-    throw new Error("This repo is no longer connected to a GitHub installation.")
+    throw new Error(
+      "This repo is no longer connected to a GitHub installation."
+    )
   }
 
   const [owner, repo] = row.fullName.split("/")

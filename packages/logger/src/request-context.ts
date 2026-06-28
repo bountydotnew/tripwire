@@ -42,7 +42,10 @@ if (typeof g.process !== "undefined" && g.process.versions?.node && g.require) {
  * the callback (and any async functions it awaits) will automatically
  * include the request context metadata in their output.
  */
-export function runWithRequestContext<T>(context: RequestContext, fn: () => T): T {
+export function runWithRequestContext<T>(
+  context: RequestContext,
+  fn: () => T
+): T {
   return storage.run(context, fn)
 }
 

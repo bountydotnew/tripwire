@@ -91,7 +91,8 @@ export function ReviewQueue({ repoId }: { repoId: string }) {
               : "Nothing new to load",
         })
       },
-      onError: (err) => toastFromError(err, { fallbackTitle: "Backfill failed" }),
+      onError: (err) =>
+        toastFromError(err, { fallbackTitle: "Backfill failed" }),
     })
   )
 
@@ -194,7 +195,9 @@ function QueueRow({
             </span>
           )}
           {username && <span>@{username}</span>}
-          {item.contentType && <span>· {getContentTypeLabel(item.contentType)}</span>}
+          {item.contentType && (
+            <span>· {getContentTypeLabel(item.contentType)}</span>
+          )}
           <span>· {formatRelativeTime(item.createdAt)}</span>
         </div>
       </div>

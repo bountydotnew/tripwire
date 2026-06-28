@@ -51,9 +51,7 @@ export const orgPrefsRouter = {
     const [row] = await db
       .select()
       .from(orgPrCommentPreferences)
-      .where(
-        eq(orgPrCommentPreferences.betterAuthOrgId, ctx.activeOrgId)
-      )
+      .where(eq(orgPrCommentPreferences.betterAuthOrgId, ctx.activeOrgId))
       .limit(1)
 
     if (row) return row
@@ -82,23 +80,21 @@ export const orgPrefsRouter = {
     return m?.role === "owner" || m?.role === "admin"
   }),
 
-  update: orgProcedure
-    .input(updateInput)
-    .mutation(async ({ ctx, input }) => {
-      await assertOrgEditor(ctx.user.id, ctx.activeOrgId)
+  update: orgProcedure.input(updateInput).mutation(async ({ ctx, input }) => {
+    await assertOrgEditor(ctx.user.id, ctx.activeOrgId)
 
-      const [row] = await db
-        .insert(orgPrCommentPreferences)
-        .values({
-          betterAuthOrgId: ctx.activeOrgId,
-          ...input,
-        })
-        .onConflictDoUpdate({
-          target: orgPrCommentPreferences.betterAuthOrgId,
-          set: { ...input, updatedAt: new Date() },
-        })
-        .returning()
+    const [row] = await db
+      .insert(orgPrCommentPreferences)
+      .values({
+        betterAuthOrgId: ctx.activeOrgId,
+        ...input,
+      })
+      .onConflictDoUpdate({
+        target: orgPrCommentPreferences.betterAuthOrgId,
+        set: { ...input, updatedAt: new Date() },
+      })
+      .returning()
 
-      return row
-    }),
+    return row
+  }),
 } satisfies TRPCRouterRecord

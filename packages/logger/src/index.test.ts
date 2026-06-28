@@ -152,7 +152,11 @@ describe("Logger", () => {
 
   describe("withMetadata", () => {
     const createEnabledLogger = () =>
-      new Logger("Test", { enabled: true, colorize: false, logLevel: LogLevel.DEBUG })
+      new Logger("Test", {
+        enabled: true,
+        colorize: false,
+        logLevel: LogLevel.DEBUG,
+      })
 
     test("should return a new Logger instance", () => {
       const logger = createEnabledLogger()
@@ -179,7 +183,9 @@ describe("Logger", () => {
     })
 
     test("should merge metadata across chained calls", () => {
-      const child = createEnabledLogger().withMetadata({ a: "1" }).withMetadata({ b: "2" })
+      const child = createEnabledLogger()
+        .withMetadata({ a: "1" })
+        .withMetadata({ b: "2" })
       child.info("hello")
       const parsed = JSON.parse(consoleLogSpy.mock.calls[0][0] as string)
       expect(parsed.a).toBe("1")
@@ -187,7 +193,9 @@ describe("Logger", () => {
     })
 
     test("should override parent metadata for same key", () => {
-      const child = createEnabledLogger().withMetadata({ a: "1" }).withMetadata({ a: "2" })
+      const child = createEnabledLogger()
+        .withMetadata({ a: "1" })
+        .withMetadata({ a: "2" })
       child.info("hello")
       const parsed = JSON.parse(consoleLogSpy.mock.calls[0][0] as string)
       expect(parsed.a).toBe("2")

@@ -37,5 +37,9 @@ export const repoIdentitySchema = z.object({
 })
 
 export const senderLoginSchema = z.object({ sender: loginSchema })
-export const prAuthorSchema = z.object({ pull_request: z.object({ user: loginSchema }) })
-export const issueAuthorSchema = z.object({ issue: z.object({ user: loginSchema }) })
+export const prAuthorSchema = z.object({
+  pull_request: z.object({ user: loginSchema }),
+})
+export const issueAuthorSchema = z.object({
+  issue: z.object({ user: loginSchema }),
+})

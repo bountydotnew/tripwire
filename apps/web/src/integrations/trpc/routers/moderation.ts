@@ -91,7 +91,12 @@ export const moderationRouter = {
       z.object({
         itemId: z.string().uuid(),
         action: resolveActionEnum,
-        snoozeMinutes: z.number().int().min(5).max(60 * 24 * 30).default(1440),
+        snoozeMinutes: z
+          .number()
+          .int()
+          .min(5)
+          .max(60 * 24 * 30)
+          .default(1440),
         note: z.string().max(500).optional(),
       })
     )
@@ -170,7 +175,9 @@ export const moderationRouter = {
         await logEvent({
           repoId: item.repoId,
           action:
-            input.action === "whitelist" ? "whitelist_added" : "blacklist_added",
+            input.action === "whitelist"
+              ? "whitelist_added"
+              : "blacklist_added",
           severity: "info",
           description: `@${username} ${input.action === "whitelist" ? "added to whitelist" : "blacklisted"} from review queue`,
           targetGithubUsername: username,

@@ -31,9 +31,9 @@ describe("workflowTriggersForEvent", () => {
     expect(workflowTriggersForEvent("pull_request", "opened")).toEqual([
       "pr_opened",
     ])
-    expect(workflowTriggersForEvent("pull_request", "ready_for_review")).toEqual(
-      ["pr_opened"]
-    )
+    expect(
+      workflowTriggersForEvent("pull_request", "ready_for_review")
+    ).toEqual(["pr_opened"])
     expect(workflowTriggersForEvent("pull_request", "synchronize")).toEqual([
       "pr_edited",
     ])
@@ -43,8 +43,12 @@ describe("workflowTriggersForEvent", () => {
   })
 
   it("maps issues and comments to their triggers", () => {
-    expect(workflowTriggersForEvent("issues", "opened")).toEqual(["issue_opened"])
-    expect(workflowTriggersForEvent("issues", "edited")).toEqual(["issue_edited"])
+    expect(workflowTriggersForEvent("issues", "opened")).toEqual([
+      "issue_opened",
+    ])
+    expect(workflowTriggersForEvent("issues", "edited")).toEqual([
+      "issue_edited",
+    ])
     expect(workflowTriggersForEvent("issue_comment", "created")).toEqual([
       "comment_created",
     ])

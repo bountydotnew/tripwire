@@ -168,7 +168,10 @@ export const whitelistRouter = {
   suggestedContributors: orgProcedure
     .input(z.object({ repoId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      const { repo, org } = await assertRepoBelongsToOrg(input.repoId, ctx.activeOrgId)
+      const { repo, org } = await assertRepoBelongsToOrg(
+        input.repoId,
+        ctx.activeOrgId
+      )
 
       let token: string
       try {

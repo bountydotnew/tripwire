@@ -423,8 +423,7 @@ export const visibilityRouter = {
       const stale =
         !!latest &&
         (latest.status === "queued" || latest.status === "running") &&
-        Date.now() -
-          new Date(latest.startedAt ?? latest.createdAt).getTime() >
+        Date.now() - new Date(latest.startedAt ?? latest.createdAt).getTime() >
           STALE_SYNC_MS
       return { lastRun: latest ?? null, stale }
     }),
@@ -478,7 +477,6 @@ export const visibilityRouter = {
 
       return { runId: created.id, alreadyRunning: false }
     }),
-
 } satisfies TRPCRouterRecord
 
 type ListTable = typeof whitelistEntries | typeof blacklistEntries

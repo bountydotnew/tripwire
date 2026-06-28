@@ -53,7 +53,9 @@ export function isLegacyToolCall(part: unknown): part is LegacyToolCallPart {
 }
 
 /** Old TanStack-style tool result. */
-export function isLegacyToolResult(part: unknown): part is LegacyToolResultPart {
+export function isLegacyToolResult(
+  part: unknown
+): part is LegacyToolResultPart {
   return legacyToolResultSchema.safeParse(part).success
 }
 

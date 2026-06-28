@@ -164,7 +164,7 @@ function ChatPage() {
           variant="ghost"
           type="button"
           onClick={() => navigate({ to: homePath })}
-          className="flex size-7 items-center justify-center rounded-lg transition-colors hover:bg-tw-hover p-0"
+          className="flex size-7 items-center justify-center rounded-lg p-0 transition-colors hover:bg-tw-hover"
         >
           <ChevronLeftStrokeIcon14 className="text-[#9F9FA9]" />
         </Button>

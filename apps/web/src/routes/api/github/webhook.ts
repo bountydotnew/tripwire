@@ -205,9 +205,7 @@ async function handler({ request }: { request: Request }) {
       })
     } catch (err) {
       // Fail open: better to process twice than to silently drop the webhook.
-      log.error("failed to record delivery, processing anyway:",
-        err
-      )
+      log.error("failed to record delivery, processing anyway:", err)
     }
     if (!isNewDelivery) {
       log.info("duplicate delivery, skipping:", deliveryId)

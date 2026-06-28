@@ -2,6 +2,15 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query"
 import { useCallback, useState } from "react"
 import { Button } from "@tripwire/ui/button"
 import {
+  Dialog,
+  DialogClose,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPopup,
+  DialogTitle,
+} from "@tripwire/ui/dialog"
+import {
   Pagination,
   PaginationContent,
   PaginationItem,
@@ -52,6 +61,7 @@ export function IntegrationsPage() {
   const installations = installationsQuery.data ?? []
   const isConnected = installations.length > 0
 
+  const [manageDialogOpen, setManageDialogOpen] = useState(false)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const disconnect = useMutation(
     trpc.orgs.disconnectInstallation.mutationOptions({
@@ -156,54 +166,24 @@ export function IntegrationsPage() {
                   </span>
                 </div>
               </div>
-              {confirmingId === install.id ? (
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-[12px] text-tw-text-secondary">
-                    Remove from Tripwire?
-                  </span>
-                  <Button
-                    size="xs"
-                    variant="destructive"
-                    disabled={disconnect.isPending}
-                    onClick={() =>
-                      disconnect.mutate({ installationId: install.id })
-                    }
-                  >
-                    Uninstall
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => setConfirmingId(null)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    render={
-                      <a
-                        href={installHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Manage
-                      </a>
-                    }
-                  />
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    className="text-tw-text-muted hover:text-tw-error"
-                    onClick={() => setConfirmingId(install.id)}
-                  >
-                    Uninstall
-                  </Button>
-                </div>
-              )}
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  size="xs"
+                  variant="outline"
+                  type="button"
+                  onClick={() => setManageDialogOpen(true)}
+                >
+                  Manage
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="text-tw-text-muted hover:text-tw-error"
+                  onClick={() => setConfirmingId(install.id)}
+                >
+                  Uninstall
+                </Button>
+              </div>
             </div>
           ))}
           <a
@@ -216,6 +196,80 @@ export function IntegrationsPage() {
           </a>
         </div>
       )}
+
+      <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
+        <DialogPopup
+          showCloseButton={false}
+          bottomStickOnMobile={false}
+          className="fixed top-1/2 left-1/2 row-auto w-[min(460px,calc(100vw-2rem))] max-w-none -translate-x-1/2 -translate-y-1/2"
+        >
+          <DialogHeader className="px-6 pt-6 pb-5">
+            <DialogTitle>Manage GitHub repos</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Removing a repo from Tripwire's GitHub App installation will also
+              delete its related Tripwire data, including rules, workflows,
+              events, lists, requests, and reputation records.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter variant="bare" className="px-6 pt-3 pb-6">
+            <DialogClose className="flex h-8 items-center rounded-lg border border-[#27272A] px-3 text-[13px] font-medium text-tw-text-secondary transition-colors hover:bg-tw-hover">
+              Cancel
+            </DialogClose>
+            <Button
+              size="xs"
+              className="bg-white text-black hover:bg-white/90"
+              render={
+                <a
+                  href={installHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setManageDialogOpen(false)}
+                >
+                  Continue to GitHub
+                </a>
+              }
+            />
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
+
+      <Dialog
+        open={confirmingId !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmingId(null)
+        }}
+      >
+        <DialogPopup
+          showCloseButton={false}
+          bottomStickOnMobile={false}
+          className="fixed top-1/2 left-1/2 row-auto w-[min(460px,calc(100vw-2rem))] max-w-none -translate-x-1/2 -translate-y-1/2"
+        >
+          <DialogHeader className="px-6 pt-6 pb-5">
+            <DialogTitle>Remove from Tripwire?</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Uninstalling this GitHub App will also delete its related Tripwire
+              data, including rules, workflows, events, lists, requests, and
+              reputation records.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter variant="bare" className="px-6 pt-3 pb-6">
+            <DialogClose className="flex h-8 items-center rounded-lg border border-[#27272A] px-3 text-[13px] font-medium text-tw-text-secondary transition-colors hover:bg-tw-hover">
+              Cancel
+            </DialogClose>
+            <Button
+              size="xs"
+              variant="destructive"
+              disabled={disconnect.isPending}
+              onClick={() => {
+                if (confirmingId)
+                  disconnect.mutate({ installationId: confirmingId })
+              }}
+            >
+              Uninstall
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
 
       {isConnected && (
         <>
@@ -251,8 +305,8 @@ export function IntegrationsPage() {
               </div>
             ) : repos.length === 0 ? (
               <div className="px-4 py-5 text-[13px] text-tw-text-muted">
-                This account has no repositories with the Tripwire App
-                installed yet. Use Manage to grant repository access.
+                This account has no repositories with the Tripwire App installed
+                yet. Use Manage to grant repository access.
               </div>
             ) : filtered.length === 0 ? (
               <div className="px-4 py-5 text-[13px] text-tw-text-muted">

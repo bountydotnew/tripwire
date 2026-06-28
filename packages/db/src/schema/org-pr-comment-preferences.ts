@@ -24,13 +24,17 @@ export const orgPrCommentPreferences = pgTable("org_pr_comment_preferences", {
   routeMode: text("route_mode").$type<RouteMode>().notNull().default("comment"),
   slackWebhookUrl: text("slack_webhook_url"),
   discordWebhookUrl: text("discord_webhook_url"),
-  emailDigest: text("email_digest").$type<EmailDigest>().notNull().default("off"),
+  emailDigest: text("email_digest")
+    .$type<EmailDigest>()
+    .notNull()
+    .default("off"),
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
-export type OrgPrCommentPreferences = typeof orgPrCommentPreferences.$inferSelect
+export type OrgPrCommentPreferences =
+  typeof orgPrCommentPreferences.$inferSelect
 export type NewOrgPrCommentPreferences =
   typeof orgPrCommentPreferences.$inferInsert
 

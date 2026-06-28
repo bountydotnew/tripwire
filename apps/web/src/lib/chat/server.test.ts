@@ -62,7 +62,11 @@ describe("sanitizeMessages", () => {
 
   it("normalizes thinking/reasoning to a reasoning part", () => {
     const out = sanitizeMessages([
-      { id: "a1", role: "assistant", parts: [{ type: "thinking", text: "hmm" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "thinking", text: "hmm" }],
+      },
     ])
     expect(partTypes(assistant(out))).toEqual(["reasoning"])
   })
@@ -71,7 +75,10 @@ describe("sanitizeMessages", () => {
     const out = sanitizeMessages([
       { id: "u1", role: "user", content: "hello there" },
     ])
-    expect(out[0]?.parts[0]).toMatchObject({ type: "text", text: "hello there" })
+    expect(out[0]?.parts[0]).toMatchObject({
+      type: "text",
+      text: "hello there",
+    })
   })
 
   it("drops messages with non-standard roles", () => {

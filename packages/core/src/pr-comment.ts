@@ -79,7 +79,11 @@ export function buildAppealUrl(
 }
 
 function appealLineFor(input: RenderCommentInput): string {
-  const url = buildAppealUrl(input.appBaseUrl, input.repoFullName, input.username)
+  const url = buildAppealUrl(
+    input.appBaseUrl,
+    input.repoFullName,
+    input.username
+  )
   if (input.outcome === "blacklist_blocked") {
     return `> **Blacklisted from this repository.** [Appeal this block as @${input.username}](${url}) if you think it was a mistake.`
   }
@@ -89,7 +93,10 @@ function appealLineFor(input: RenderCommentInput): string {
 function appendCustomFooter(lines: string[], prefs: ResolvedPrefs) {
   const text = prefs.customFooterText?.trim()
   if (!text) return
-  const quoted = text.split("\n").map((l) => `> ${l}`).join("\n")
+  const quoted = text
+    .split("\n")
+    .map((l) => `> ${l}`)
+    .join("\n")
   lines.push(">", quoted)
 }
 
@@ -136,4 +143,3 @@ export function renderWarnedComment(input: RenderCommentInput): string {
 
   return lines.join("\n")
 }
-

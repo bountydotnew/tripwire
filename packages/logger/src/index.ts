@@ -35,7 +35,10 @@ export interface LoggerConfig {
  * Metadata key-value pairs attached to a logger instance.
  * Included automatically in every log line produced by that logger.
  */
-export type LoggerMetadata = Record<string, string | number | boolean | undefined>
+export type LoggerMetadata = Record<
+  string,
+  string | number | boolean | undefined
+>
 
 const getNodeEnv = (): string => {
   if (typeof process !== "undefined" && process.env) {
@@ -53,7 +56,10 @@ const getLogLevel = (): string | undefined => {
 
 const getMinLogLevel = (): LogLevel => {
   const logLevelEnv = getLogLevel()
-  if (logLevelEnv && Object.values(LogLevel).includes(logLevelEnv as LogLevel)) {
+  if (
+    logLevelEnv &&
+    Object.values(LogLevel).includes(logLevelEnv as LogLevel)
+  ) {
     return logLevelEnv as LogLevel
   }
 
@@ -196,7 +202,12 @@ export class Logger {
       return false
     }
 
-    const levels = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR]
+    const levels = [
+      LogLevel.DEBUG,
+      LogLevel.INFO,
+      LogLevel.WARN,
+      LogLevel.ERROR,
+    ]
     const minLevelIndex = levels.indexOf(this.config.minLevel)
     const currentLevelIndex = levels.indexOf(level)
 
@@ -226,7 +237,9 @@ export class Logger {
           ...this.metadata,
         }
       : this.metadata
-    const metadataEntries = Object.entries(effectiveMetadata).filter(([_, v]) => v !== undefined)
+    const metadataEntries = Object.entries(effectiveMetadata).filter(
+      ([_, v]) => v !== undefined
+    )
     const metadataStr =
       metadataEntries.length > 0
         ? ` {${metadataEntries.map(([k, v]) => `${k}=${v}`).join(" ")}}`
@@ -252,7 +265,9 @@ export class Logger {
           break
       }
 
-      const coloredMeta = metadataStr ? ` ${chalk.magenta(metadataStr.trim())}` : ""
+      const coloredMeta = metadataStr
+        ? ` ${chalk.magenta(metadataStr.trim())}`
+        : ""
       const coloredPrefix = `${timestampColor(`[${timestamp}]`)} ${levelColor(`[${level}]`)} ${moduleColor(`[${this.module}]`)}${coloredMeta}`
 
       if (level === LogLevel.ERROR) {

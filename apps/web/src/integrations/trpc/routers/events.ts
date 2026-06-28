@@ -52,7 +52,10 @@ export const eventsRouter = {
   get: orgProcedure
     .input(z.object({ eventId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const { event, repo } = await assertEventBelongsToOrg(input.eventId, ctx.activeOrgId)
+      const { event, repo } = await assertEventBelongsToOrg(
+        input.eventId,
+        ctx.activeOrgId
+      )
 
       // Every event from the same pipeline run → the full checks timeline
       // (the outcome event carries metadata.evaluations; near-misses are

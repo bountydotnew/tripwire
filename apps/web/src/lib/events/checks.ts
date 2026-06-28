@@ -40,7 +40,5 @@ export function summarizeWorkflowResult(result: unknown): string {
   if (!parsed.success) return ""
   const count = parsed.data.actions?.length ?? 0
   const mode = parsed.data.enforce ? "enforced" : "observed"
-  return count > 0
-    ? `${count} action${count === 1 ? "" : "s"} · ${mode}`
-    : mode
+  return count > 0 ? `${count} action${count === 1 ? "" : "s"} · ${mode}` : mode
 }

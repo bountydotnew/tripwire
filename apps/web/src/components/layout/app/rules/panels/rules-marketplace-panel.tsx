@@ -14,12 +14,8 @@ import { useRulesWorkspace } from "#/providers/rules-workspace-context"
 import { Button } from "@tripwire/ui/button"
 
 export function RulesMarketplacePanel() {
-  const {
-    activeConfig,
-    toggleRule,
-    updateRuleValue,
-    ruleConfigureProps,
-  } = useRulesWorkspace()
+  const { activeConfig, toggleRule, updateRuleValue, ruleConfigureProps } =
+    useRulesWorkspace()
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
