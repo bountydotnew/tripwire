@@ -36,5 +36,8 @@
       "esbuild",
       "lightningcss"
     ]
+  },
+  "dependencies": {
+    "@databuddy/sdk": "^2.4.20"
   }
 }

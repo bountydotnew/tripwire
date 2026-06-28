@@ -4,6 +4,7 @@ import {
   Scripts,
 } from "@tanstack/react-router"
 import { createMiddleware } from "@tanstack/react-start"
+import { Databuddy } from "@databuddy/sdk/react"
 import { AutumnProvider } from "autumn-js/react"
 import { evlogErrorHandler } from "evlog/nitro/v3"
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router"
@@ -80,6 +81,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                     <FeedbackOverlay />
                     <FeedbackDialog />
                     {children}
+                    <Databuddy
+                      clientId="09661145-7249-45d9-a9e3-f1a93e9c7266"
+                      trackHashChanges={true}
+                      trackAttributes={true}
+                      trackOutgoingLinks={true}
+                      trackInteractions={true}
+                      trackWebVitals={true}
+                    />
                   </FeedbackProvider>
                 </AnchoredToastProvider>
               </ToastProvider>

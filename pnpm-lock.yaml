@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@databuddy/sdk':
+        specifier: ^2.4.20
+        version: 2.4.20(react@19.2.5)
     devDependencies:
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.59.4
@@ -1183,6 +1187,17 @@ packages:
   '@csstools/css-tokenizer@4.0.0':
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
+
+  '@databuddy/sdk@2.4.20':
+    resolution: {integrity: sha512-gp8PLX7ZlVP7nKey0OuVtSKAdmDm5RcZbcpW5cmUqRoDcKQ6CnF0U3vi9fh7GwtXABIACq8FWunJthT1NmcTfQ==}
+    peerDependencies:
+      react: '>=18'
+      vue: '>=3'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      vue:
+        optional: true
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
@@ -9487,6 +9502,10 @@ snapshots:
       css-tree: 3.2.1
 
   '@csstools/css-tokenizer@4.0.0': {}
+
+  '@databuddy/sdk@2.4.20(react@19.2.5)':
+    optionalDependencies:
+      react: 19.2.5
 
   '@dimforge/rapier3d-compat@0.12.0': {}
 
