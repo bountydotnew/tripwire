@@ -20,23 +20,38 @@
   --font-display: "Playfair Display", Georgia, serif;
 
   /* Default border color for Tailwind's `border` utility */
-  --default-border-color: #27272a;
+  --default-border-color: var(--color-border);
 
-  /* Tripwire color palette (from prototype) */
-  --color-tw-bg: #0d0d0f;
-  --color-tw-surface: #17171a;
-  --color-tw-card: #202023;
-  --color-tw-inner: #fafafa1a;
-  --color-tw-border: #27272a;
+  /* Design tokens. Source of truth, mirrors the Paper file (tripwire / rework).
+     Neutral only: every grey is equal-RGB, no blue or mauve cast. */
+  --color-bg: #0d0d0d;
+  --color-surface-1: #141414;
+  --color-surface-2: #262626;
+  --color-surface-inset: #171717;
+  --color-surface-panel: var(--color-surface-inset);
+  --color-border: #fafafa1a;
+  --color-border-subtle: #fafafa0f;
+  --color-text: #fafafa;
+  --color-text-muted: #a1a1a1;
+  --color-text-subtle: #fafafa8a;
+  --color-icon: #fafafa75;
+
+  /* Tripwire palette. Now aliases the tokens above, so every existing
+     `tw-*` utility keeps working and only the underlying value changes. */
+  --color-tw-bg: var(--color-bg);
+  --color-tw-surface: var(--color-surface-panel);
+  --color-tw-card: var(--color-surface-2);
+  --color-tw-inner: var(--color-border); /* same 10% wash, used as a fill */
+  --color-tw-border: var(--color-border);
   --color-tw-border-card: #0000004d;
-  --color-tw-hover: #18181b;
-  --color-tw-hover-light: #25252a;
+  --color-tw-hover: #181818;
+  --color-tw-hover-light: #252525;
 
   /* Text colors */
-  --color-tw-text-primary: #eeeeee;
-  --color-tw-text-secondary: #b4b4b4;
-  --color-tw-text-muted: #9f9fa9;
-  --color-tw-text-tertiary: #6e6e6e;
+  --color-tw-text-primary: var(--color-text);
+  --color-tw-text-secondary: var(--color-text-muted);
+  --color-tw-text-muted: var(--color-text-subtle);
+  --color-tw-text-tertiary: var(--color-icon);
 
   /* Button colors */
   --color-tw-button-muted: #ffffff14;
@@ -64,7 +79,7 @@
   --color-foreground: var(--color-tw-text-primary);
   --color-popover: var(--color-tw-card);
   --color-popover-foreground: var(--color-tw-text-primary);
-  --color-border: var(--color-tw-border);
+  /* --color-border is defined in the design token block above. */
   --color-accent: var(--color-tw-hover-light);
   --color-accent-foreground: var(--color-tw-text-primary);
   --color-muted: var(--color-tw-card);
