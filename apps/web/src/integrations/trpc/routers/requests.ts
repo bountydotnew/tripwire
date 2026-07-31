@@ -391,10 +391,7 @@ async function notifyDecisionOnGithub(
     // decision is already committed, so record the miss in the ledger instead
     // of failing silently: a maintainer can see the reopen/notify didn't land
     // and re-run it, rather than assuming "approved" reopened the PR.
-    console.error(
-      `[requests] notify/reopen failed for ${req.githubRef}:`,
-      err
-    )
+    console.error(`[requests] notify/reopen failed for ${req.githubRef}:`, err)
     await logEvent({
       repoId: req.repoId,
       action: "request_notify_failed",

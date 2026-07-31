@@ -193,9 +193,9 @@ function RequestPage() {
                         You&apos;re vouched.
                       </span>{" "}
                       You have {vouch.vouchCount} vouch
-                      {vouch.vouchCount !== 1 ? "es" : ""} from
-                      Tripwire maintainers. Some repositories may auto-approve
-                      your contributions.
+                      {vouch.vouchCount !== 1 ? "es" : ""} from Tripwire
+                      maintainers. Some repositories may auto-approve your
+                      contributions.
                     </div>
                   </div>
                 )}

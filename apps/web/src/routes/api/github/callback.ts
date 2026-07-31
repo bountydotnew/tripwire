@@ -20,7 +20,10 @@ async function handler({ request }: { request: Request }) {
 
   const ctx = await createContext({ headers: request.headers })
 
-  if (installationId && setupAction === "install") {
+  if (
+    installationId &&
+    (setupAction === "install" || setupAction === "update")
+  ) {
     if (!ctx.user) return redirectToIntegrations("not_authenticated")
 
     const cookieState = readCookie(
