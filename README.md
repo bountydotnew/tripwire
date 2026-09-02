@@ -1,3 +1,7 @@
+> [!WARNING]  
+> This repo is not being maintained for the time being. You can find our new live codebase [here](https://github.com/boring-software-inc/v2)
+
+
 <p align="center">
   <picture>
     <source 
@@ -10,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img alt="image" src="https://www.tripwire.sh/og.jpg" width="1000" />
+  <img alt="image" src="https://app.tripwire.sh/og.jpg" width="1000" />
 </p>
 
 ---
